@@ -25,7 +25,7 @@ include = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.7.1"
+python = "^3.8"
 pyinaturalist = "0.13.0.dev289"
 flatten-dict = {version = "^0.4.0", optional = true}
 tablib = {version = "^3.0.0", optional = true}
@@ -65,7 +65,7 @@ directory = 'test-reports'
 
 [tool.coverage.run]
 branch = true
-source = ['pyinaturalist']
+source = ['pyinaturalist_export']
 
 [tool.isort]
 profile = 'black'
