@@ -1,14 +1,14 @@
 [tool.poetry]
-name = "pyinaturalist-export"
+name = "pyinaturalist-convert"
 version = "0.0.1"
 description = "Pyinaturalist extensions to convert iNaturalist observation data to and from multiple formats "
 authors = ["Jordan Cook <Jordan.Cook@pioneer.com>"]
 license = "MIT"
 readme = "README.md"
-homepage = "https://github.com/JWCook/pyinaturalist-export"
-repository = "https://github.com/JWCook/pyinaturalist-export"
+homepage = "https://github.com/JWCook/pyinaturalist_convert"
+repository = "https://github.com/JWCook/pyinaturalist_convert"
 documentation = "https://pyinaturalist.readthedocs.io"
-keywords = ["inaturalist", "biodiversity", "export", "convert", "csv", "darwin-core"]
+keywords = ["inaturalist", "biodiversity", "export", "convert", "csv", "darwin-core", "datafram", "gpx"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -71,13 +71,13 @@ directory = 'test-reports'
 
 [tool.coverage.run]
 branch = true
-source = ['pyinaturalist_export']
+source = ['pyinaturalist_convert']
 
 [tool.isort]
 profile = 'black'
 line_length = 100
 skip_gitignore = true
-skip = ['pyinaturalist_export/__init__.py']
+skip = ['pyinaturalist_convert/__init__.py']
 known_first_party = ['test']
 # Things that are common enough they may as well be grouped with stdlib imports
 extra_standard_library = ['dateutil', 'pytest', 'setuptools']
