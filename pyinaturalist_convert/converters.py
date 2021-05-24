@@ -4,20 +4,23 @@ from glob import glob
 from logging import getLogger
 from os import makedirs
 from os.path import basename, dirname, expanduser
-from typing import List, Sequence
+from typing import List, Sequence, Union
 
 from flatten_dict import flatten
 from pyinaturalist.constants import ResponseObject, ResponseOrObject
-from pyinaturalist.models import Observation
+from pyinaturalist.models import Observation  # noqa
+from requests import Response
 from tablib import Dataset
 
 # from pyinaturalist.formatters import simplify_observations
-
+AnyObservation = Union[Dataset, Observation, Response, ResponseOrObject]
 logger = getLogger(__name__)
 
 
-# TODO: Also handle Obervation objects
-def ensure_list(obj: ResponseOrObject) -> List:
+# TODO: Handle Obervation model objects
+# TODO: Handle reuqests.Respose objects
+# TODO: Handle tablib.Dataset objects
+def ensure_list(obj: AnyObservation) -> List:
     if isinstance(obj, dict) and 'results' in obj:
         obj = obj['results']
     if isinstance(obj, Sequence):
@@ -38,7 +41,7 @@ def to_dataframe(observations: ResponseOrObject):
     """Convert observations into a pandas DataFrame"""
     import pandas as pd
 
-    return pd.json_normalize([simplify_observations(obs) for obs in observations])
+    return pd.json_normalize(simplify_observations(observations))
 
 
 def to_dataset(observations: ResponseOrObject) -> Dataset:

@@ -26,12 +26,12 @@ include = [
 
 [tool.poetry.dependencies]
 python = "^3.8"
-pyinaturalist = "0.13.0.dev289"
-flatten-dict = {version = "^0.4.0", optional = true}
-tablib = {version = "^3.0.0", optional = true}
-tabulate = {version = "^0.8.9", optional = true}
+pyinaturalist = "0.14.0.dev316"
+flatten-dict = "^0.4.0"
+tablib = "^3.0.0"
+tabulate = "^0.8.9"
 
-# Optional dependencies
+# Optional dependency versions
 gpxpy = {version = "^1.4.2", optional = true}
 openpyxl = {version = ">=2.6.0", optional = true}
 pandas = {version = ">=1.2", optional = true}
