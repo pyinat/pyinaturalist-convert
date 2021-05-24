@@ -8,6 +8,7 @@ from typing import List, Sequence
 
 from flatten_dict import flatten
 from pyinaturalist.constants import ResponseObject, ResponseOrObject
+from pyinaturalist.models import Observation
 from tablib import Dataset
 
 # from pyinaturalist.formatters import simplify_observations
@@ -15,6 +16,7 @@ from tablib import Dataset
 logger = getLogger(__name__)
 
 
+# TODO: Also handle Obervation objects
 def ensure_list(obj: ResponseOrObject) -> List:
     if isinstance(obj, dict) and 'results' in obj:
         obj = obj['results']
@@ -24,8 +26,8 @@ def ensure_list(obj: ResponseOrObject) -> List:
         return [obj]
 
 
-def to_csv(observations: ResponseOrObject, filename: str = None):
-    """Convert observations to CSV, and optionally write to a file"""
+def to_csv(observations: ResponseOrObject, filename: str = None) -> str:
+    """Convert observations to CSV"""
     csv_observations = to_dataset(observations).get_csv()
     if filename:
         _write(csv_observations, filename)
@@ -49,6 +51,20 @@ def to_dataset(observations: ResponseOrObject) -> Dataset:
     dataset.headers = flat_observations[0].keys()
     dataset.extend([item.values() for item in flat_observations])
     return dataset
+
+
+def to_excel(observations: ResponseOrObject, filename: str = None) -> bytes:
+    """Convert observations to an Excel spreadsheet (xlsx)"""
+    xlsx_observations = to_dataset(observations).get_xlsx()
+    if filename:
+        _write(xlsx_observations, filename, 'wb')
+    return xlsx_observations
+
+
+def to_parquet(observations: ResponseOrObject, filename: str):
+    """Convert observations into a parquet file"""
+    df = to_dataframe(observations)
+    df.to_parquet(filename)
 
 
 def simplify_observations(
@@ -105,10 +121,10 @@ def resolve_file_paths(*file_paths: str) -> List[str]:
     return [expanduser(p) for p in resolved_paths]
 
 
-def _write(content, filename):
+def _write(content, filename, mode='w'):
     """Write converted observation data to a file, creating parent dirs first"""
     filename = expanduser(filename)
     logger.info(f'Writing to {filename}')
     makedirs(dirname(filename), exist_ok=True)
-    with open(filename, 'w') as f:
+    with open(filename, mode) as f:
         f.write(content)

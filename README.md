@@ -1,6 +1,5 @@
-# pyinaturalist-export
-
-**WIP / Not yet functional!**
+# pyinaturalist-convert
+**This is an incomplete work in progress!**
 
 [Pyinaturalist](https://github.com/niconoe/pyinaturalist) extensions to convert iNaturalist observation data to and from multiple formats.
 
