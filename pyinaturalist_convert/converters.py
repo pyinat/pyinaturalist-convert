@@ -49,9 +49,9 @@ def to_dataset(observations: ResponseOrObject) -> Dataset:
     `formats supported by tablib <https://tablib.readthedocs.io/en/stable/formats>`_.
     """
     flat_observations = [flatten(obs, reducer='dot') for obs in simplify_observations(observations)]
-    # TODO: Simpler way to load directly from dicts?
     dataset = Dataset()
-    dataset.headers = flat_observations[0].keys()
+    headers, flat_observations = _fix_dimensions(flat_observations)
+    dataset.headers = headers
     dataset.extend([item.values() for item in flat_observations])
     return dataset
 
@@ -87,21 +87,23 @@ def _simplify_observation(obs):
     # Reduce annotations to IDs and values
     obs = deepcopy(obs)
     obs['annotations'] = [
-        (a['controlled_attribute_id'], a['controlled_value_id']) for a in obs['annotations']
+        {str(a['controlled_attribute_id']): a['controlled_value_id']} for a in obs['annotations']
     ]
 
     # Reduce identifications to just a list of identification IDs and taxon IDs
-    obs['identifications'] = [(i['id'], i['taxon_id']) for i in obs['identifications']]
-    obs['non_owner_ids'] = [(i['id'], i['taxon_id']) for i in obs['non_owner_ids']]
+    # TODO: Better condensed format that still works with parquet
+    obs['identifications'] = [{str(i['id']): i['taxon_id']} for i in obs['identifications']]
+    obs['non_owner_ids'] = [{str(i['id']): i['taxon_id']} for i in obs['non_owner_ids']]
 
     # Reduce comments to usernames and comment text
-    obs['comments'] = [(c['user']['login'], c['body']) for c in obs['comments']]
+    obs['comments'] = [{c['user']['login']: c['body']} for c in obs['comments']]
     del obs['observation_photos']
 
     return obs
 
 
 # TODO: Do this with tablib instead of pandas?
+# OR: use pandas if installed, otherwise fallback to tablib?
 def load_exports(*file_paths: str):
     """Combine multiple CSV files (from iNat export tool) into one, and return as a dataframe"""
     import pandas as pd
@@ -124,10 +126,22 @@ def resolve_file_paths(*file_paths: str) -> List[str]:
     return [expanduser(p) for p in resolved_paths]
 
 
+def _fix_dimensions(flat_observations):
+    """Temporary ugly hack to work around missing fields in some observations"""
+    # TODO: Use Observation model to get headers instead?
+    optional_fields = ['taxon.complete_rank', 'taxon.preferred_common_name']
+    headers = set(flat_observations[0].keys()) | set(optional_fields)
+    for obs in flat_observations:
+        for field in optional_fields:
+            obs.setdefault(field, None)
+    return headers, flat_observations
+
+
 def _write(content, filename, mode='w'):
     """Write converted observation data to a file, creating parent dirs first"""
     filename = expanduser(filename)
     logger.info(f'Writing to {filename}')
-    makedirs(dirname(filename), exist_ok=True)
+    if dirname(filename):
+        makedirs(dirname(filename), exist_ok=True)
     with open(filename, mode) as f:
         f.write(content)
