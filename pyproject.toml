@@ -1,16 +1,16 @@
 [tool.poetry]
 name = "pyinaturalist-convert"
-version = "0.0.1"
-description = "Pyinaturalist extensions to convert iNaturalist observation data to and from multiple formats "
+version = "0.1.0"
+description = "Convert iNaturalist observation data to and from multiple formats"
 authors = ["Jordan Cook <Jordan.Cook@pioneer.com>"]
 license = "MIT"
 readme = "README.md"
 homepage = "https://github.com/JWCook/pyinaturalist_convert"
 repository = "https://github.com/JWCook/pyinaturalist_convert"
 documentation = "https://pyinaturalist.readthedocs.io"
-keywords = ["inaturalist", "biodiversity", "export", "convert", "csv", "darwin-core", "datafram", "gpx"]
+keywords = ["inaturalist", "biodiversity", "export", "convert", "csv", "darwin-core", "dataframe", "gpx"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 2 - Pre-Alpha",
     "Intended Audience :: Developers",
     "Intended Audience :: Education",
     "Intended Audience :: Science/Research",
