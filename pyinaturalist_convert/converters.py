@@ -28,8 +28,8 @@ TABLIB_FORMATS = [
     'xlsx',
     'yaml',
 ]
-TABULATE_FORMATS = sorted(set(tabulate._table_formats) - set(TABLIB_FORMATS))
-PANDAS_FORMATS =['feather', 'hdf',  'parquet', 'sql']
+TABULATE_FORMATS = sorted(set(tabulate._table_formats) - set(TABLIB_FORMATS))  # type: ignore
+PANDAS_FORMATS = ['feather', 'gbq', 'hdf', 'parquet', 'sql', 'xarray']
 
 AnyObservation = Union[Dataset, Observation, Response, ResponseOrObject]
 logger = getLogger(__name__)
@@ -74,12 +74,22 @@ def to_dataset(observations: ResponseOrObject) -> Dataset:
     return dataset
 
 
-def to_excel(observations: ResponseOrObject, filename: str = None) -> bytes:
+def to_excel(observations: ResponseOrObject, filename: str):
     """Convert observations to an Excel spreadsheet (xlsx)"""
     xlsx_observations = to_dataset(observations).get_xlsx()
-    if filename:
-        _write(xlsx_observations, filename, 'wb')
-    return xlsx_observations
+    _write(xlsx_observations, filename, 'wb')
+
+
+def to_feather(observations: ResponseOrObject, filename: str):
+    """Convert observations into a feather file"""
+    df = to_dataframe(observations)
+    df.to_feather(filename)
+
+
+def to_hdf(observations: ResponseOrObject, filename: str):
+    """Convert observations into a HDF5 file"""
+    df = to_dataframe(observations)
+    df.to_hdf(filename, 'observations')
 
 
 def to_parquet(observations: ResponseOrObject, filename: str):

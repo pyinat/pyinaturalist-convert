@@ -23,7 +23,9 @@ Export formats currently supported:
 * CSV
 * Excel (xlsx)
 * GPX (experimental)
-* parquet
+* HDF5
+* Feather
+* Parquet
 * pandas DataFrame
 
 
