@@ -43,6 +43,7 @@ tables = {version = ">=3.6", optional = true}
 # Optional dependency groups by data format
 [tool.poetry.extras]
 all = ["gpxpy", "openpyxl", "pandas", "pyarrow", "python-dwca-reader", "tablib[all]", "xmltodict"]
+csv-import = ["pandas"]
 df = ["pandas"]
 dwc = ["python-dwca-reader", "xmltodict"]
 feather = ["pandas", "pyarrow"]
