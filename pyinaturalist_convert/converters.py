@@ -6,6 +6,7 @@ from os import makedirs
 from os.path import basename, dirname, expanduser
 from typing import List, Sequence, Union
 
+import tabulate
 from flatten_dict import flatten
 from pyinaturalist.constants import ResponseObject, ResponseOrObject
 from pyinaturalist.models import Observation  # noqa
@@ -13,6 +14,23 @@ from requests import Response
 from tablib import Dataset
 
 # from pyinaturalist.formatters import simplify_observations
+
+TABLIB_FORMATS = [
+    'csv',
+    'html',
+    'jira',
+    'json',
+    'latex',
+    'ods',
+    'rst',
+    'tsv',
+    'xls',
+    'xlsx',
+    'yaml',
+]
+TABULATE_FORMATS = sorted(set(tabulate._table_formats) - set(TABLIB_FORMATS))
+PANDAS_FORMATS =['feather', 'hdf',  'parquet', 'sql']
+
 AnyObservation = Union[Dataset, Observation, Response, ResponseOrObject]
 logger = getLogger(__name__)
 
