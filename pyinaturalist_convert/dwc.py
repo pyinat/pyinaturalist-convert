@@ -58,15 +58,17 @@ CONSTANTS = {
 CC_BASE_URL = 'http://creativecommons.org/licenses'
 DATETIME_FIELDS = ['observed_on', 'created_at']
 XML_NAMESPACES = {
-    'ac': 'http://rs.tdwg.org/ac/terms/',
-    'dcterms': 'http://purl.org/dc/terms/',
-    'dwc': 'http://rs.tdwg.org/dwc/terms/',
-    'dwr': 'http://rs.tdwg.org/dwc/xsd/simpledarwincore/',
-    'eol': 'http://www.eol.org/transfer/content/1.0',
-    'geo': 'http://www.w3.org/2003/01/geo/wgs84_pos#',
-    'media': 'http://eol.org/schema/media/',
-    'ref': 'http://eol.org/schema/reference/',
-    'xap': 'http://ns.adobe.com/xap/1.0/',
+    'xsi:schemaLocation': 'http://rs.tdwg.org/dwc/xsd/simpledarwincore/  http://rs.tdwg.org/dwc/xsd/tdwg_dwc_simple.xsd',
+    'xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
+    'xmlns:ac': 'http://rs.tdwg.org/ac/terms/',
+    'xmlns:dcterms': 'http://purl.org/dc/terms/',
+    'xmlns:dwc': 'http://rs.tdwg.org/dwc/terms/',
+    'xmlns:dwr': 'http://rs.tdwg.org/dwc/xsd/simpledarwincore/',
+    'xmlns:eol': 'http://www.eol.org/transfer/content/1.0',
+    'xmlns:geo': 'http://www.w3.org/2003/01/geo/wgs84_pos#',
+    'xmlns:media': 'http://eol.org/schema/media/',
+    'xmlns:ref': 'http://eol.org/schema/reference/',
+    'xmlns:xap': 'http://ns.adobe.com/xap/1.0/',
 }
 
 
@@ -93,9 +95,10 @@ def observation_to_dwc(observation) -> str:
     for dwc_field, value in CONSTANTS.items():
         dwc_observation[dwc_field] = value
 
-    # Add to a complete SimpleDarwinRecordSet and convert to XML
-    dwc_records = {'dwr:SimpleDarwinRecordSet': {'dwr:SimpleDarwinRecord': dwc_observation}}
-    return xmltodict.unparse(dwc_records, pretty=True)
+    # Add to a complete SimpleDarwinRecordSet + namespaces and convert to XML
+    dwc_records = {'dwr:SimpleDarwinRecordSet': {f'@{k}': v for k, v in XML_NAMESPACES.items()}}
+    dwc_records['dwr:SimpleDarwinRecordSet']['dwr:SimpleDarwinRecord'] = dwc_observation
+    return xmltodict.unparse(dwc_records, pretty=True, indent='    ')
 
 
 def get_taxon_with_ancestors(observation):
