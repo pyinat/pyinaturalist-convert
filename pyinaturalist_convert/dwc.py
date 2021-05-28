@@ -1,4 +1,7 @@
 """Incomplete outline of mapping iNaturalist fields to DwC terms"""
+from datetime import datetime
+from typing import Dict, List
+
 import xmltodict
 from pyinaturalist import get_observations, get_taxa_by_id
 
@@ -16,10 +19,6 @@ OBSERVATION_FIELDS = {
     'description': 'dcterms:description',
     'updated_at': 'dcterms:modified',
     'uri': 'dcterms:references',  # or 'dwc:occurrenceDetails',
-    # 'geojson': {
-    #     'type': 'Point',
-    #     'coordinates': ['dwc:decimalLongitude', 'dwc:decimalLatitude'],
-    # },  # can be derived from 'dwc:decimalLatitude' and 'dwc:decimalLongitude'
     # 'location': [
     #     'dwc:decimalLongitude',
     #     'dwc:decimalLatitude',
@@ -54,6 +53,20 @@ CONSTANTS = {
     'dwc:basisOfRecord': 'HumanObservation',
     'dwc:institutionCode': 'iNaturalist',
     # ...
+}
+
+CC_BASE_URL = 'http://creativecommons.org/licenses'
+DATETIME_FIELDS = ['observed_on', 'created_at']
+XML_NAMESPACES = {
+    'ac': 'http://rs.tdwg.org/ac/terms/',
+    'dcterms': 'http://purl.org/dc/terms/',
+    'dwc': 'http://rs.tdwg.org/dwc/terms/',
+    'dwr': 'http://rs.tdwg.org/dwc/xsd/simpledarwincore/',
+    'eol': 'http://www.eol.org/transfer/content/1.0',
+    'geo': 'http://www.w3.org/2003/01/geo/wgs84_pos#',
+    'media': 'http://eol.org/schema/media/',
+    'ref': 'http://eol.org/schema/reference/',
+    'xap': 'http://ns.adobe.com/xap/1.0/',
 }
 
 
@@ -97,6 +110,19 @@ def get_taxon_with_ancestors(observation):
         taxon[ancestor['rank']] = ancestor['name']
 
     return taxon
+
+
+# TODO
+def format_datetime(dt: datetime) -> str:
+    pass
+
+
+def format_license(license_code: str) -> str:
+    pass
+
+
+def format_location(location: List[float]) -> Dict[str, float]:
+    pass
 
 
 def test_observation_to_dwc():
