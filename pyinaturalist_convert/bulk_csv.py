@@ -1,6 +1,6 @@
 """Utilities for importing CSV observation data from the
-`iNaturalist export tool <https://www.inaturalist.org/observations/export>`_ and processing it into
-a format that can be combined with JSON observation data from the iNaturalist API.
+`iNaturalist bulk export tool <https://www.inaturalist.org/observations/export>`_ and processing it
+into a format that can be combined with JSON observation data from the iNaturalist API.
 """
 import re
 from glob import glob
