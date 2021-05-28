@@ -10,34 +10,42 @@ OBSERVATION_FIELDS = {
     'time_observed_at': 'dwc:eventDate',
     # 'annotations': [], # not found
     'positional_accuracy': 'dwc:coordinateUncertaintyInMeters',
-    'license_code': 'dcterms:license', # not exactly but seems derived from,
+    'license_code': 'dcterms:license',  # not exactly but seems derived from,
     'public_positional_accuracy': 'dwc:coordinateUncertaintyInMeters',
-    'created_at': 'xap:CreateDate', # not matching but probably due to UTC
+    'created_at': 'xap:CreateDate',  # not matching but probably due to UTC
     'description': 'dcterms:description',
     'updated_at': 'dcterms:modified',
-    'uri': 'dcterms:references', # or 'dwc:occurrenceDetails',
-    'geojson': {'type': 'Point', 'coordinates': ['dwc:decimalLongitude', 'dwc:decimalLatitude']}, # can be derived from 'dwc:decimalLatitude' and 'dwc:decimalLongitude'
-    'location': ['dwc:decimalLongitude', 'dwc:decimalLatitude'], # can be derived from 'dwc:decimalLatitude' and 'dwc:decimalLongitude'
+    'uri': 'dcterms:references',  # or 'dwc:occurrenceDetails',
+    # 'geojson': {
+    #     'type': 'Point',
+    #     'coordinates': ['dwc:decimalLongitude', 'dwc:decimalLatitude'],
+    # },  # can be derived from 'dwc:decimalLatitude' and 'dwc:decimalLongitude'
+    # 'location': [
+    #     'dwc:decimalLongitude',
+    #     'dwc:decimalLatitude',
+    # ],  # can be derived from 'dwc:decimalLatitude' and 'dwc:decimalLongitude'
     'place_guess': 'dwc:verbatimLocality',
-    'observed_on': 'dwc:verbatimEventDate' # but with different standart: YYYY-MM-DD HH:MM:SS-UTC
+    # 'observed_on': 'dwc:verbatimEventDate',  # but with different standart: YYYY-MM-DD HH:MM:SS-UTC
 }
 
 # Fields from taxon JSON
 TAXON_FIELDS = {
     'id': 'dwc:taxonID',
-    'name': 'dwc:scientificName',
-    'iconic_taxon_id': 'dwc:phylum', # but not sure
-    'min_species_taxon_id': 'dwc:taxonID', # but not sure
     'rank': 'dwc:taxonRank',
-    'species_guess': 'dwc:scientificName', # similar term not found
-    'community_taxon_id': 'dwc:taxonID',
+    'name': 'dwc:scientificName',
+    'kingdom': 'dwc:kingdom',
+    'phylum': 'dwc:phylum',
+    'class': 'dwc:class',
+    'order': 'dwc:order',
+    'family': 'dwc:family',
+    'genus': 'dwc:genus',
 }
 
 # Fields from items in observation['photos']
 PHOTO_FIELDS = {
-    'url': 'dcterms:identifier', # or ac:accessURI, media:thumbnailURL, ac:furtherInformationURL, ac:derivedFrom, ac:derivedFrom # change the host to amazon
+    'url': 'dcterms:identifier',  # or ac:accessURI, media:thumbnailURL, ac:furtherInformationURL, ac:derivedFrom, ac:derivedFrom # change the host to amazon
     'license_code': 'xap:UsageTerms',  # Will need to be translated to a link to creativecommons.org
-    'id': 'dcterms:identifier', # or ac:accessURI, media:thumbnailURL, ac:furtherInformationURL, ac:derivedFrom, ac:derivedFrom
+    'id': 'dcterms:identifier',  # or ac:accessURI, media:thumbnailURL, ac:furtherInformationURL, ac:derivedFrom, ac:derivedFrom
     'attribution': 'dcterms:rights',
 }
 
@@ -59,7 +67,7 @@ def observation_to_dwc(observation) -> str:
     # Translate taxon fields
     taxon = get_taxon_with_ancestors(observation)
     for inat_field, dwc_field in TAXON_FIELDS.items():
-        dwc_observation[dwc_field] = taxon[inat_field]
+        dwc_observation[dwc_field] = taxon.get(inat_field)
 
     # Translate photo fields
     photo = observation['photos'][0]

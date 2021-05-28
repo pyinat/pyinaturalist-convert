@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<dwr:SimpleDarwinRecordSet>
+    <dwr:SimpleDarwinRecord>
+        <dwc:catalogNumber>45524803</dwc:catalogNumber>
+        <dwc:eventDate>2020-05-09T06:01:00-07:00</dwc:eventDate>
+        <dwc:datasetName>research</dwc:datasetName>
+        <dwc:coordinateUncertaintyInMeters>4</dwc:coordinateUncertaintyInMeters>
+        <dcterms:license>cc-by-nc</dcterms:license>
+        <xap:CreateDate>2020-05-10 13:42:12-07:00</xap:CreateDate>
+        <dcterms:description>x13 seen this morning </dcterms:description>
+        <dcterms:modified>2020-08-16 18:09:44-07:00</dcterms:modified>
+        <dcterms:references>https://www.inaturalist.org/observations/45524803</dcterms:references>
+        <dwc:verbatimLocality>San Diego County, CA, USA</dwc:verbatimLocality>
+        <dwc:taxonID>48978</dwc:taxonID>
+        <dwc:taxonRank>species</dwc:taxonRank>
+        <dwc:scientificName>Dirona picta</dwc:scientificName>
+        <dwc:kingdom>Animalia</dwc:kingdom>
+        <dwc:phylum>Mollusca</dwc:phylum>
+        <dwc:class>Gastropoda</dwc:class>
+        <dwc:order>Nudibranchia</dwc:order>
+        <dwc:family>Dironidae</dwc:family>
+        <dwc:genus>Dirona</dwc:genus>
+        <eol:dataObject>
+            <dcterms:identifier>72181173</dcterms:identifier>
+            <xap:UsageTerms>cc-by-nc</xap:UsageTerms>
+            <dcterms:rights>(c) Alex Bairstow, some rights reserved (CC BY-NC)</dcterms:rights>
+        </eol:dataObject>
+        <dwc:basisOfRecord>HumanObservation</dwc:basisOfRecord>
+        <dwc:institutionCode>iNaturalist</dwc:institutionCode>
+    </dwr:SimpleDarwinRecord>
+</dwr:SimpleDarwinRecordSet>
