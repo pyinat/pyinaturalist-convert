@@ -5,6 +5,8 @@ from typing import Dict, List
 import xmltodict
 from pyinaturalist import get_observations, get_taxa_by_id
 
+from pyinaturalist_convert.converters import AnyObservation, ensure_list, write
+
 # Fields from observation JSON
 OBSERVATION_FIELDS = {
     'id': 'dwc:catalogNumber',
@@ -72,33 +74,44 @@ XML_NAMESPACES = {
 }
 
 
-def observation_to_dwc(observation) -> str:
-    """Translate a JSON-formatted observation record from API results to DwC format"""
+def to_dwc(observations: AnyObservation, filename: str):
+    """Convert observations into to a Simple Darwin Core RecordSet"""
+    records = [observation_to_dwc_record(obs) for obs in ensure_list(observations)]
+    record_set = get_dwc_record_set(records)
+    record_xml = xmltodict.unparse(record_set, pretty=True, indent=' ' * 4)
+    write(record_xml, filename)
+
+
+def observation_to_dwc_record(observation) -> Dict:
+    """Translate a JSON-formatted observation from API results to a DwC record"""
     # Translate observation fields
-    dwc_observation = {}
+    dwc_record = {}
     for inat_field, dwc_field in OBSERVATION_FIELDS.items():
-        dwc_observation[dwc_field] = observation[inat_field]
+        dwc_record[dwc_field] = observation[inat_field]
 
     # Translate taxon fields
     taxon = get_taxon_with_ancestors(observation)
     for inat_field, dwc_field in TAXON_FIELDS.items():
-        dwc_observation[dwc_field] = taxon.get(inat_field)
+        dwc_record[dwc_field] = taxon.get(inat_field)
 
     # Translate photo fields
     photo = observation['photos'][0]
     dwc_photo = {}
     for inat_field, dwc_field in PHOTO_FIELDS.items():
         dwc_photo[dwc_field] = photo[inat_field]
-    dwc_observation['eol:dataObject'] = dwc_photo
+    dwc_record['eol:dataObject'] = dwc_photo
 
     # Add constants
     for dwc_field, value in CONSTANTS.items():
-        dwc_observation[dwc_field] = value
+        dwc_record[dwc_field] = value
 
-    # Add to a complete SimpleDarwinRecordSet + namespaces and convert to XML
-    dwc_records = {'dwr:SimpleDarwinRecordSet': {f'@{k}': v for k, v in XML_NAMESPACES.items()}}
-    dwc_records['dwr:SimpleDarwinRecordSet']['dwr:SimpleDarwinRecord'] = dwc_observation
-    return xmltodict.unparse(dwc_records, pretty=True, indent='    ')
+    return dwc_record
+
+
+def get_dwc_record_set(records: List[Dict]) -> Dict:
+    """Get"""
+    namespaces = {f'@{k}': v for k, v in XML_NAMESPACES.items()}
+    return {'dwr:SimpleDarwinRecordSet': {**namespaces, 'dwr:SimpleDarwinRecord': records}}
 
 
 def get_taxon_with_ancestors(observation):
@@ -132,9 +145,7 @@ def test_observation_to_dwc():
     """Get a test observation, convert it to DwC, and write it to a file"""
     response = get_observations(id=45524803)
     observation = response['results'][0]
-    dwc_xml = observation_to_dwc(observation)
-    with open('obs_45524803.dwc', 'w') as f:
-        f.write(dwc_xml)
+    to_dwc(observation, 'obs_45524803.dwc')
 
 
 if __name__ == '__main__':

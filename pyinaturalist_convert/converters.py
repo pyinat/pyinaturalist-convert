@@ -52,7 +52,7 @@ def to_csv(observations: AnyObservation, filename: str = None) -> str:
     """Convert observations to CSV"""
     csv_observations = to_dataset(observations).get_csv()
     if filename:
-        _write(csv_observations, filename)
+        write(csv_observations, filename)
     return csv_observations
 
 
@@ -81,7 +81,7 @@ def to_dataset(observations: AnyObservation) -> Dataset:
 def to_excel(observations: AnyObservation, filename: str):
     """Convert observations to an Excel spreadsheet (xlsx)"""
     xlsx_observations = to_dataset(observations).get_xlsx()
-    _write(xlsx_observations, filename, 'wb')
+    write(xlsx_observations, filename, 'wb')
 
 
 def to_feather(observations: AnyObservation, filename: str):
@@ -113,6 +113,16 @@ def simplify_observations(observations: AnyObservation) -> List[ResponseObject]:
     return [_simplify_observation(o) for o in ensure_list(observations)]
 
 
+def write(content, filename, mode='w'):
+    """Write converted observation data to a file, creating parent dirs first"""
+    filename = expanduser(filename)
+    logger.info(f'Writing to {filename}')
+    if dirname(filename):
+        makedirs(dirname(filename), exist_ok=True)
+    with open(filename, mode) as f:
+        f.write(content)
+
+
 def _simplify_observation(obs):
     # Reduce annotations to IDs and values
     obs = deepcopy(obs)
@@ -141,13 +151,3 @@ def _fix_dimensions(flat_observations):
         for field in optional_fields:
             obs.setdefault(field, None)
     return headers, flat_observations
-
-
-def _write(content, filename, mode='w'):
-    """Write converted observation data to a file, creating parent dirs first"""
-    filename = expanduser(filename)
-    logger.info(f'Writing to {filename}')
-    if dirname(filename):
-        makedirs(dirname(filename), exist_ok=True)
-    with open(filename, mode) as f:
-        f.write(content)
