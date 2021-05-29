@@ -13,10 +13,10 @@ from pyinaturalist_convert.converters import AnyObservation, ensure_list, write
 OBSERVATION_FIELDS = {
     'id': 'dwc:catalogNumber',
     'observed_on': 'dwc:eventDate',
-    'quality_grade': 'dwc:datasetName',  # Example: iNaturalist research-grade observations; rename for 'casual' and 'needs id'
+    'quality_grade': 'dwc:datasetName',  # Example: 'iNaturalist research-grade observations'; rename for 'casual' and 'needs id'
     'time_observed_at': 'dwc:eventDate',  # ISO format; use as-is
     'positional_accuracy': 'dwc:coordinateUncertaintyInMeters',
-    'license_code': 'dcterms:license',  # Translate to a link to creativecommons.org
+    'license_code': 'dcterms:license',
     'public_positional_accuracy': 'dwc:coordinateUncertaintyInMeters',
     'created_at': 'xap:CreateDate',  # not matching but probably due to UTC
     'description': 'dcterms:description',
@@ -53,7 +53,7 @@ TAXON_FIELDS = {
 # Fields from items in observation['photos']
 PHOTO_FIELDS = {
     'id': 'dcterms:identifier',  # also ac:furtherInformationURL, ac:derivedFrom; format ID into photo URL
-    'license_code': 'xap:UsageTerms',  # Translate to a link to creativecommons.org
+    'license_code': 'xap:UsageTerms',
     'attribution': 'dcterms:rights',
     # 'description': 'dcterms:description',  # From observation.description
     # 'user.name': 'xap:Owner',  # also dcterms:creator; get from inner ['user'] record
@@ -78,6 +78,7 @@ PHOTO_CONSTANTS = {
 }
 
 CC_BASE_URL = 'http://creativecommons.org/licenses'
+CC_VERSION = '4.0'
 DATETIME_FIELDS = ['observed_on', 'created_at']
 PHOTO_BASE_URL = 'https://www.inaturalist.org/photos'
 XML_NAMESPACES = {
@@ -109,6 +110,7 @@ def observation_to_dwc_record(observation) -> Dict:
     dwc_record = {}
     for inat_field, dwc_field in OBSERVATION_FIELDS.items():
         dwc_record[dwc_field] = observation[inat_field]
+    dwc_record['dcterms:license'] = format_license(observation['license_code'])
 
     # Translate taxon fields
     taxon = get_taxon_with_ancestors(observation)
@@ -134,6 +136,7 @@ def photo_to_data_object(photo: Dict) -> Dict:
     for dwc_field, value in PHOTO_CONSTANTS.items():
         dwc_photo[dwc_field] = value
 
+    dwc_photo['xap:UsageTerms'] = format_license(photo['license_code'])
     return dwc_photo
 
 
@@ -163,7 +166,11 @@ def format_datetime(dt: datetime) -> str:
 
 
 def format_license(license_code: str) -> str:
-    pass
+    """Format a Creative Commons license code into a URL with its license information.
+    Example: ``CC-BY-NC --> https://creativecommons.org/licenses/by-nc/4.0/``
+    """
+    url_slug = license_code.lower().replace('cc-', '')
+    return f'{CC_BASE_URL}/{url_slug}/{CC_VERSION}'
 
 
 def format_location(location: List[float]) -> Dict[str, float]:

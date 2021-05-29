@@ -5,7 +5,7 @@
         <dwc:eventDate>2020-05-09T06:01:00-07:00</dwc:eventDate>
         <dwc:datasetName>research</dwc:datasetName>
         <dwc:coordinateUncertaintyInMeters>4</dwc:coordinateUncertaintyInMeters>
-        <dcterms:license>cc-by-nc</dcterms:license>
+        <dcterms:license>http://creativecommons.org/licenses/by-nc/4.0</dcterms:license>
         <xap:CreateDate>2020-05-10 13:42:12-07:00</xap:CreateDate>
         <dcterms:description>x13 seen this morning </dcterms:description>
         <dcterms:modified>2020-08-16 18:09:44-07:00</dcterms:modified>
@@ -22,14 +22,14 @@
         <dwc:genus>Dirona</dwc:genus>
         <eol:dataObject>
             <dcterms:identifier>72181173</dcterms:identifier>
-            <xap:UsageTerms>cc-by-nc</xap:UsageTerms>
+            <xap:UsageTerms>http://creativecommons.org/licenses/by-nc/4.0</xap:UsageTerms>
             <dcterms:rights>(c) Alex Bairstow, some rights reserved (CC BY-NC)</dcterms:rights>
             <dcterms:publisher>iNaturalist</dcterms:publisher>
             <dcterms:type>http://purl.org/dc/dcmitype/StillImage</dcterms:type>
         </eol:dataObject>
         <eol:dataObject>
             <dcterms:identifier>72180675</dcterms:identifier>
-            <xap:UsageTerms>cc-by-nc</xap:UsageTerms>
+            <xap:UsageTerms>http://creativecommons.org/licenses/by-nc/4.0</xap:UsageTerms>
             <dcterms:rights>(c) Alex Bairstow, some rights reserved (CC BY-NC)</dcterms:rights>
             <dcterms:publisher>iNaturalist</dcterms:publisher>
             <dcterms:type>http://purl.org/dc/dcmitype/StillImage</dcterms:type>
