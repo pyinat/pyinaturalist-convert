@@ -2,6 +2,7 @@
 # TODO: May need to use jmespath or jsonpath to more easily reference nested values
 #   (or use flatten_dict/json_normalize)
 from datetime import datetime
+from os.path import join
 from typing import Dict, List
 
 from pyinaturalist import get_observations, get_taxa_by_id
@@ -10,19 +11,18 @@ from pyinaturalist_convert.converters import AnyObservation, ensure_list, write
 
 # Fields from observation JSON
 OBSERVATION_FIELDS = {
+    'created_at': 'xap:CreateDate',  # Different format
+    'description': 'dcterms:description',
     'id': 'dwc:catalogNumber',
+    'license_code': 'dcterms:license',
     'observed_on': 'dwc:eventDate',
+    'place_guess': 'dwc:verbatimLocality',
+    'positional_accuracy': 'dwc:coordinateUncertaintyInMeters',
+    'public_positional_accuracy': 'dwc:coordinateUncertaintyInMeters',
     'quality_grade': 'dwc:datasetName',  # Example: 'iNaturalist research-grade observations'; rename for 'casual' and 'needs id'
     'time_observed_at': 'dwc:eventDate',  # ISO format; use as-is
-    'positional_accuracy': 'dwc:coordinateUncertaintyInMeters',
-    'license_code': 'dcterms:license',
-    'public_positional_accuracy': 'dwc:coordinateUncertaintyInMeters',
-    'created_at': 'xap:CreateDate',  # not matching but probably due to UTC
-    'description': 'dcterms:description',
     'updated_at': 'dcterms:modified',
-    'uri': 'dcterms:references',  # also 'dwc:occurrenceDetails', 'dwc:occurrenceID'
-    'place_guess': 'dwc:verbatimLocality',
-    'place_guess': 'dwc:verbatimLocality',
+    'uri': ['dcterms:references', 'dwc:occurrenceDetails', 'dwc:occurrenceID'],
     # 'location': ['dwc:decimalLatitude', 'dwc:decimalLongitude']  # Split coordinates into lat/long fields
     # 'observed_on': 'dwc:verbatimEventDate',  # but with different standart: YYYY-MM-DD HH:MM:SS-UTC
     # 'time_observed_at: 'dwc:eventTime'  # Time portion only, in UTC
@@ -51,7 +51,11 @@ TAXON_FIELDS = {
 
 # Fields from items in observation['photos']
 PHOTO_FIELDS = {
-    'id': 'dcterms:identifier',  # also ac:furtherInformationURL, ac:derivedFrom; format ID into photo URL
+    'id': [  # format ID into photo URL
+        'dcterms:identifier',
+        'ac:furtherInformationURL',
+        'ac:derivedFrom',
+    ],
     'license_code': 'xap:UsageTerms',
     'attribution': 'dcterms:rights',
     # 'description': 'dcterms:description',  # From observation.description
@@ -109,14 +113,16 @@ def observation_to_dwc_record(observation) -> Dict:
     """Translate a JSON-formatted observation from API results to a DwC record"""
     # Translate observation fields
     dwc_record = {}
-    for inat_field, dwc_field in OBSERVATION_FIELDS.items():
-        dwc_record[dwc_field] = observation[inat_field]
+    for inat_field, dwc_fields in OBSERVATION_FIELDS.items():
+        for dwc_field in ensure_str_list(dwc_fields):
+            dwc_record[dwc_field] = observation[inat_field]
     dwc_record['dcterms:license'] = format_license(observation['license_code'])
 
     # Translate taxon fields
     taxon = get_taxon_with_ancestors(observation)
-    for inat_field, dwc_field in TAXON_FIELDS.items():
-        dwc_record[dwc_field] = taxon.get(inat_field)
+    for inat_field, dwc_fields in TAXON_FIELDS.items():
+        for dwc_field in ensure_str_list(dwc_fields):
+            dwc_record[dwc_field] = taxon.get(inat_field)
 
     # Add photos
     photos = [photo_to_data_object(photo) for photo in observation['photos']]
@@ -132,8 +138,9 @@ def observation_to_dwc_record(observation) -> Dict:
 def photo_to_data_object(photo: Dict) -> Dict:
     """Translate observation photo fields to eol:dataObject fields"""
     dwc_photo = {}
-    for inat_field, dwc_field in PHOTO_FIELDS.items():
-        dwc_photo[dwc_field] = photo[inat_field]
+    for inat_field, dwc_fields in PHOTO_FIELDS.items():
+        for dwc_field in ensure_str_list(dwc_fields):
+            dwc_photo[dwc_field] = photo[inat_field]
     for dwc_field, value in PHOTO_CONSTANTS.items():
         dwc_photo[dwc_field] = value
 
@@ -161,6 +168,10 @@ def get_taxon_with_ancestors(observation):
     return taxon
 
 
+def ensure_str_list(value):
+    return value if isinstance(value, list) else [value]
+
+
 # TODO
 def format_datetime(dt: datetime) -> str:
     pass
@@ -182,7 +193,7 @@ def test_observation_to_dwc():
     """Get a test observation, convert it to DwC, and write it to a file"""
     response = get_observations(id=45524803)
     observation = response['results'][0]
-    to_dwc(observation, 'obs_45524803.dwc')
+    to_dwc(observation, join('test', 'sample_data', 'observations.dwc'))
 
 
 if __name__ == '__main__':
