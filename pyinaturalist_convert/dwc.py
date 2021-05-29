@@ -1,80 +1,160 @@
-"""Incomplete outline of mapping iNaturalist fields to DwC terms"""
-import xmltodict
+"""Utilities for converting observations to Darwin Core"""
+# TODO: May need to use jmespath or jsonpath to more easily reference nested values
+#   (or use flatten_dict/json_normalize)
+from datetime import datetime
+from os.path import join
+from typing import Dict, List
+
 from pyinaturalist import get_observations, get_taxa_by_id
+
+from pyinaturalist_convert.converters import AnyObservation, ensure_list, write
 
 # Fields from observation JSON
 OBSERVATION_FIELDS = {
-    'id': 'dwc:catalogNumber',
-    'observed_on': 'dwc:eventDate',
-    'quality_grade': 'dwc:datasetName',
-    'time_observed_at': 'dwc:eventDate',
-    # 'annotations': [], # not found
-    'positional_accuracy': 'dwc:coordinateUncertaintyInMeters',
-    'license_code': 'dcterms:license', # not exactly but seems derived from,
-    'public_positional_accuracy': 'dwc:coordinateUncertaintyInMeters',
-    'created_at': 'xap:CreateDate', # not matching but probably due to UTC
+    'created_at': 'xap:CreateDate',  # Different format
     'description': 'dcterms:description',
-    'updated_at': 'dcterms:modified',
-    'uri': 'dcterms:references', # or 'dwc:occurrenceDetails',
-    'geojson': {'type': 'Point', 'coordinates': ['dwc:decimalLongitude', 'dwc:decimalLatitude']}, # can be derived from 'dwc:decimalLatitude' and 'dwc:decimalLongitude'
-    'location': ['dwc:decimalLongitude', 'dwc:decimalLatitude'], # can be derived from 'dwc:decimalLatitude' and 'dwc:decimalLongitude'
+    'id': 'dwc:catalogNumber',
+    'license_code': 'dcterms:license',
+    'observed_on': 'dwc:eventDate',
     'place_guess': 'dwc:verbatimLocality',
-    'observed_on': 'dwc:verbatimEventDate' # but with different standart: YYYY-MM-DD HH:MM:SS-UTC
+    'positional_accuracy': 'dwc:coordinateUncertaintyInMeters',
+    'public_positional_accuracy': 'dwc:coordinateUncertaintyInMeters',
+    'quality_grade': 'dwc:datasetName',
+    'time_observed_at': 'dwc:eventDate',  # ISO format; use as-is
+    'updated_at': 'dcterms:modified',
+    'uri': ['dcterms:references', 'dwc:occurrenceDetails', 'dwc:occurrenceID'],
+    # 'location': ['dwc:decimalLatitude', 'dwc:decimalLongitude']  # Split coordinates into lat/long fields
+    # 'observed_on': 'dwc:verbatimEventDate',  # but with different standart: YYYY-MM-DD HH:MM:SS-UTC
+    # 'time_observed_at: 'dwc:eventTime'  # Time portion only, in UTC
+    # 'dwc:verbatimEventDate': Probably the user-submitted date from photo metadata; just reuse observed_on?
+    # 'dwc:establishmentMeans': 'wild' or 'cultivated'; may need a separate API request to get this info
+    # 'dwc:identificationID':  identifications[0].id
+    # 'dwc:identifiedBy':  identifications[0].user.name
+    # 'dwc:countryCode': 2-letter country code; possibly get from place_guess?
+    # 'dwc:stateProvince': Also get from place_guess? Or separate query to /places endpoint?
+    # 'dwc:inaturalistLogin': user.login
+    # 'dwc:recordedBy': user.name
 }
 
 # Fields from taxon JSON
 TAXON_FIELDS = {
     'id': 'dwc:taxonID',
-    'name': 'dwc:scientificName',
-    'iconic_taxon_id': 'dwc:phylum', # but not sure
-    'min_species_taxon_id': 'dwc:taxonID', # but not sure
     'rank': 'dwc:taxonRank',
-    'species_guess': 'dwc:scientificName', # similar term not found
-    'community_taxon_id': 'dwc:taxonID',
+    'name': 'dwc:scientificName',
+    'kingdom': 'dwc:kingdom',
+    'phylum': 'dwc:phylum',
+    'class': 'dwc:class',
+    'order': 'dwc:order',
+    'family': 'dwc:family',
+    'genus': 'dwc:genus',
 }
 
 # Fields from items in observation['photos']
 PHOTO_FIELDS = {
-    'url': 'dcterms:identifier', # or ac:accessURI, media:thumbnailURL, ac:furtherInformationURL, ac:derivedFrom, ac:derivedFrom # change the host to amazon
-    'license_code': 'xap:UsageTerms',  # Will need to be translated to a link to creativecommons.org
-    'id': 'dcterms:identifier', # or ac:accessURI, media:thumbnailURL, ac:furtherInformationURL, ac:derivedFrom, ac:derivedFrom
+    'id': [  # format ID into photo URL
+        'dcterms:identifier',
+        'ac:furtherInformationURL',
+        'ac:derivedFrom',
+    ],
+    'license_code': 'xap:UsageTerms',
     'attribution': 'dcterms:rights',
+    # 'description': 'dcterms:description',  # From observation.description
+    # 'user.name': 'xap:Owner',  # also dcterms:creator; get from inner ['user'] record
+    # 'dcterms/format': 'image/jpeg'  (determine from file extension)
+    # 'ac:accessURI': (link to 'original' size photo)
+    # 'media:thumbnailURL': (link to 'thumbnail' size photo)
+    # 'ap:CreateDate': ?  Format: 2020-05-10T19:59:48Z
+    # 'dcterms:modified': ?
 }
 
 # Fields that will be constant for all iNaturalist observations
 CONSTANTS = {
     'dwc:basisOfRecord': 'HumanObservation',
+    'dwc:collectionCode': 'Observations',
     'dwc:institutionCode': 'iNaturalist',
     # ...
 }
+PHOTO_CONSTANTS = {
+    'dcterms:publisher': 'iNaturalist',
+    # TODO: Is this value different if there are sound recordings?
+    'dcterms:type': 'http://purl.org/dc/dcmitype/StillImage',
+}
+
+# Other constants needed for converting/formatting
+CC_BASE_URL = 'http://creativecommons.org/licenses'
+CC_VERSION = '4.0'
+DATASET_TITLES = {'casual': 'casual', 'needs_id': 'unidentified', 'research': 'research-grade'}
+DATETIME_FIELDS = ['observed_on', 'created_at']
+PHOTO_BASE_URL = 'https://www.inaturalist.org/photos'
+XML_NAMESPACES = {
+    'xsi:schemaLocation': 'http://rs.tdwg.org/dwc/xsd/simpledarwincore/  http://rs.tdwg.org/dwc/xsd/tdwg_dwc_simple.xsd',
+    'xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
+    'xmlns:ac': 'http://rs.tdwg.org/ac/terms/',
+    'xmlns:dcterms': 'http://purl.org/dc/terms/',
+    'xmlns:dwc': 'http://rs.tdwg.org/dwc/terms/',
+    'xmlns:dwr': 'http://rs.tdwg.org/dwc/xsd/simpledarwincore/',
+    'xmlns:eol': 'http://www.eol.org/transfer/content/1.0',
+    'xmlns:geo': 'http://www.w3.org/2003/01/geo/wgs84_pos#',
+    'xmlns:media': 'http://eol.org/schema/media/',
+    'xmlns:ref': 'http://eol.org/schema/reference/',
+    'xmlns:xap': 'http://ns.adobe.com/xap/1.0/',
+}
 
 
-def observation_to_dwc(observation) -> str:
-    """Translate a JSON-formatted observation record from API results to DwC format"""
+def to_dwc(observations: AnyObservation, filename: str):
+    """Convert observations into to a Simple Darwin Core RecordSet"""
+    import xmltodict
+
+    records = [observation_to_dwc_record(obs) for obs in ensure_list(observations)]
+    record_set = get_dwc_record_set(records)
+    record_xml = xmltodict.unparse(record_set, pretty=True, indent=' ' * 4)
+    write(record_xml, filename)
+
+
+def observation_to_dwc_record(observation) -> Dict:
+    """Translate a JSON-formatted observation from API results to a DwC record"""
     # Translate observation fields
-    dwc_observation = {}
-    for inat_field, dwc_field in OBSERVATION_FIELDS.items():
-        dwc_observation[dwc_field] = observation[inat_field]
+    dwc_record = {}
+    for inat_field, dwc_fields in OBSERVATION_FIELDS.items():
+        for dwc_field in ensure_str_list(dwc_fields):
+            dwc_record[dwc_field] = observation[inat_field]
+    dwc_record['dcterms:license'] = format_license(observation['license_code'])
+    dwc_record['dwc:datasetName'] = format_dataset_name(observation['quality_grade'])
 
     # Translate taxon fields
     taxon = get_taxon_with_ancestors(observation)
-    for inat_field, dwc_field in TAXON_FIELDS.items():
-        dwc_observation[dwc_field] = taxon[inat_field]
+    for inat_field, dwc_fields in TAXON_FIELDS.items():
+        for dwc_field in ensure_str_list(dwc_fields):
+            dwc_record[dwc_field] = taxon.get(inat_field)
 
-    # Translate photo fields
-    photo = observation['photos'][0]
-    dwc_photo = {}
-    for inat_field, dwc_field in PHOTO_FIELDS.items():
-        dwc_photo[dwc_field] = photo[inat_field]
-    dwc_observation['eol:dataObject'] = dwc_photo
+    # Add photos
+    photos = [photo_to_data_object(photo) for photo in observation['photos']]
+    dwc_record['eol:dataObject'] = photos
 
     # Add constants
     for dwc_field, value in CONSTANTS.items():
-        dwc_observation[dwc_field] = value
+        dwc_record[dwc_field] = value
 
-    # Add to a complete SimpleDarwinRecordSet and convert to XML
-    dwc_records = {'dwr:SimpleDarwinRecordSet': {'dwr:SimpleDarwinRecord': dwc_observation}}
-    return xmltodict.unparse(dwc_records, pretty=True)
+    return dwc_record
+
+
+def photo_to_data_object(photo: Dict) -> Dict:
+    """Translate observation photo fields to eol:dataObject fields"""
+    dwc_photo = {}
+    for inat_field, dwc_fields in PHOTO_FIELDS.items():
+        for dwc_field in ensure_str_list(dwc_fields):
+            dwc_photo[dwc_field] = photo[inat_field]
+    for dwc_field, value in PHOTO_CONSTANTS.items():
+        dwc_photo[dwc_field] = value
+
+    dwc_photo['xap:UsageTerms'] = format_license(photo['license_code'])
+    return dwc_photo
+
+
+def get_dwc_record_set(records: List[Dict]) -> Dict:
+    """Make a DwC RecordSet including XML namespaces and the provided observation records"""
+    namespaces = {f'@{k}': v for k, v in XML_NAMESPACES.items()}
+    return {'dwr:SimpleDarwinRecordSet': {**namespaces, 'dwr:SimpleDarwinRecord': records}}
 
 
 def get_taxon_with_ancestors(observation):
@@ -91,13 +171,36 @@ def get_taxon_with_ancestors(observation):
     return taxon
 
 
+def ensure_str_list(value):
+    return value if isinstance(value, list) else [value]
+
+
+def format_dataset_name(quality_grade: str) -> str:
+    return f'iNaturalist {DATASET_TITLES.get(quality_grade, "")} observations'
+
+
+# TODO
+def format_datetime(dt: datetime) -> str:
+    pass
+
+
+def format_license(license_code: str) -> str:
+    """Format a Creative Commons license code into a URL with its license information.
+    Example: ``CC-BY-NC --> https://creativecommons.org/licenses/by-nc/4.0/``
+    """
+    url_slug = license_code.lower().replace('cc-', '')
+    return f'{CC_BASE_URL}/{url_slug}/{CC_VERSION}'
+
+
+def format_location(location: List[float]) -> Dict[str, float]:
+    pass
+
+
 def test_observation_to_dwc():
     """Get a test observation, convert it to DwC, and write it to a file"""
     response = get_observations(id=45524803)
     observation = response['results'][0]
-    dwc_xml = observation_to_dwc(observation)
-    with open('obs_45524803.dwc', 'w') as f:
-        f.write(dwc_xml)
+    to_dwc(observation, join('test', 'sample_data', 'observations.dwc'))
 
 
 if __name__ == '__main__':
