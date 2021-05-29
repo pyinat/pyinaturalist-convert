@@ -24,8 +24,18 @@
             <dcterms:identifier>72181173</dcterms:identifier>
             <xap:UsageTerms>cc-by-nc</xap:UsageTerms>
             <dcterms:rights>(c) Alex Bairstow, some rights reserved (CC BY-NC)</dcterms:rights>
+            <dcterms:publisher>iNaturalist</dcterms:publisher>
+            <dcterms:type>http://purl.org/dc/dcmitype/StillImage</dcterms:type>
+        </eol:dataObject>
+        <eol:dataObject>
+            <dcterms:identifier>72180675</dcterms:identifier>
+            <xap:UsageTerms>cc-by-nc</xap:UsageTerms>
+            <dcterms:rights>(c) Alex Bairstow, some rights reserved (CC BY-NC)</dcterms:rights>
+            <dcterms:publisher>iNaturalist</dcterms:publisher>
+            <dcterms:type>http://purl.org/dc/dcmitype/StillImage</dcterms:type>
         </eol:dataObject>
         <dwc:basisOfRecord>HumanObservation</dwc:basisOfRecord>
+        <dwc:collectionCode>Observations</dwc:collectionCode>
         <dwc:institutionCode>iNaturalist</dwc:institutionCode>
     </dwr:SimpleDarwinRecord>
 </dwr:SimpleDarwinRecordSet>

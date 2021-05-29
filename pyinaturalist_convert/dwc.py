@@ -56,9 +56,15 @@ CONSTANTS = {
     'dwc:institutionCode': 'iNaturalist',
     # ...
 }
+PHOTO_CONSTANTS = {
+    'dcterms:publisher': 'iNaturalist',
+    # TODO: Is this value different if there are sound recordings?
+    'dcterms:type': 'http://purl.org/dc/dcmitype/StillImage',
+}
 
 CC_BASE_URL = 'http://creativecommons.org/licenses'
 DATETIME_FIELDS = ['observed_on', 'created_at']
+PHOTO_BASE_URL = 'https://www.inaturalist.org/photos'
 XML_NAMESPACES = {
     'xsi:schemaLocation': 'http://rs.tdwg.org/dwc/xsd/simpledarwincore/  http://rs.tdwg.org/dwc/xsd/tdwg_dwc_simple.xsd',
     'xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
@@ -94,12 +100,9 @@ def observation_to_dwc_record(observation) -> Dict:
     for inat_field, dwc_field in TAXON_FIELDS.items():
         dwc_record[dwc_field] = taxon.get(inat_field)
 
-    # Translate photo fields
-    photo = observation['photos'][0]
-    dwc_photo = {}
-    for inat_field, dwc_field in PHOTO_FIELDS.items():
-        dwc_photo[dwc_field] = photo[inat_field]
-    dwc_record['eol:dataObject'] = dwc_photo
+    # Add photos
+    photos = [photo_to_data_object(photo) for photo in observation['photos']]
+    dwc_record['eol:dataObject'] = photos
 
     # Add constants
     for dwc_field, value in CONSTANTS.items():
@@ -108,8 +111,19 @@ def observation_to_dwc_record(observation) -> Dict:
     return dwc_record
 
 
+def photo_to_data_object(photo: Dict) -> Dict:
+    """Translate observation photo fields to eol:dataObject fields"""
+    dwc_photo = {}
+    for inat_field, dwc_field in PHOTO_FIELDS.items():
+        dwc_photo[dwc_field] = photo[inat_field]
+    for dwc_field, value in PHOTO_CONSTANTS.items():
+        dwc_photo[dwc_field] = value
+
+    return dwc_photo
+
+
 def get_dwc_record_set(records: List[Dict]) -> Dict:
-    """Get"""
+    """Make a DwC RecordSet including XML namespaces and the provided observation records"""
     namespaces = {f'@{k}': v for k, v in XML_NAMESPACES.items()}
     return {'dwr:SimpleDarwinRecordSet': {**namespaces, 'dwr:SimpleDarwinRecord': records}}
 
