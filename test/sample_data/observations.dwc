@@ -8,7 +8,7 @@
         <dwc:eventDate>2020-05-09T06:01:00-07:00</dwc:eventDate>
         <dwc:verbatimLocality>San Diego County, CA, USA</dwc:verbatimLocality>
         <dwc:coordinateUncertaintyInMeters>4</dwc:coordinateUncertaintyInMeters>
-        <dwc:datasetName>research</dwc:datasetName>
+        <dwc:datasetName>iNaturalist research-grade observations</dwc:datasetName>
         <dcterms:modified>2020-08-16 18:09:44-07:00</dcterms:modified>
         <dcterms:references>https://www.inaturalist.org/observations/45524803</dcterms:references>
         <dwc:occurrenceDetails>https://www.inaturalist.org/observations/45524803</dwc:occurrenceDetails>

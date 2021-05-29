@@ -19,7 +19,7 @@ OBSERVATION_FIELDS = {
     'place_guess': 'dwc:verbatimLocality',
     'positional_accuracy': 'dwc:coordinateUncertaintyInMeters',
     'public_positional_accuracy': 'dwc:coordinateUncertaintyInMeters',
-    'quality_grade': 'dwc:datasetName',  # Example: 'iNaturalist research-grade observations'; rename for 'casual' and 'needs id'
+    'quality_grade': 'dwc:datasetName',
     'time_observed_at': 'dwc:eventDate',  # ISO format; use as-is
     'updated_at': 'dcterms:modified',
     'uri': ['dcterms:references', 'dwc:occurrenceDetails', 'dwc:occurrenceID'],
@@ -80,8 +80,10 @@ PHOTO_CONSTANTS = {
     'dcterms:type': 'http://purl.org/dc/dcmitype/StillImage',
 }
 
+# Other constants needed for converting/formatting
 CC_BASE_URL = 'http://creativecommons.org/licenses'
 CC_VERSION = '4.0'
+DATASET_TITLES = {'casual': 'casual', 'needs_id': 'unidentified', 'research': 'research-grade'}
 DATETIME_FIELDS = ['observed_on', 'created_at']
 PHOTO_BASE_URL = 'https://www.inaturalist.org/photos'
 XML_NAMESPACES = {
@@ -117,6 +119,7 @@ def observation_to_dwc_record(observation) -> Dict:
         for dwc_field in ensure_str_list(dwc_fields):
             dwc_record[dwc_field] = observation[inat_field]
     dwc_record['dcterms:license'] = format_license(observation['license_code'])
+    dwc_record['dwc:datasetName'] = format_dataset_name(observation['quality_grade'])
 
     # Translate taxon fields
     taxon = get_taxon_with_ancestors(observation)
@@ -170,6 +173,10 @@ def get_taxon_with_ancestors(observation):
 
 def ensure_str_list(value):
     return value if isinstance(value, list) else [value]
+
+
+def format_dataset_name(quality_grade: str) -> str:
+    return f'iNaturalist {DATASET_TITLES.get(quality_grade, "")} observations'
 
 
 # TODO
