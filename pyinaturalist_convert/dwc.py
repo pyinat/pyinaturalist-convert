@@ -4,7 +4,6 @@
 from datetime import datetime
 from typing import Dict, List
 
-import xmltodict
 from pyinaturalist import get_observations, get_taxa_by_id
 
 from pyinaturalist_convert.converters import AnyObservation, ensure_list, write
@@ -98,6 +97,8 @@ XML_NAMESPACES = {
 
 def to_dwc(observations: AnyObservation, filename: str):
     """Convert observations into to a Simple Darwin Core RecordSet"""
+    import xmltodict
+
     records = [observation_to_dwc_record(obs) for obs in ensure_list(observations)]
     record_set = get_dwc_record_set(records)
     record_xml = xmltodict.unparse(record_set, pretty=True, indent=' ' * 4)
