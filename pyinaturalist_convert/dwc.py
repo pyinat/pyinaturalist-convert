@@ -1,4 +1,6 @@
-"""Incomplete outline of mapping iNaturalist fields to DwC terms"""
+"""Utilities for converting observations to Darwin Core"""
+# TODO: May need to use jmespath or jsonpath to more easily reference nested values
+#   (or use flatten_dict/json_normalize)
 from datetime import datetime
 from typing import Dict, List
 
@@ -11,22 +13,28 @@ from pyinaturalist_convert.converters import AnyObservation, ensure_list, write
 OBSERVATION_FIELDS = {
     'id': 'dwc:catalogNumber',
     'observed_on': 'dwc:eventDate',
-    'quality_grade': 'dwc:datasetName',
-    'time_observed_at': 'dwc:eventDate',
-    # 'annotations': [], # not found
+    'quality_grade': 'dwc:datasetName',  # Example: iNaturalist research-grade observations; rename for 'casual' and 'needs id'
+    'time_observed_at': 'dwc:eventDate',  # ISO format; use as-is
     'positional_accuracy': 'dwc:coordinateUncertaintyInMeters',
-    'license_code': 'dcterms:license',  # not exactly but seems derived from,
+    'license_code': 'dcterms:license',  # Translate to a link to creativecommons.org
     'public_positional_accuracy': 'dwc:coordinateUncertaintyInMeters',
     'created_at': 'xap:CreateDate',  # not matching but probably due to UTC
     'description': 'dcterms:description',
     'updated_at': 'dcterms:modified',
-    'uri': 'dcterms:references',  # or 'dwc:occurrenceDetails',
-    # 'location': [
-    #     'dwc:decimalLongitude',
-    #     'dwc:decimalLatitude',
-    # ],  # can be derived from 'dwc:decimalLatitude' and 'dwc:decimalLongitude'
+    'uri': 'dcterms:references',  # also 'dwc:occurrenceDetails', 'dwc:occurrenceID'
     'place_guess': 'dwc:verbatimLocality',
+    'place_guess': 'dwc:verbatimLocality',
+    # 'location': ['dwc:decimalLatitude', 'dwc:decimalLongitude']  # Split coordinates into lat/long fields
     # 'observed_on': 'dwc:verbatimEventDate',  # but with different standart: YYYY-MM-DD HH:MM:SS-UTC
+    # 'time_observed_at: 'dwc:eventTime'  # Time portion only, in UTC
+    # 'dwc:verbatimEventDate': Probably the user-submitted date from photo metadata; just reuse observed_on?
+    # 'dwc:establishmentMeans': 'wild' or 'cultivated'; may need a separate API request to get this info
+    # 'dwc:identificationID':  identifications[0].id
+    # 'dwc:identifiedBy':  identifications[0].user.name
+    # 'dwc:countryCode': 2-letter country code; possibly get from place_guess?
+    # 'dwc:stateProvince': Also get from place_guess? Or separate query to /places endpoint?
+    # 'dwc:inaturalistLogin': user.login
+    # 'dwc:recordedBy': user.name
 }
 
 # Fields from taxon JSON
@@ -44,15 +52,22 @@ TAXON_FIELDS = {
 
 # Fields from items in observation['photos']
 PHOTO_FIELDS = {
-    'url': 'dcterms:identifier',  # or ac:accessURI, media:thumbnailURL, ac:furtherInformationURL, ac:derivedFrom, ac:derivedFrom # change the host to amazon
-    'license_code': 'xap:UsageTerms',  # Will need to be translated to a link to creativecommons.org
-    'id': 'dcterms:identifier',  # or ac:accessURI, media:thumbnailURL, ac:furtherInformationURL, ac:derivedFrom, ac:derivedFrom
+    'id': 'dcterms:identifier',  # also ac:furtherInformationURL, ac:derivedFrom; format ID into photo URL
+    'license_code': 'xap:UsageTerms',  # Translate to a link to creativecommons.org
     'attribution': 'dcterms:rights',
+    # 'description': 'dcterms:description',  # From observation.description
+    # 'user.name': 'xap:Owner',  # also dcterms:creator; get from inner ['user'] record
+    # 'dcterms/format': 'image/jpeg'  (determine from file extension)
+    # 'ac:accessURI': (link to 'original' size photo)
+    # 'media:thumbnailURL': (link to 'thumbnail' size photo)
+    # 'ap:CreateDate': ?  Format: 2020-05-10T19:59:48Z
+    # 'dcterms:modified': ?
 }
 
 # Fields that will be constant for all iNaturalist observations
 CONSTANTS = {
     'dwc:basisOfRecord': 'HumanObservation',
+    'dwc:collectionCode': 'Observations',
     'dwc:institutionCode': 'iNaturalist',
     # ...
 }
