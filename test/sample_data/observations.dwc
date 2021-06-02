@@ -9,10 +9,6 @@
         <dwc:verbatimLocality>San Diego County, CA, USA</dwc:verbatimLocality>
         <dwc:coordinateUncertaintyInMeters>4</dwc:coordinateUncertaintyInMeters>
         <dwc:datasetName>iNaturalist research-grade observations</dwc:datasetName>
-        <dcterms:modified>2020-08-16 18:09:44-07:00</dcterms:modified>
-        <dcterms:references>https://www.inaturalist.org/observations/45524803</dcterms:references>
-        <dwc:occurrenceDetails>https://www.inaturalist.org/observations/45524803</dwc:occurrenceDetails>
-        <dwc:occurrenceID>https://www.inaturalist.org/observations/45524803</dwc:occurrenceID>
         <dwc:taxonID>48978</dwc:taxonID>
         <dwc:taxonRank>species</dwc:taxonRank>
         <dwc:scientificName>Dirona picta</dwc:scientificName>
@@ -22,6 +18,12 @@
         <dwc:order>Nudibranchia</dwc:order>
         <dwc:family>Dironidae</dwc:family>
         <dwc:genus>Dirona</dwc:genus>
+        <dcterms:modified>2020-08-16 18:09:44-07:00</dcterms:modified>
+        <dcterms:references>https://www.inaturalist.org/observations/45524803</dcterms:references>
+        <dwc:occurrenceDetails>https://www.inaturalist.org/observations/45524803</dwc:occurrenceDetails>
+        <dwc:occurrenceID>https://www.inaturalist.org/observations/45524803</dwc:occurrenceID>
+        <dwc:inaturalistLogin>alex_bairstow</dwc:inaturalistLogin>
+        <dwc:recordedBy>Alex Bairstow</dwc:recordedBy>
         <eol:dataObject>
             <dcterms:identifier>72181173</dcterms:identifier>
             <ac:furtherInformationURL>72181173</ac:furtherInformationURL>

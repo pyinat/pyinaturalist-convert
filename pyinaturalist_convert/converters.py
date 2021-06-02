@@ -36,7 +36,6 @@ logger = getLogger(__name__)
 
 # TODO: Handle Obervation model objects
 # TODO: Handle reuqests.Respose objects
-# TODO: Handle tablib.Dataset objects
 def ensure_list(obj: AnyObservation) -> List:
     if isinstance(obj, Dataset):
         return obj
@@ -46,6 +45,10 @@ def ensure_list(obj: AnyObservation) -> List:
         return list(obj)
     else:
         return [obj]
+
+
+def flatten_list(observations: AnyObservation):
+    return [flatten(obs, reducer='dot') for obs in ensure_list(observations)]
 
 
 def to_csv(observations: AnyObservation, filename: str = None) -> str:

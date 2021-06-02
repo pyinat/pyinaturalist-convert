@@ -1,13 +1,11 @@
 """Utilities for converting observations to Darwin Core"""
-# TODO: May need to use jmespath or jsonpath to more easily reference nested values
-#   (or use flatten_dict/json_normalize)
 from datetime import datetime
 from os.path import join
 from typing import Dict, List
 
 from pyinaturalist import get_observations, get_taxa_by_id
 
-from pyinaturalist_convert.converters import AnyObservation, ensure_list, write
+from pyinaturalist_convert.converters import AnyObservation, flatten_list, write
 
 # Fields from observation JSON
 OBSERVATION_FIELDS = {
@@ -20,33 +18,29 @@ OBSERVATION_FIELDS = {
     'positional_accuracy': 'dwc:coordinateUncertaintyInMeters',
     'public_positional_accuracy': 'dwc:coordinateUncertaintyInMeters',
     'quality_grade': 'dwc:datasetName',
+    'taxon.id': 'dwc:taxonID',
+    'taxon.rank': 'dwc:taxonRank',
+    'taxon.name': 'dwc:scientificName',
+    'taxon.kingdom': 'dwc:kingdom',
+    'taxon.phylum': 'dwc:phylum',
+    'taxon.class': 'dwc:class',
+    'taxon.order': 'dwc:order',
+    'taxon.family': 'dwc:family',
+    'taxon.genus': 'dwc:genus',
     'time_observed_at': 'dwc:eventDate',  # ISO format; use as-is
     'updated_at': 'dcterms:modified',
     'uri': ['dcterms:references', 'dwc:occurrenceDetails', 'dwc:occurrenceID'],
+    'user.login': 'dwc:inaturalistLogin',
+    'user.name': 'dwc:recordedBy',
     # 'location': ['dwc:decimalLatitude', 'dwc:decimalLongitude']  # Split coordinates into lat/long fields
     # 'observed_on': 'dwc:verbatimEventDate',  # but with different standart: YYYY-MM-DD HH:MM:SS-UTC
     # 'time_observed_at: 'dwc:eventTime'  # Time portion only, in UTC
     # 'dwc:verbatimEventDate': Probably the user-submitted date from photo metadata; just reuse observed_on?
-    # 'dwc:establishmentMeans': 'wild' or 'cultivated'; may need a separate API request to get this info
+    # 'dwc:establishmentMeans': 'wild' or 'cultivated'; may need a separate API request to get this info?
     # 'dwc:identificationID':  identifications[0].id
     # 'dwc:identifiedBy':  identifications[0].user.name
     # 'dwc:countryCode': 2-letter country code; possibly get from place_guess?
-    # 'dwc:stateProvince': Also get from place_guess? Or separate query to /places endpoint?
-    # 'dwc:inaturalistLogin': user.login
-    # 'dwc:recordedBy': user.name
-}
-
-# Fields from taxon JSON
-TAXON_FIELDS = {
-    'id': 'dwc:taxonID',
-    'rank': 'dwc:taxonRank',
-    'name': 'dwc:scientificName',
-    'kingdom': 'dwc:kingdom',
-    'phylum': 'dwc:phylum',
-    'class': 'dwc:class',
-    'order': 'dwc:order',
-    'family': 'dwc:family',
-    'genus': 'dwc:genus',
+    # 'dwc:stateProvince': Also get from place_guess? Or separate query to /places endpoint? Or just omit this?
 }
 
 # Fields from items in observation['photos']
@@ -58,11 +52,15 @@ PHOTO_FIELDS = {
     ],
     'license_code': 'xap:UsageTerms',
     'attribution': 'dcterms:rights',
-    # 'description': 'dcterms:description',  # From observation.description
-    # 'user.name': 'xap:Owner',  # also dcterms:creator; get from inner ['user'] record
     # 'dcterms/format': 'image/jpeg'  (determine from file extension)
     # 'ac:accessURI': (link to 'original' size photo)
     # 'media:thumbnailURL': (link to 'thumbnail' size photo)
+}
+
+# Fields from observation JSON to add to photo info in eol:dataObject
+PHOTO_OBS_FIELDS = {
+    'description': 'dcterms:description',
+    'user.name': ['dcterms:creator', 'xap:Owner'],
     # 'ap:CreateDate': ?  Format: 2020-05-10T19:59:48Z
     # 'dcterms:modified': ?
 }
@@ -105,27 +103,23 @@ def to_dwc(observations: AnyObservation, filename: str):
     """Convert observations into to a Simple Darwin Core RecordSet"""
     import xmltodict
 
-    records = [observation_to_dwc_record(obs) for obs in ensure_list(observations)]
+    records = [observation_to_dwc_record(obs) for obs in flatten_list(observations)]
     record_set = get_dwc_record_set(records)
     record_xml = xmltodict.unparse(record_set, pretty=True, indent=' ' * 4)
     write(record_xml, filename)
 
 
-def observation_to_dwc_record(observation) -> Dict:
-    """Translate a JSON-formatted observation from API results to a DwC record"""
-    # Translate observation fields
+def observation_to_dwc_record(observation: Dict) -> Dict:
+    """Translate a flattened JSON observation from API results to a DwC record"""
     dwc_record = {}
+    observation = add_taxon_ancestors(observation)
+
+    # Translate main observation + taxon fields
     for inat_field, dwc_fields in OBSERVATION_FIELDS.items():
         for dwc_field in ensure_str_list(dwc_fields):
             dwc_record[dwc_field] = observation[inat_field]
     dwc_record['dcterms:license'] = format_license(observation['license_code'])
     dwc_record['dwc:datasetName'] = format_dataset_name(observation['quality_grade'])
-
-    # Translate taxon fields
-    taxon = get_taxon_with_ancestors(observation)
-    for inat_field, dwc_fields in TAXON_FIELDS.items():
-        for dwc_field in ensure_str_list(dwc_fields):
-            dwc_record[dwc_field] = taxon.get(inat_field)
 
     # Add photos
     photos = [photo_to_data_object(photo) for photo in observation['photos']]
@@ -157,18 +151,18 @@ def get_dwc_record_set(records: List[Dict]) -> Dict:
     return {'dwr:SimpleDarwinRecordSet': {**namespaces, 'dwr:SimpleDarwinRecord': records}}
 
 
-def get_taxon_with_ancestors(observation):
+def add_taxon_ancestors(observation):
     """observation['taxon'] doesn't have full ancestry, so we'll need to get that from the
     /taxa endpoint
     """
-    response = get_taxa_by_id(observation['taxon']['id'])
+    response = get_taxa_by_id(observation['taxon.id'])
     taxon = response['results'][0]
 
     # Simplify ancestor records into genus=xxxx, family=xxxx, etc.
     for ancestor in taxon['ancestors']:
-        taxon[ancestor['rank']] = ancestor['name']
+        observation[f"taxon.{ancestor['rank']}"] = ancestor['name']
 
-    return taxon
+    return observation
 
 
 def ensure_str_list(value):
