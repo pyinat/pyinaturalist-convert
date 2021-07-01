@@ -1,35 +1,8 @@
-# TODO: Use flatten_dict instead of flatten_nested_params
-from typing import Iterable, List
+from typing import Any, Dict, List
 
-from pyinaturalist.constants import JsonResponse, ResponseResult
-from pyinaturalist.v1 import get_observations
+from pyinaturalist.constants import ResponseResult
 
-
-def get_geojson_observations(properties: List[str] = None, **params) -> JsonResponse:
-    """Get all observation results combined into a GeoJSON ``FeatureCollection``.
-    By default this includes some basic observation properties as GeoJSON ``Feature`` properties.
-    The ``properties`` argument can be used to override these defaults.
-
-    Example:
-        >>> get_geojson_observations(observation_id=16227955, properties=['photo_url'])
-
-        .. admonition:: Example Response
-            :class: toggle
-
-            .. literalinclude:: ../sample_data/get_observations.geojson
-                :language: JSON
-
-    Returns:
-        A ``FeatureCollection`` containing observation results as ``Feature`` dicts.
-    """
-    params['mappable'] = True
-    params['page'] = 'all'
-    response = get_observations(**params)
-    return as_geojson_feature_collection(
-        response['results'],
-        properties=properties if properties is not None else DEFAULT_OBSERVATION_ATTRS,
-    )
-
+from pyinaturalist_convert.converters import AnyObservation, ensure_list, flatten_observation
 
 # Basic observation attributes to include by default in geojson responses
 DEFAULT_OBSERVATION_ATTRS = [
@@ -37,64 +10,40 @@ DEFAULT_OBSERVATION_ATTRS = [
     'photo_url',
     'positional_accuracy',
     'quality_grade',
-    'taxon_id',
-    'taxon_name',
-    'taxon_common_name',
-    'time_observed_at',
+    'taxon.id',
+    'taxon.name',
+    'taxon.preferred_common_name',
+    'observed_on',
     'uri',
 ]
 
 
-def as_geojson_feature_collection(
-    results: Iterable[ResponseResult], properties: List[str] = None
-) -> JsonResponse:
-    """
-    Convert results from an API response into a
-    `geojson FeatureCollection <https://tools.ietf.org/html/rfc7946#section-3.3>`_ object.
-    This is currently only used for observations, but could be used for any other responses with
-    geospatial info.
+def to_geojson(
+    observations: AnyObservation, properties: List[str] = DEFAULT_OBSERVATION_ATTRS
+) -> Dict[str, Any]:
+    """Convert observations into a `GeoJSON FeatureCollection <https://tools.ietf.org/html/rfc7946#section-3.3>`_.
 
-    Args:
-        results: List of results from API response
-        properties: Whitelist of specific properties to include
+    By default this includes some basic observation attributes as GeoJSON ``Feature`` properties.
+    The ``properties`` argument can be used to override these defaults. Nested values can be accessed
+    with dot notation, for example ``taxon.name``.
+
+    Returns:
+        A ``FeatureCollection`` containing observation results as ``Feature`` dicts.
     """
-    results = [flatten_nested_params(obs) for obs in results]
     return {
         'type': 'FeatureCollection',
-        'features': [as_geojson_feature(record, properties) for record in results],
+        'features': [_to_geojson_feature(obs, properties) for obs in ensure_list(observations)],
     }
 
 
-def as_geojson_feature(result: ResponseResult, properties: List[str] = None) -> ResponseResult:
-    """
-    Convert an individual response item to a geojson Feature object, optionally with specific
-    response properties included.
+def _to_geojson_feature(
+    observation: ResponseResult, properties: List[str] = None
+) -> ResponseResult:
+    # Add geometry
+    feature = {'type': 'Feature', 'geometry': observation['geojson']}
+    feature['geometry']['coordinates'] = [float(i) for i in feature['geometry']['coordinates']]
 
-    Args:
-        result: A single response item
-        properties: Whitelist of specific properties to include
-    """
-    result['geojson']['coordinates'] = [float(i) for i in result['geojson']['coordinates']]
-    return {
-        'type': 'Feature',
-        'geometry': result['geojson'],
-        'properties': {k: result.get(k) for k in properties or []},
-    }
-
-
-def flatten_nested_params(observation: ResponseResult) -> ResponseResult:
-    """Extract some nested observation properties to include at the top level;
-     this makes it easier to specify these as properties for
-     :py:func:`.as_as_geojson_feature_collection`.
-
-    Args:
-        observation: A single observation result
-    """
-    taxon = observation.get('taxon', {})
-    photos = observation.get('photos', [{}])
-    observation['taxon_id'] = taxon.get('id')
-    observation['taxon_name'] = taxon.get('name')
-    observation['taxon_rank'] = taxon.get('rank')
-    observation['taxon_common_name'] = taxon.get('preferred_common_name')
-    observation['photo_url'] = photos[0].get('url')
-    return observation
+    # Add properties
+    flat_obs = flatten_observation(observation)
+    feature['properties'] = {k: flat_obs.get(k) for k in properties or []}
+    return feature
