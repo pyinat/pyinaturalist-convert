@@ -7,7 +7,7 @@ from typing import List, Sequence, Union
 
 import tabulate
 from flatten_dict import flatten
-from pyinaturalist.constants import ResponseObject, ResponseOrObject
+from pyinaturalist.constants import ResponseOrResults, ResponseResult
 from pyinaturalist.models import Observation  # noqa
 from requests import Response
 from tablib import Dataset
@@ -30,7 +30,7 @@ TABLIB_FORMATS = [
 TABULATE_FORMATS = sorted(set(tabulate._table_formats) - set(TABLIB_FORMATS))  # type: ignore
 PANDAS_FORMATS = ['feather', 'gbq', 'hdf', 'parquet', 'sql', 'xarray']
 
-AnyObservation = Union[Dataset, Observation, Response, ResponseOrObject]
+AnyObservation = Union[Dataset, Observation, Response, ResponseOrResults]
 logger = getLogger(__name__)
 
 
@@ -105,7 +105,7 @@ def to_parquet(observations: AnyObservation, filename: str):
     df.to_parquet(filename)
 
 
-def simplify_observations(observations: AnyObservation) -> List[ResponseObject]:
+def simplify_observations(observations: AnyObservation) -> List[ResponseResult]:
     """Flatten out some nested data structures within observation records:
 
     * annotations
