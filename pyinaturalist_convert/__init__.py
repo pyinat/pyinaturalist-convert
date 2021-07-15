@@ -10,6 +10,6 @@ except ImportError as e:
 
 # Attempt to import additional modules with optional dependencies
 try:
-    from pyinaturalist_convert.gpx import observations_to_gpx
+    from pyinaturalist_convert.gpx import to_gpx
 except ImportError:
     pass

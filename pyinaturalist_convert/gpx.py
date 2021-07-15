@@ -1,29 +1,30 @@
 #!/usr/bin/env python3
 """An example of converting observation locations + metadata into GPX format"""
-# TODO: Refactoring and cleanup to integrate this with the rest of the package
 from logging import getLogger
 
 from gpxpy.gpx import GPX, GPXTrack, GPXTrackPoint, GPXTrackSegment, GPXWaypoint
-from pyinaturalist import Observation, get_observations
-from pyinaturalist.constants import JsonResponse, List
-from pyinaturalist.response_format import convert_observation_timestamps
+from pyinaturalist import Observation
+from pyinaturalist.constants import ResponseResult
+from pyinaturalist.converters import convert_observation_timestamps
+
+from pyinaturalist_convert.converters import AnyObservation, ensure_list, write
 
 logger = getLogger(__name__)
 
 
-def observations_to_gpx(
-    observations: List[JsonResponse], output_file: str = "observations.gpx", track: bool = True
-):
+def to_gpx(observations: AnyObservation, filename: str = None, track: bool = True) -> str:
     """Convert a list of observations to a set of GPX waypoints or a GPX track
 
     Args:
         observations: JSON observations
-        output_file: File path to write to
+        filename: Optional file path to write to
         track: Create an ordered GXP track; otherwise, create unordered GPX waypoints
+
+    Returns:
+        GPX XML as a string
     """
     gpx = GPX()
-    logger.info(f"Converting {len(observations)} to GPX points")
-    points = [observation_to_gpx_point(obs, track=track) for obs in observations]
+    points = [to_gpx_point(obs, track=track) for obs in ensure_list(observations)]
 
     if track:
         gpx_track = GPXTrack()
@@ -34,13 +35,13 @@ def observations_to_gpx(
     else:
         gpx.waypoints = points
 
-    # Save to file
-    logger.info(f"Writing GPX data to {output_file}")
-    with open(output_file, "w") as f:
-        f.write(gpx.to_xml())
+    gpx_xml = gpx.to_xml()
+    if filename:
+        write(gpx_xml, filename)
+    return gpx_xml
 
 
-def observation_to_gpx_point(observation: JsonResponse, track: bool = True):
+def to_gpx_point(observation: ResponseResult, track: bool = True):
     """Convert a single observation to a GPX point
 
     Args:
@@ -50,43 +51,24 @@ def observation_to_gpx_point(observation: JsonResponse, track: bool = True):
 
     """
     logger.debug(f'Processing observation {observation["id"]}')
+    observation = convert_observation_timestamps(observation)
     # GeoJSON coordinates are ordered as `longitude, latitude`
-    long, lat = observation["geojson"]["coordinates"]
+    long, lat = observation['geojson']['coordinates']
 
     # Get medium-sized photo URL, if available; otherwise just use observation URL
-    if observation["photos"]:
-        link = observation["photos"][0]["url"].replace("square", "medium")
+    if observation['photos']:
+        link = observation['photos'][0]['url'].replace('square', 'medium')
     else:
-        link = observation["uri"]
+        link = observation['uri']
 
     point_cls = GPXTrackPoint if track else GPXWaypoint
     point = point_cls(
         latitude=lat,
         longitude=long,
-        time=convert_observation_timestamps(observation),
+        time=observation['observed_on'],
         comment=str(Observation.from_json(observation)),
     )
-    point.description = observation["description"]
+    point.description = observation['description']
     point.link = link
     point.link_text = f'Observation {observation["id"]}'
     return point
-
-
-if __name__ == "__main__":
-    # Get first page of search results (for testing)
-    search_params = {
-        "project_id": 36883,  # ID of the 'Sugarloaf Ridge State Park' project
-        "created_d1": "2020-01-01",  # Get observations from January 2020...
-        "created_d2": "2020-09-30",  # ...through September 2020 (adjust these dates as needed)
-        "geo": True,  # Only get observations with geospatial coordinates
-        "geoprivacy": "open",  # Only get observations with public coordinates (not obscured/private)
-        "page": "all",  # Paginate through all response pages
-    }
-    results = get_observations(**search_params)["results"]
-
-    # Paginate through all search results (may take a long time for a large query)
-    # results = get_observations(**search_params)
-
-    # Convert and write to GPX file
-    observations_to_gpx(results)
-    # observations_to_tsp(results)

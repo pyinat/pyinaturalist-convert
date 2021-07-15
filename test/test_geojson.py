@@ -2,7 +2,7 @@ from pyinaturalist_convert.geojson import to_geojson
 from test.conftest import load_sample_data
 
 
-def test_get_geojson_observations():
+def test_to_geojson():
     observations = load_sample_data('observation.json')
     geojson = to_geojson(observations)
     feature = geojson['features'][0]
@@ -12,7 +12,7 @@ def test_get_geojson_observations():
     assert feature['properties']['taxon.id'] == 493595
 
 
-def test_get_geojson_observations__custom_properties():
+def test_to_geojson__custom_properties():
     observations = load_sample_data('observation.json')
     geojson = to_geojson(observations, properties=['taxon.name', 'taxon.rank'])
     feature = geojson['features'][0]
