@@ -21,12 +21,13 @@ Import formats currently supported:
 
 Export formats currently supported:
 * CSV
-* Excel (xlsx)
-* GPX (experimental)
-* HDF5
+* DataFrame
+* Excel
 * Feather
+* GeoJSON
+* GPX
+* HDF5
 * Parquet
-* pandas DataFrame
 
 
 # Installation

@@ -35,10 +35,11 @@ logger = getLogger(__name__)
 
 
 # TODO: Handle Obervation model objects
-# TODO: Handle reuqests.Respose objects
 def ensure_list(obj: AnyObservation) -> List:
     if isinstance(obj, Dataset):
         return obj
+    if isinstance(obj, Response):
+        obj = obj.json()
     if isinstance(obj, dict) and 'results' in obj:
         obj = obj['results']
     if isinstance(obj, Sequence):
@@ -47,8 +48,16 @@ def ensure_list(obj: AnyObservation) -> List:
         return [obj]
 
 
-def flatten_list(observations: AnyObservation):
+def flatten_observations(observations: AnyObservation, flatten_lists: bool = False):
+    if flatten_lists:
+        observations = simplify_observations(observations)
     return [flatten(obs, reducer='dot') for obs in ensure_list(observations)]
+
+
+def flatten_observation(observation: ResponseResult, flatten_lists: bool = False):
+    if flatten_lists:
+        observation = simplify_observations(observation)[0]
+    return flatten(observation, reducer='dot')
 
 
 def to_csv(observations: AnyObservation, filename: str = None) -> str:
@@ -73,7 +82,7 @@ def to_dataset(observations: AnyObservation) -> Dataset:
     if isinstance(observations, Dataset):
         return observations
 
-    flat_observations = [flatten(obs, reducer='dot') for obs in simplify_observations(observations)]
+    flat_observations = flatten_observations(observations, flatten_lists=True)
     dataset = Dataset()
     headers, flat_observations = _fix_dimensions(flat_observations)
     dataset.headers = headers
@@ -142,12 +151,15 @@ def _simplify_observation(obs):
     obs['comments'] = [{c['user']['login']: c['body']} for c in obs['comments']]
     del obs['observation_photos']
 
+    # Add first observation photo as a top-level field
+    photos = obs.get('photos', [{}])
+    obs['photo_url'] = photos[0].get('url')
     return obs
 
 
+# TODO: Use Observation model to do most of this
 def _fix_dimensions(flat_observations):
     """Temporary ugly hack to work around missing fields in some observations"""
-    # TODO: Use Observation model to get headers instead?
     optional_fields = ['taxon.complete_rank', 'taxon.preferred_common_name']
     headers = set(flat_observations[0].keys()) | set(optional_fields)
     for obs in flat_observations:
