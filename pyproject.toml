@@ -2,7 +2,7 @@
 name = "pyinaturalist-convert"
 version = "0.2.0"
 description = "Convert iNaturalist observation data to and from multiple formats"
-authors = ["Jordan Cook <Jordan.Cook@pioneer.com>"]
+authors = ["Jordan Cook"]
 license = "MIT"
 readme = "README.md"
 homepage = "https://github.com/JWCook/pyinaturalist_convert"
@@ -26,12 +26,12 @@ include = [
 
 [tool.poetry.dependencies]
 python = "^3.8"
-pyinaturalist = "^0.14.1"
+pyinaturalist = "^0.15.0"
 flatten-dict = "^0.4.0"
 tablib = "^3.0.0"
 tabulate = "^0.8.9"
 
-# Optional dependency versions
+# Optional dependencies for specific data formats
 gpxpy = {version = "^1.4.2", optional = true}
 openpyxl = {version = ">=2.6", optional = true}
 pandas = {version = ">=1.2", optional = true}
@@ -83,5 +83,3 @@ line_length = 100
 skip_gitignore = true
 skip = ['pyinaturalist_convert/__init__.py']
 known_first_party = ['test']
-# Things that are common enough they may as well be grouped with stdlib imports
-extra_standard_library = ['dateutil', 'pytest', 'setuptools']

@@ -12,5 +12,5 @@ def test_to_gpx():
 
     assert point['@lat'] == '50.646894' and point['@lon'] == '4.360086'
     assert point['time'] == '2018-09-05T14:06:00+0100'
-    assert 'Lixus bardanae' in point['cmt'] and '2018-09-05' in point['cmt']
+    assert 'Lixus bardanae' in point['cmt'] and 'Sep 05, 2018' in point['cmt']
     assert point['link']['@href'].startswith('https://static.inaturalist.org/photos/')

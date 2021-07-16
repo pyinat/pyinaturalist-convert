@@ -2,7 +2,7 @@
 # Ignore ImportErrors if invoked outside a virtualenv
 try:
     from pyinaturalist_convert.converters import *
-    from pyinaturalist_convert.bulk_csv import read_csv_export
+    from pyinaturalist_convert.bulk_csv import load_csv_exports
     from pyinaturalist_convert.dwc import to_dwc
     from pyinaturalist_convert.geojson import to_geojson
 except ImportError as e:

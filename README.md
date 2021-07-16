@@ -17,17 +17,12 @@ Import formats currently supported:
  or the [iNaturalist export tool](https://www.inaturalist.org/observations/export))
 * JSON (from API results, either via `pyinaturalist`, `requests`, or another HTTP client)
 * [`pyinaturalist.Observation`](https://pyinaturalist.readthedocs.io/en/stable/modules/pyinaturalist.models.Observation.html) objects
-* parquet
+* Parquet
 
 Export formats currently supported:
-* CSV
-* DataFrame
-* Excel
-* Feather
-* GeoJSON
-* GPX
-* HDF5
-* Parquet
+* CSV, Excel, and anything else supported by [tablib](https://tablib.readthedocs.io/en/stable/formats/)
+* Feather, Parquet, and anything else supported by [pandas](https://pandas.pydata.org/pandas-docs/stable/user_guide/io.html)
+* GeoJSON and GPX
 
 # Installation
 Install with pip:
@@ -46,7 +41,7 @@ pip install pyinaturalist-convert[all]
 ```
 
 # Usage
-Basic usage example:
+Get your own observations and save to CSV:
 ```python
 from pyinaturalist import get_observations
 from pyinaturalist_convert import to_csv
@@ -54,6 +49,7 @@ from pyinaturalist_convert import to_csv
 observations = get_observations(user_id='my_username')
 to_csv(observations, 'my_observations.csv')
 ```
+
 
 # Planned and Possible Features
 * Convert to an HTML report

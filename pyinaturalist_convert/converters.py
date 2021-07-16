@@ -3,8 +3,9 @@ from copy import deepcopy
 from logging import getLogger
 from os import makedirs
 from os.path import dirname, expanduser
-from typing import List, Sequence, Union
+from typing import List, Optional, Sequence, Union
 
+import attr
 import tabulate
 from flatten_dict import flatten
 from pyinaturalist.constants import ResponseOrResults, ResponseResult
@@ -30,25 +31,32 @@ TABLIB_FORMATS = [
 TABULATE_FORMATS = sorted(set(tabulate._table_formats) - set(TABLIB_FORMATS))  # type: ignore
 PANDAS_FORMATS = ['feather', 'gbq', 'hdf', 'parquet', 'sql', 'xarray']
 
-AnyObservation = Union[Dataset, Observation, Response, ResponseOrResults]
+AnyObservations = Union[Dataset, Observation, List[Observation], Response, ResponseOrResults]
 logger = getLogger(__name__)
 
 
 # TODO: Handle Obervation model objects
-def ensure_list(obj: AnyObservation) -> List:
-    if isinstance(obj, Dataset):
-        return obj
-    if isinstance(obj, Response):
-        obj = obj.json()
-    if isinstance(obj, dict) and 'results' in obj:
-        obj = obj['results']
-    if isinstance(obj, Sequence):
-        return list(obj)
+def ensure_list(value: AnyObservations) -> List:
+    """Convert any supported input type into a list of observation dicts"""
+    if not value:
+        return []
+    if isinstance(value, Dataset):
+        return value.dict
+    if isinstance(value, Response):
+        value = value.json()
+    if isinstance(value, dict) and 'results' in value:
+        value = value['results']
+    if isinstance(value, Observation):
+        return [to_dict(value)]
+    if isinstance(value, Sequence) and isinstance(value[0], Observation):
+        return [to_dict(v) for v in value]
+    if isinstance(value, Sequence):
+        return list(value)
     else:
-        return [obj]
+        return [value]
 
 
-def flatten_observations(observations: AnyObservation, flatten_lists: bool = False):
+def flatten_observations(observations: AnyObservations, flatten_lists: bool = False):
     if flatten_lists:
         observations = simplify_observations(observations)
     return [flatten(obs, reducer='dot') for obs in ensure_list(observations)]
@@ -56,26 +64,28 @@ def flatten_observations(observations: AnyObservation, flatten_lists: bool = Fal
 
 def flatten_observation(observation: ResponseResult, flatten_lists: bool = False):
     if flatten_lists:
-        observation = simplify_observations(observation)[0]
+        observation = _simplify_observation(observation)
     return flatten(observation, reducer='dot')
 
 
-def to_csv(observations: AnyObservation, filename: str = None) -> str:
+def to_csv(observations: AnyObservations, filename: str = None) -> Optional[str]:
     """Convert observations to CSV"""
     csv_observations = to_dataset(observations).get_csv()
     if filename:
         write(csv_observations, filename)
-    return csv_observations
+        return None
+    else:
+        return csv_observations
 
 
-def to_dataframe(observations: AnyObservation):
+def to_dataframe(observations: AnyObservations):
     """Convert observations into a pandas DataFrame"""
     import pandas as pd
 
     return pd.json_normalize(simplify_observations(observations))
 
 
-def to_dataset(observations: AnyObservation) -> Dataset:
+def to_dataset(observations: AnyObservations) -> Dataset:
     """Convert observations to a generic tabular dataset. This can be converted to any of the
     `formats supported by tablib <https://tablib.readthedocs.io/en/stable/formats>`_.
     """
@@ -90,31 +100,41 @@ def to_dataset(observations: AnyObservation) -> Dataset:
     return dataset
 
 
-def to_excel(observations: AnyObservation, filename: str):
+def to_excel(observations: AnyObservations, filename: str):
     """Convert observations to an Excel spreadsheet (xlsx)"""
     xlsx_observations = to_dataset(observations).get_xlsx()
     write(xlsx_observations, filename, 'wb')
 
 
-def to_feather(observations: AnyObservation, filename: str):
+def to_feather(observations: AnyObservations, filename: str):
     """Convert observations into a feather file"""
     df = to_dataframe(observations)
     df.to_feather(filename)
 
 
-def to_hdf(observations: AnyObservation, filename: str):
+def to_hdf(observations: AnyObservations, filename: str):
     """Convert observations into a HDF5 file"""
     df = to_dataframe(observations)
     df.to_hdf(filename, 'observations')
 
 
-def to_parquet(observations: AnyObservation, filename: str):
+def to_parquet(observations: AnyObservations, filename: str):
     """Convert observations into a parquet file"""
     df = to_dataframe(observations)
     df.to_parquet(filename)
 
 
-def simplify_observations(observations: AnyObservation) -> List[ResponseResult]:
+# TODO: Handle this in Observation.from_json_list
+def to_observation_objs(value: AnyObservations) -> List[Observation]:
+    """Convert any supported input type into a list of Observation objects"""
+
+    def _to_observation(item):
+        return Observation.from_json(item) if not isinstance(item, Observation) else item
+
+    return [_to_observation(item) for item in ensure_list(value)]
+
+
+def simplify_observations(observations: AnyObservations) -> List[ResponseResult]:
     """Flatten out some nested data structures within observation records:
 
     * annotations
@@ -166,3 +186,24 @@ def _fix_dimensions(flat_observations):
         for field in optional_fields:
             obs.setdefault(field, None)
     return headers, flat_observations
+
+
+# TODO: Add this as a method on BaseModel?
+def to_dict(observation: Observation):
+    """Convert an Observation object back to dict format"""
+    return _unprefix_attrs(attr.asdict(observation))
+
+
+def _unprefix_attrs(value):
+    """Internally, nested objects are stored in attrs prefixed with `_`, and wrapped in a @property.
+    This recursively removes the `_` prefix from all attribute names.
+    """
+    if isinstance(value, (list, tuple)):
+        return [_unprefix_attrs(v) for v in value]
+    elif not isinstance(value, dict):
+        return value
+
+    value = value.copy()
+    for k in [k for k in value if k.startswith('_')]:
+        value[k.lstrip('_')] = _unprefix_attrs(value.pop(k))
+    return value

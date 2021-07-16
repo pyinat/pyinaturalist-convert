@@ -5,7 +5,7 @@ from typing import Dict, List
 
 from pyinaturalist import get_observations, get_taxa_by_id
 
-from pyinaturalist_convert.converters import AnyObservation, flatten_observations, write
+from pyinaturalist_convert.converters import AnyObservations, flatten_observations, write
 
 # Fields from observation JSON
 OBSERVATION_FIELDS = {
@@ -99,7 +99,7 @@ XML_NAMESPACES = {
 }
 
 
-def to_dwc(observations: AnyObservation, filename: str):
+def to_dwc(observations: AnyObservations, filename: str):
     """Convert observations into to a Simple Darwin Core RecordSet"""
     import xmltodict
 

@@ -77,20 +77,14 @@ PHOTO_ID_PATTERN = re.compile(r'.*photos/(.*)/.*\.(\w+)')
 logger = getLogger(__name__)
 
 
-def read_csv_export(*file_paths: str):
-    """Load and convert CSV export files
+# TODO: Do this with tablib instead of pandas?
+# OR: use pandas if installed, otherwise fallback to tablib?
+def load_csv_exports(*file_paths: str):
+    """Read one or more CSV files from ithe Nat export tool into a dataframe
 
     Args:
         file_paths: One or more file paths or glob patterns to load
     """
-    df = load_exports(*file_paths)
-    return format_export(df)
-
-
-# TODO: Do this with tablib instead of pandas?
-# OR: use pandas if installed, otherwise fallback to tablib?
-def load_exports(*file_paths: str):
-    """Combine multiple CSV files (from iNat export tool) into one, and return as a dataframe"""
     import pandas as pd
 
     resolved_paths = resolve_file_paths(*file_paths)
@@ -100,7 +94,7 @@ def load_exports(*file_paths: str):
     )
 
     df = pd.concat((pd.read_csv(f) for f in resolved_paths), ignore_index=True)
-    return df
+    return format_export(df)
 
 
 def resolve_file_paths(*file_paths: str) -> List[str]:

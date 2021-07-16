@@ -2,7 +2,7 @@ from typing import Any, Dict, List
 
 from pyinaturalist.constants import ResponseResult
 
-from pyinaturalist_convert.converters import AnyObservation, ensure_list, flatten_observation
+from pyinaturalist_convert.converters import AnyObservations, ensure_list, flatten_observation
 
 # Basic observation attributes to include by default in geojson responses
 DEFAULT_OBSERVATION_ATTRS = [
@@ -19,7 +19,7 @@ DEFAULT_OBSERVATION_ATTRS = [
 
 
 def to_geojson(
-    observations: AnyObservation, properties: List[str] = DEFAULT_OBSERVATION_ATTRS
+    observations: AnyObservations, properties: List[str] = DEFAULT_OBSERVATION_ATTRS
 ) -> Dict[str, Any]:
     """Convert observations into a `GeoJSON FeatureCollection <https://tools.ietf.org/html/rfc7946#section-3.3>`_.
 

@@ -5,12 +5,12 @@ from pyinaturalist import Observation
 from pyinaturalist.constants import ResponseResult
 from pyinaturalist.converters import convert_observation_timestamps
 
-from pyinaturalist_convert.converters import AnyObservation, ensure_list, write
+from pyinaturalist_convert.converters import AnyObservations, ensure_list, write
 
 logger = getLogger(__name__)
 
 
-def to_gpx(observations: AnyObservation, filename: str = None, track: bool = True) -> str:
+def to_gpx(observations: AnyObservations, filename: str = None, track: bool = True) -> str:
     """Convert a list of observations to a set of GPX waypoints or a GPX track
 
     Example:
