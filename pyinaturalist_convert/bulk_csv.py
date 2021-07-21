@@ -8,8 +8,8 @@ from logging import getLogger
 from os.path import basename, expanduser
 from typing import List
 
-from pyinaturalist.request_params import RANKS
-from pyinaturalist.response_format import try_datetime
+from pyinaturalist.constants import RANKS
+from pyinaturalist.converters import try_datetime
 
 from pyinaturalist_convert.converters import to_dataframe
 

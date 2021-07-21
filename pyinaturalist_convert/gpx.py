@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-"""An example of converting observation locations + metadata into GPX format"""
 from logging import getLogger
 
 from gpxpy.gpx import GPX, GPXTrack, GPXTrackPoint, GPXTrackSegment, GPXWaypoint
@@ -15,10 +13,25 @@ logger = getLogger(__name__)
 def to_gpx(observations: AnyObservation, filename: str = None, track: bool = True) -> str:
     """Convert a list of observations to a set of GPX waypoints or a GPX track
 
+    Example:
+
+        >>> from pyinaturalist import get_observations
+        >>> from pyinaturalist_convert import to_gpx
+        >>>
+        >>> results = get_observations(
+        ...     project_id=36883,         # ID of the 'Sugarloaf Ridge State Park' project
+        ...     created_d1='2020-01-01',  # Get observations from January 2020...
+        ...     created_d2='2020-09-30',  # ...through September 2020
+        ...     geo=True,                 # Only get observations with coordinates
+        ...     geoprivacy='open',        # Only get observations with public coordinates
+        ...     page='all',               # Paginate through all response pages
+        ... )
+        >>> to_gpx(results, '~/tracks/observations-36883.gpx')
+
     Args:
         observations: JSON observations
         filename: Optional file path to write to
-        track: Create an ordered GXP track; otherwise, create unordered GPX waypoints
+        track: Create an ordered GPX track; otherwise, create unordered GPX waypoints
 
     Returns:
         GPX XML as a string
