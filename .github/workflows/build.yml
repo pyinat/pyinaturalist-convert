@@ -72,7 +72,7 @@ jobs:
           black --check --diff .
           isort --check --diff .
           flake8 .
-          mypy .
+          mypy --install-types --non-interactive .
       - name: Generate and send code coverage report to Coveralls
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
