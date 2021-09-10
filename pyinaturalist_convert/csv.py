@@ -64,10 +64,11 @@ DROP_COLUMNS = [
 RENAME_COLUMNS = {
     'common_name': 'taxon.preferred_common_name',
     'coordinates_obscured': 'obscured',
-    'image_url': 'photo.url',
     'license': 'license_code',
     'taxon_': 'taxon.',
     'url': 'uri',
+    'image_uri': 'photo.url',
+    'sound_uri': 'sound.url',
     'user_': 'user.',
     '_name': '',
 }
@@ -112,8 +113,7 @@ def format_columns(df):
         if col in df:
             df[col] = df[col].fillna(dtype()).astype(dtype)
 
-    # Drop selected columns plus any empty columns
-    df = df.drop(columns=[k for k in DROP_COLUMNS if k in df])
+    # Drop any empty columns
     df = df.dropna(axis=1, how='all')
     return df.fillna('')
 
@@ -129,7 +129,7 @@ def format_response(response):
 
 # TODO: Normalize datetimes to UTC, convert to datetime64
 def format_export(df):
-    """Format an exported CSV file to be similar to API response format"""
+    """Format an exported CSV file to be more consistent with API response format"""
     logger.info(f'Formatting {len(df)} observation records')
 
     # Rename, convert, and drop selected columns
@@ -151,6 +151,9 @@ def format_export(df):
 
     # Add some other missing columns
     df['photo.id'] = df['photo.url'].apply(_get_photo_id)
+
+    # Drop unused columns
+    df = df.drop(columns=[k for k in DROP_COLUMNS if k in df])
     return df
 
 
