@@ -822,7 +822,7 @@ xlsx = ["openpyxl"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "5414ac606cb42cbb30f15cd029ae67e16ec561f612bcebe7dc6a9aed1f0f0d83"
+content-hash = "b604692543ad18dd689a2df87e3fc85c482179c594406d2620227ad549de50f3"
 
 [metadata.files]
 appdirs = [
