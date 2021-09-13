@@ -1,8 +1,8 @@
 # pyinaturalist-convert
 [![Build status](https://github.com/JWCook/pyinaturalist-convert/workflows/Build/badge.svg)](https://github.com/JWCook/pyinaturalist-convert/actions)
 [![PyPI](https://img.shields.io/pypi/v/pyinaturalist-convert?color=blue)](https://pypi.org/project/pyinaturalist-convert)
+[![Conda](https://img.shields.io/conda/vn/conda-forge/pyinaturalist-convert?color=blue)](https://anaconda.org/conda-forge/pyinaturalist-convert)
 [![PyPI - Python Versions](https://img.shields.io/pypi/pyversions/pyinaturalist-convert)](https://pypi.org/project/pyinaturalist-convert)
-[![PyPI - Format](https://img.shields.io/pypi/format/pyinaturalist-convert?color=blue)](https://pypi.org/project/pyinaturalist-convert)
 
 **Work in progress!**
 
