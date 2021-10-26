@@ -1,5 +1,6 @@
-from typing import Any, Dict, List
+from typing import List
 
+from geojson import Feature, Point, FeatureCollection
 from pyinaturalist.constants import ResponseResult
 
 from pyinaturalist_convert.converters import AnyObservations, ensure_list, flatten_observation
@@ -20,7 +21,7 @@ DEFAULT_OBSERVATION_ATTRS = [
 
 def to_geojson(
     observations: AnyObservations, properties: List[str] = DEFAULT_OBSERVATION_ATTRS
-) -> Dict[str, Any]:
+) -> FeatureCollection:
     """Convert observations into a `GeoJSON FeatureCollection <https://tools.ietf.org/html/rfc7946#section-3.3>`_.
 
     By default this includes some basic observation attributes as GeoJSON ``Feature`` properties.
@@ -30,20 +31,24 @@ def to_geojson(
     Returns:
         A ``FeatureCollection`` containing observation results as ``Feature`` dicts.
     """
-    return {
-        'type': 'FeatureCollection',
-        'features': [_to_geojson_feature(obs, properties) for obs in ensure_list(observations)],
-    }
+    try:
+        feature_collection = FeatureCollection(
+            [_to_geojson_feature(obs, properties) for obs in ensure_list(observations)]
+        )
+    except Exception as err:
+        print(err)
+    else:
+        return feature_collection
 
 
-def _to_geojson_feature(
-    observation: ResponseResult, properties: List[str] = None
-) -> ResponseResult:
+def _to_geojson_feature(observation: ResponseResult, properties: List[str] = None) -> Feature:
     # Add geometry
-    feature = {'type': 'Feature', 'geometry': observation['geojson']}
-    feature['geometry']['coordinates'] = [float(i) for i in feature['geometry']['coordinates']]
+    if not observation.get('geojson'):
+        raise ValueError("Observation without coordinates")
+    point = Point([float(coord) for coord in observation['geojson']['coordinates']])
 
     # Add properties
     flat_obs = flatten_observation(observation)
-    feature['properties'] = {k: flat_obs.get(k) for k in properties or []}
+    properties = {k: flat_obs.get(k) for k in properties or []}
+    feature = Feature(geometry=point, properties=properties)
     return feature

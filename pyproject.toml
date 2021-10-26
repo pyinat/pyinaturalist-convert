@@ -39,10 +39,11 @@ pyarrow = {version = ">=4.0", optional = true}
 python-dwca-reader = {version = "^0.15.0", optional = true}
 xmltodict = {version = ">=0.12", optional = true}
 tables = {version = ">=3.6", optional = true}
+geojson = "^2.5.0"
 
 # Optional dependency groups by data format
 [tool.poetry.extras]
-all = ["gpxpy", "openpyxl", "pandas", "pyarrow", "python-dwca-reader", "tablib[all]", "xmltodict"]
+all = ["gpxpy", "openpyxl", "pandas", "pyarrow", "python-dwca-reader", "tablib[all]", "xmltodict", "geojson"]
 csv-import = ["pandas"]
 df = ["pandas"]
 dwc = ["python-dwca-reader", "xmltodict"]
@@ -52,6 +53,7 @@ html = ["jinja", "tablib[html]"]
 gpx = ["gpxpy"]
 parquet = ["pandas", "pyarrow"]
 xlsx = ["openpyxl"]
+geojson = ["geojson"]
 
 [tool.poetry.dev-dependencies]
 black = "21.7b0"
