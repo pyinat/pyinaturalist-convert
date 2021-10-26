@@ -21,14 +21,14 @@ DEFAULT_OBSERVATION_ATTRS = [
 
 def to_geojson(
     observations: AnyObservations, properties: List[str] = DEFAULT_OBSERVATION_ATTRS
-) -> Dict[str, Any]:
+) -> FeatureCollection:
     """Convert observations into a `GeoJSON FeatureCollection <https://tools.ietf.org/html/rfc7946#section-3.3>`_.
 
     By default this includes some basic observation attributes as GeoJSON ``Feature`` properties.
     The ``properties`` argument can be used to override these defaults. Nested values can be accessed
     with dot notation, for example ``taxon.name``.
 
-    Returns:
+    Returns: FeatureCollection
         A ``FeatureCollection`` containing observation results as ``Feature`` dicts.
     """
     try:
@@ -41,10 +41,10 @@ def to_geojson(
 
 def _to_geojson_feature(
     observation: ResponseResult, properties: List[str] = None
-) -> ResponseResult:
+) -> Feature:
     # Add geometry
     if not observation.get('geojson'):
-        raise Exception("Observation without coordinates")
+        raise ValueError("Observation without coordinates")
     point = Point([float(coord) for coord in observation['geojson']['coordinates']])
 
     # Add properties
