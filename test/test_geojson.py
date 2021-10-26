@@ -31,8 +31,7 @@ def test_to_geojson__custom_properties():
 
 
 def test_to_geojson_obs_without_geojson():
-    from pyinaturalist import get_observations
-    observations = get_observations(geo=False, page=1, per_page=1)
+    observations = load_sample_data('observations_without_coords.json')
     with pytest.raises(Exception) as excinfo:
         _to_geojson_feature(observations)
     assert 'Observation without coordinates' in str(excinfo.value)
