@@ -1,7 +1,8 @@
+import pytest
+from geojson import Feature, FeatureCollection
+
 from pyinaturalist_convert.geojson import to_geojson, _to_geojson_feature
 from test.conftest import load_sample_data
-from geojson import Feature, FeatureCollection
-import pytest
 
 
 def test_to_geojson():

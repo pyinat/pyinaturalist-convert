@@ -1,10 +1,9 @@
-from typing import Any, Dict, List
+from typing import List
 
+from geojson import Feature, Point, FeatureCollection
 from pyinaturalist.constants import ResponseResult
 
 from pyinaturalist_convert.converters import AnyObservations, ensure_list, flatten_observation
-
-from geojson import Feature, Point, FeatureCollection
 
 # Basic observation attributes to include by default in geojson responses
 DEFAULT_OBSERVATION_ATTRS = [
