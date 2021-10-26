@@ -35,4 +35,4 @@ def test_to_geojson_obs_without_geojson():
     observations = get_observations(geo=False, page=1, per_page=1)
     with pytest.raises(Exception) as excinfo:
         _to_geojson_feature(observations)
-    assert 'geojson' in str(excinfo.value)
+    assert 'Observation without coordinates' in str(excinfo.value)

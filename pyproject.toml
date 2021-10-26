@@ -43,7 +43,7 @@ geojson = "^2.5.0"
 
 # Optional dependency groups by data format
 [tool.poetry.extras]
-all = ["gpxpy", "openpyxl", "pandas", "pyarrow", "python-dwca-reader", "tablib[all]", "xmltodict"]
+all = ["gpxpy", "openpyxl", "pandas", "pyarrow", "python-dwca-reader", "tablib[all]", "xmltodict", "geojson"]
 csv-import = ["pandas"]
 df = ["pandas"]
 dwc = ["python-dwca-reader", "xmltodict"]

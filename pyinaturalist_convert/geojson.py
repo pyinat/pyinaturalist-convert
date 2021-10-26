@@ -28,7 +28,7 @@ def to_geojson(
     The ``properties`` argument can be used to override these defaults. Nested values can be accessed
     with dot notation, for example ``taxon.name``.
 
-    Returns: FeatureCollection
+    Returns:
         A ``FeatureCollection`` containing observation results as ``Feature`` dicts.
     """
     try:
