@@ -5,6 +5,7 @@ from pyinaturalist.constants import ResponseResult
 from pyinaturalist_convert.converters import AnyObservations, ensure_list, flatten_observation
 
 from geojson import Feature, Point, FeatureCollection
+
 # Basic observation attributes to include by default in geojson responses
 DEFAULT_OBSERVATION_ATTRS = [
     'id',
@@ -32,16 +33,16 @@ def to_geojson(
         A ``FeatureCollection`` containing observation results as ``Feature`` dicts.
     """
     try:
-        feature_collection = FeatureCollection([_to_geojson_feature(obs, properties) for obs in ensure_list(observations)])
+        feature_collection = FeatureCollection(
+            [_to_geojson_feature(obs, properties) for obs in ensure_list(observations)]
+        )
     except Exception as err:
         print(err)
     else:
         return feature_collection
 
 
-def _to_geojson_feature(
-    observation: ResponseResult, properties: List[str] = None
-) -> Feature:
+def _to_geojson_feature(observation: ResponseResult, properties: List[str] = None) -> Feature:
     # Add geometry
     if not observation.get('geojson'):
         raise ValueError("Observation without coordinates")

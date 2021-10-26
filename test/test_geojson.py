@@ -3,6 +3,7 @@ from test.conftest import load_sample_data
 from geojson import Feature, FeatureCollection
 import pytest
 
+
 def test_to_geojson():
     observations = load_sample_data('observation.json')
     geojson = to_geojson(observations)
@@ -15,7 +16,6 @@ def test_to_geojson():
     assert feature['properties']['taxon.id'] == 493595
     assert isinstance(feature, Feature)
     assert feature.is_valid
-
 
 
 def test_to_geojson__custom_properties():
