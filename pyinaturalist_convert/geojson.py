@@ -1,6 +1,6 @@
 from typing import List
 
-from geojson import Feature, Point, FeatureCollection
+from geojson import Feature, FeatureCollection, Point
 from pyinaturalist.constants import ResponseResult
 
 from pyinaturalist_convert.converters import AnyObservations, ensure_list, flatten_observation
@@ -49,6 +49,6 @@ def _to_geojson_feature(observation: ResponseResult, properties: List[str] = Non
 
     # Add properties
     flat_obs = flatten_observation(observation)
-    properties = {k: flat_obs.get(k) for k in properties or []}
-    feature = Feature(geometry=point, properties=properties)
+    geom_properties = {k: flat_obs.get(k) for k in properties or []}
+    feature = Feature(geometry=point, properties=geom_properties)
     return feature
