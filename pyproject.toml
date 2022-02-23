@@ -61,7 +61,7 @@ coverage = ">=6.3"
 isort = ">=5.8"
 flake8 = "^3.9"
 mypy = "^0.910"
-pytest = "^6.2"
+pytest = "^7.0"
 pytest-cov = ">=3.0"
 pytest-xdist = ">=2.2"
 
