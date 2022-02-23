@@ -59,7 +59,7 @@ geojson = ["geojson"]
 black = "^22.1.0"
 coverage = ">=6.3"
 isort = ">=5.8"
-flake8 = "^3.9"
+flake8 = "^4.0"
 mypy = "^0.910"
 pytest = "^6.2"
 pytest-cov = ">=3.0"
