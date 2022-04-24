@@ -41,7 +41,6 @@ xmltodict = {version = ">=0.12", optional = true}
 tables = {version = ">=3.6", optional = true}
 geojson = "^2.5.0"
 
-# Optional dependency groups by data format
 [tool.poetry.extras]
 all = ["gpxpy", "openpyxl", "pandas", "pyarrow", "python-dwca-reader", "tablib[all]", "xmltodict", "geojson"]
 csv-import = ["pandas"]
@@ -56,11 +55,11 @@ xlsx = ["openpyxl"]
 geojson = ["geojson"]
 
 [tool.poetry.dev-dependencies]
-black = "^22.1.0"
 coverage = ">=6.3"
-isort = ">=5.8"
-flake8 = ">4.0"
-mypy = "^0.931"
+nox = "^2022.1.7"
+nox-poetry = "^0.9.0"
+pre-commit = "^2.18"
+pyparsing = "^3.0"
 pytest = ">=7.0"
 pytest-cov = ">=3.0"
 pytest-xdist = ">=2.2"
