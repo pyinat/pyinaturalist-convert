@@ -9,7 +9,6 @@ on:
   workflow_dispatch:
 env:
   LATEST_PY_VERSION: '3.10'
-  COVERAGE_ARGS: '--cov --cov-report=term --cov-report=html'
 
 
 jobs:
@@ -41,8 +40,11 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: poetry install -v -E all
 
-      - name: Run unit tests
-        run: poetry run pytest -n auto ${{ env.COVERAGE_ARGS }}
+      # Run tests with coverage report
+      - name: Run tests
+        run: |
+          source $VENV
+          nox -e cov -- xml
 
         # Latest python version: send coverage report to codecov
       - name: "Upload coverage report to Codecov"
