@@ -5,7 +5,7 @@ from typing import Dict, List
 
 from pyinaturalist import get_observations, get_taxa_by_id
 
-from pyinaturalist_convert.converters import AnyObservations, flatten_observations, write
+from .converters import AnyObservations, flatten_observations, write
 
 # Fields from observation JSON
 OBSERVATION_FIELDS = {

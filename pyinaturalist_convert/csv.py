@@ -11,7 +11,7 @@ from typing import List
 from pyinaturalist.constants import RANKS
 from pyinaturalist.converters import try_datetime
 
-from pyinaturalist_convert.converters import to_dataframe
+from .converters import to_dataframe
 
 # Explicit datatypes for columns loaded from CSV
 DTYPES = {
