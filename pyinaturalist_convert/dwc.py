@@ -1,11 +1,11 @@
 """Utilities for converting observations to Darwin Core"""
 from datetime import datetime
-from os.path import join
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from flatten_dict import flatten
-from pyinaturalist import get_observations, get_taxa_by_id
+from pyinaturalist import get_taxa_by_id
 
+from .constants import PathOrStr
 from .converters import AnyObservations, flatten_observations, write
 
 # Fields from observation JSON
@@ -117,14 +117,32 @@ XML_NAMESPACES = {
 }
 
 
-def to_dwc(observations: AnyObservations, filename: str):
-    """Convert observations into to a Simple Darwin Core RecordSet"""
+def to_dwc(observations: AnyObservations, filename: PathOrStr = None) -> Optional[List[Dict]]:
+    """Convert observations into to a Simple Darwin Core RecordSet.
+
+    Args:
+        observations: Observation records to convert
+        filename: Path to write XML output
+
+    Returns:
+        If no filename is provided, records will be returned a list of dictionaries.
+    """
     import xmltodict
 
     records = [observation_to_dwc_record(obs) for obs in flatten_observations(observations)]
+    if not filename:
+        return records
+
     record_set = get_dwc_record_set(records)
     record_xml = xmltodict.unparse(record_set, pretty=True, indent=' ' * 4)
     write(record_xml, filename)
+    return None
+
+
+def get_dwc_record_set(records: List[Dict]) -> Dict:
+    """Make a DwC RecordSet including XML namespaces and the provided observation records"""
+    namespaces = {f'@{k}': v for k, v in XML_NAMESPACES.items()}
+    return {'dwr:SimpleDarwinRecordSet': {**namespaces, 'dwr:SimpleDarwinRecord': records}}
 
 
 def observation_to_dwc_record(observation: Dict) -> Dict:
@@ -175,12 +193,6 @@ def photo_to_data_object(photo: Dict) -> Dict:
     return dwc_photo
 
 
-def get_dwc_record_set(records: List[Dict]) -> Dict:
-    """Make a DwC RecordSet including XML namespaces and the provided observation records"""
-    namespaces = {f'@{k}': v for k, v in XML_NAMESPACES.items()}
-    return {'dwr:SimpleDarwinRecordSet': {**namespaces, 'dwr:SimpleDarwinRecord': records}}
-
-
 def add_taxon_ancestors(observation):
     """observation['taxon'] doesn't have full ancestry, so we'll need to get that from the
     /taxa endpoint
@@ -218,14 +230,3 @@ def format_license(license_code: str) -> str:
 
 def format_location(location: List[float]) -> Dict[str, float]:
     return {'dwc:decimalLatitude': location[0], 'dwc:decimalLongitude': location[1]}
-
-
-def test_observation_to_dwc():
-    """Get a test observation, convert it to DwC, and write it to a file"""
-    response = get_observations(id=45524803)
-    observation = response['results'][0]
-    to_dwc(observation, join('test', 'sample_data', 'observations.dwc'))
-
-
-if __name__ == '__main__':
-    test_observation_to_dwc()
