@@ -31,22 +31,36 @@
         <dwc:identifiedBy>Alex Bairstow</dwc:identifiedBy>
         <dwc:identifiedByID></dwc:identifiedByID>
         <eol:dataObject>
-            <dcterms:identifier>72181173</dcterms:identifier>
-            <ac:furtherInformationURL>72181173</ac:furtherInformationURL>
-            <ac:derivedFrom>72181173</ac:derivedFrom>
-            <xap:UsageTerms>http://creativecommons.org/licenses/by-nc/4.0</xap:UsageTerms>
+            <dcterms:identifier>https://inaturalist-open-data.s3.amazonaws.com/photos/72181173/square.jpeg</dcterms:identifier>
+            <ac:furtherInformationURL>https://inaturalist-open-data.s3.amazonaws.com/photos/72181173/square.jpeg</ac:furtherInformationURL>
+            <ac:derivedFrom>https://inaturalist-open-data.s3.amazonaws.com/photos/72181173/square.jpeg</ac:derivedFrom>
             <dcterms:rights>(c) Alex Bairstow, some rights reserved (CC BY-NC)</dcterms:rights>
+            <dcterms:description>x13 seen this morning </dcterms:description>
+            <ap:CreateDate>2020-05-09 06:01:00-08:00</ap:CreateDate>
+            <dcterms:creator>Alex Bairstow</dcterms:creator>
+            <xap:Owner>Alex Bairstow</xap:Owner>
             <dcterms:publisher>iNaturalist</dcterms:publisher>
             <dcterms:type>http://purl.org/dc/dcmitype/StillImage</dcterms:type>
+            <ac:accessURI>https://inaturalist-open-data.s3.amazonaws.com/photos/72181173/square.jpeg</ac:accessURI>
+            <media:thumbnailURL>https://inaturalist-open-data.s3.amazonaws.com/photos/72181173/square.jpeg</media:thumbnailURL>
+            <dcterms:format>image/jpeg</dcterms:format>
+            <xap:UsageTerms>http://creativecommons.org/licenses/by-nc/4.0</xap:UsageTerms>
         </eol:dataObject>
         <eol:dataObject>
-            <dcterms:identifier>72180675</dcterms:identifier>
-            <ac:furtherInformationURL>72180675</ac:furtherInformationURL>
-            <ac:derivedFrom>72180675</ac:derivedFrom>
-            <xap:UsageTerms>http://creativecommons.org/licenses/by-nc/4.0</xap:UsageTerms>
+            <dcterms:identifier>https://inaturalist-open-data.s3.amazonaws.com/photos/72180675/square.jpeg</dcterms:identifier>
+            <ac:furtherInformationURL>https://inaturalist-open-data.s3.amazonaws.com/photos/72180675/square.jpeg</ac:furtherInformationURL>
+            <ac:derivedFrom>https://inaturalist-open-data.s3.amazonaws.com/photos/72180675/square.jpeg</ac:derivedFrom>
             <dcterms:rights>(c) Alex Bairstow, some rights reserved (CC BY-NC)</dcterms:rights>
+            <dcterms:description>x13 seen this morning </dcterms:description>
+            <ap:CreateDate>2020-05-09 06:01:00-08:00</ap:CreateDate>
+            <dcterms:creator>Alex Bairstow</dcterms:creator>
+            <xap:Owner>Alex Bairstow</xap:Owner>
             <dcterms:publisher>iNaturalist</dcterms:publisher>
             <dcterms:type>http://purl.org/dc/dcmitype/StillImage</dcterms:type>
+            <ac:accessURI>https://inaturalist-open-data.s3.amazonaws.com/photos/72180675/square.jpeg</ac:accessURI>
+            <media:thumbnailURL>https://inaturalist-open-data.s3.amazonaws.com/photos/72180675/square.jpeg</media:thumbnailURL>
+            <dcterms:format>image/jpeg</dcterms:format>
+            <xap:UsageTerms>http://creativecommons.org/licenses/by-nc/4.0</xap:UsageTerms>
         </eol:dataObject>
         <dwc:basisOfRecord>HumanObservation</dwc:basisOfRecord>
         <dwc:collectionCode>Observations</dwc:collectionCode>

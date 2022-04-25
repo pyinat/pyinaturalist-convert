@@ -1,9 +1,19 @@
-"""Utilities for converting observations to Darwin Core"""
+"""Utilities for converting observations to Darwin Core
+
+Usage example::
+
+    from pyinaturalist import get_observations
+    from pyinaturalist_convert import to_dwc
+
+    observations = get_observations(user_id='my_username')
+    to_dwc(observations, 'my_observations.dwc')
+"""
+# TODO: For sound recordings: eol:dataObject.dcterms:type and any other fields?
 from datetime import datetime
 from typing import Dict, List, Optional
 
 from flatten_dict import flatten
-from pyinaturalist import get_taxa_by_id
+from pyinaturalist import Photo, get_taxa_by_id
 
 from .constants import PathOrStr
 from .converters import AnyObservations, flatten_observations, write
@@ -60,24 +70,21 @@ ID_FIELDS = {
 
 # Fields from items in observation['photos']
 PHOTO_FIELDS = {
-    'id': [  # format ID into photo URL
-        'dcterms:identifier',
-        'ac:furtherInformationURL',
-        'ac:derivedFrom',
-    ],
-    'license_code': 'xap:UsageTerms',
+    'url': ['dcterms:identifier', 'ac:furtherInformationURL', 'ac:derivedFrom'],
     'attribution': 'dcterms:rights',
-    # 'dcterms/format': 'image/jpeg'  (determine from file extension)
-    # 'ac:accessURI': (link to 'original' size photo)
-    # 'media:thumbnailURL': (link to 'thumbnail' size photo)
 }
+
+# For reference: other photo fields that are added with additional formatting:
+# 'ac:accessURI': link to 'original' size photo
+# 'media:thumbnailURL': link to 'thumbnail' size photo
+# 'dcterms:format': MIME type, based on file extension
+# 'xap:UsageTerms': license code URL
 
 # Fields from observation JSON to add to photo info in eol:dataObject
 PHOTO_OBS_FIELDS = {
     'description': 'dcterms:description',
+    'observed_on': 'ap:CreateDate',
     'user.name': ['dcterms:creator', 'xap:Owner'],
-    # 'ap:CreateDate': ?  Format: 2020-05-10T19:59:48Z
-    # 'dcterms:modified': ?
 }
 
 # Fields that will be constant for all iNaturalist observations
@@ -89,7 +96,6 @@ CONSTANTS = {
 }
 PHOTO_CONSTANTS = {
     'dcterms:publisher': 'iNaturalist',
-    # TODO: Is this value different if there are sound recordings?
     'dcterms:type': 'http://purl.org/dc/dcmitype/StillImage',
 }
 
@@ -160,8 +166,9 @@ def observation_to_dwc_record(observation: Dict) -> Dict:
             dwc_record[dwc_field] = first_id.get(inat_field)
 
     # Add photos
-    photos = [photo_to_data_object(photo) for photo in observation['photos']]
-    dwc_record['eol:dataObject'] = photos
+    dwc_record['eol:dataObject'] = [
+        photo_to_data_object(observation, photo) for photo in observation['photos']
+    ]
 
     # Add constants
     for dwc_field, value in CONSTANTS.items():
@@ -179,15 +186,22 @@ def observation_to_dwc_record(observation: Dict) -> Dict:
     return dwc_record
 
 
-def photo_to_data_object(photo: Dict) -> Dict:
+def photo_to_data_object(observation: Dict, photo: Dict) -> Dict:
     """Translate observation photo fields to eol:dataObject fields"""
     dwc_photo = {}
     for inat_field, dwc_fields in PHOTO_FIELDS.items():
         for dwc_field in ensure_str_list(dwc_fields):
             dwc_photo[dwc_field] = photo[inat_field]
+    for inat_field, dwc_fields in PHOTO_OBS_FIELDS.items():
+        for dwc_field in ensure_str_list(dwc_fields):
+            dwc_photo[dwc_field] = observation.get(inat_field)
     for dwc_field, value in PHOTO_CONSTANTS.items():
         dwc_photo[dwc_field] = value
 
+    photo_obj = Photo.from_json(photo)
+    dwc_photo['ac:accessURI'] = photo_obj.square_url
+    dwc_photo['media:thumbnailURL'] = photo_obj.thumbnail_url
+    dwc_photo['dcterms:format'] = format_mimetype(photo['url'])  # Photo.mimetype in pyinat 0.17
     dwc_photo['xap:UsageTerms'] = format_license(photo['license_code'])
     return dwc_photo
 
@@ -232,6 +246,11 @@ def format_license(license_code: str) -> str:
 
 def format_location(location: List[float]) -> Dict[str, float]:
     return {'dwc:decimalLatitude': location[0], 'dwc:decimalLongitude': location[1]}
+
+
+def format_mimetype(url: str) -> str:
+    ext = url.lower().split('.')[-1].replace('jpg', 'jpeg')
+    return f'image/{ext}'
 
 
 def format_time(dt: datetime):
