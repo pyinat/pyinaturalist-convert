@@ -1,14 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<dwr:SimpleDarwinRecordSet xsi:schemaLocation="http://rs.tdwg.org/dwc/xsd/simpledarwincore/  http://rs.tdwg.org/dwc/xsd/tdwg_dwc_simple.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ac="http://rs.tdwg.org/ac/terms/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dwc="http://rs.tdwg.org/dwc/terms/" xmlns:dwr="http://rs.tdwg.org/dwc/xsd/simpledarwincore/" xmlns:eol="http://www.eol.org/transfer/content/1.0" xmlns:geo="http://www.w3.org/2003/01/geo/wgs84_pos#" xmlns:media="http://eol.org/schema/media/" xmlns:ref="http://eol.org/schema/reference/" xmlns:xap="http://ns.adobe.com/xap/1.0/">
+<dwr:SimpleDarwinRecordSet xsi:schemaLocation="http://rs.tdwg.org/dwc/xsd/simpledarwincore/  http://rs.tdwg.org/dwc/xsd/tdwg_dwc_simple.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ac="http://rs.tdwg.org/ac/terms/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dwc="http://rs.tdwg.org/dwc/terms/" xmlns:dwr="http://rs.tdwg.org/dwc/xsd/simpledarwincore/" xmlns:eol="http://www.eol.org/transfer/content/1.0" xmlns:geo="http://www.w3.org/2003/01/geo/wgs84_pos#" xmlns:media="http://eol.org/schema/media/" xmlns:ref="http://eol.org/schema/reference/" xmlns:xap="http://ns.adobe.com/xap/1.0/" xmlns:inat="https://www.inaturalist.org/schema/terms/">
     <dwr:SimpleDarwinRecord>
         <xap:CreateDate>2020-05-10 13:42:12-07:00</xap:CreateDate>
         <dcterms:description>x13 seen this morning </dcterms:description>
         <dwc:catalogNumber>45524803</dwc:catalogNumber>
         <dcterms:license>http://creativecommons.org/licenses/by-nc/4.0</dcterms:license>
-        <dwc:eventDate>2020-05-09T06:01:00-07:00</dwc:eventDate>
+        <dwc:verbatimEventDate>2020-05-09 06:01:00-08:00</dwc:verbatimEventDate>
         <dwc:verbatimLocality>San Diego County, CA, USA</dwc:verbatimLocality>
         <dwc:coordinateUncertaintyInMeters>4</dwc:coordinateUncertaintyInMeters>
-        <dwc:datasetName>iNaturalist research-grade observations</dwc:datasetName>
         <dwc:taxonID>48978</dwc:taxonID>
         <dwc:taxonRank>species</dwc:taxonRank>
         <dwc:scientificName>Dirona picta</dwc:scientificName>
@@ -24,26 +23,55 @@
         <dwc:occurrenceID>https://www.inaturalist.org/observations/45524803</dwc:occurrenceID>
         <dwc:inaturalistLogin>alex_bairstow</dwc:inaturalistLogin>
         <dwc:recordedBy>Alex Bairstow</dwc:recordedBy>
+        <dcterms:rightsHolder>Alex Bairstow</dcterms:rightsHolder>
+        <dwc:recordedByID></dwc:recordedByID>
+        <dwc:dateIdentified>2020-05-10T20:42:12+00:00</dwc:dateIdentified>
+        <dwc:identificationID>102092369</dwc:identificationID>
+        <dwc:identificationRemarks></dwc:identificationRemarks>
+        <dwc:identifiedBy>Alex Bairstow</dwc:identifiedBy>
+        <dwc:identifiedByID></dwc:identifiedByID>
         <eol:dataObject>
-            <dcterms:identifier>72181173</dcterms:identifier>
-            <ac:furtherInformationURL>72181173</ac:furtherInformationURL>
-            <ac:derivedFrom>72181173</ac:derivedFrom>
-            <xap:UsageTerms>http://creativecommons.org/licenses/by-nc/4.0</xap:UsageTerms>
+            <dcterms:identifier>https://inaturalist-open-data.s3.amazonaws.com/photos/72181173/square.jpeg</dcterms:identifier>
+            <ac:furtherInformationURL>https://inaturalist-open-data.s3.amazonaws.com/photos/72181173/square.jpeg</ac:furtherInformationURL>
+            <ac:derivedFrom>https://inaturalist-open-data.s3.amazonaws.com/photos/72181173/square.jpeg</ac:derivedFrom>
             <dcterms:rights>(c) Alex Bairstow, some rights reserved (CC BY-NC)</dcterms:rights>
+            <dcterms:description>x13 seen this morning </dcterms:description>
+            <ap:CreateDate>2020-05-09 06:01:00-08:00</ap:CreateDate>
+            <dcterms:creator>Alex Bairstow</dcterms:creator>
+            <xap:Owner>Alex Bairstow</xap:Owner>
             <dcterms:publisher>iNaturalist</dcterms:publisher>
             <dcterms:type>http://purl.org/dc/dcmitype/StillImage</dcterms:type>
+            <ac:accessURI>https://inaturalist-open-data.s3.amazonaws.com/photos/72181173/square.jpeg</ac:accessURI>
+            <media:thumbnailURL>https://inaturalist-open-data.s3.amazonaws.com/photos/72181173/square.jpeg</media:thumbnailURL>
+            <dcterms:format>image/jpeg</dcterms:format>
+            <xap:UsageTerms>http://creativecommons.org/licenses/by-nc/4.0</xap:UsageTerms>
         </eol:dataObject>
         <eol:dataObject>
-            <dcterms:identifier>72180675</dcterms:identifier>
-            <ac:furtherInformationURL>72180675</ac:furtherInformationURL>
-            <ac:derivedFrom>72180675</ac:derivedFrom>
-            <xap:UsageTerms>http://creativecommons.org/licenses/by-nc/4.0</xap:UsageTerms>
+            <dcterms:identifier>https://inaturalist-open-data.s3.amazonaws.com/photos/72180675/square.jpeg</dcterms:identifier>
+            <ac:furtherInformationURL>https://inaturalist-open-data.s3.amazonaws.com/photos/72180675/square.jpeg</ac:furtherInformationURL>
+            <ac:derivedFrom>https://inaturalist-open-data.s3.amazonaws.com/photos/72180675/square.jpeg</ac:derivedFrom>
             <dcterms:rights>(c) Alex Bairstow, some rights reserved (CC BY-NC)</dcterms:rights>
+            <dcterms:description>x13 seen this morning </dcterms:description>
+            <ap:CreateDate>2020-05-09 06:01:00-08:00</ap:CreateDate>
+            <dcterms:creator>Alex Bairstow</dcterms:creator>
+            <xap:Owner>Alex Bairstow</xap:Owner>
             <dcterms:publisher>iNaturalist</dcterms:publisher>
             <dcterms:type>http://purl.org/dc/dcmitype/StillImage</dcterms:type>
+            <ac:accessURI>https://inaturalist-open-data.s3.amazonaws.com/photos/72180675/square.jpeg</ac:accessURI>
+            <media:thumbnailURL>https://inaturalist-open-data.s3.amazonaws.com/photos/72180675/square.jpeg</media:thumbnailURL>
+            <dcterms:format>image/jpeg</dcterms:format>
+            <xap:UsageTerms>http://creativecommons.org/licenses/by-nc/4.0</xap:UsageTerms>
         </eol:dataObject>
         <dwc:basisOfRecord>HumanObservation</dwc:basisOfRecord>
         <dwc:collectionCode>Observations</dwc:collectionCode>
         <dwc:institutionCode>iNaturalist</dwc:institutionCode>
+        <dwc:geodeticDatum>EPSG:4326</dwc:geodeticDatum>
+        <dwc:decimalLatitude>32.8430971478</dwc:decimalLatitude>
+        <dwc:decimalLongitude>-117.2815829044</dwc:decimalLongitude>
+        <inat:captive>wild</inat:captive>
+        <dwc:establishmentMeans>wild</dwc:establishmentMeans>
+        <dwc:datasetName>iNaturalist research-grade observations</dwc:datasetName>
+        <dwc:eventDate>2020-05-09T06:01:00-08:00</dwc:eventDate>
+        <dwc:eventTime>06:01-0800</dwc:eventTime>
     </dwr:SimpleDarwinRecord>
 </dwr:SimpleDarwinRecordSet>

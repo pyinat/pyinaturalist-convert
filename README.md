@@ -26,6 +26,7 @@ Export formats currently supported:
 * CSV, Excel, and anything else supported by [tablib](https://tablib.readthedocs.io/en/stable/formats/)
 * Feather, Parquet, and anything else supported by [pandas](https://pandas.pydata.org/pandas-docs/stable/user_guide/io.html)
 * GeoJSON and GPX
+* Darwin Core
 
 # Installation
 Install with pip:
@@ -57,7 +58,6 @@ to_csv(observations, 'my_observations.csv')
 # Planned and Possible Features
 * Convert to an HTML report
 * Convert to print-friendly format
-* Convert to Simple Darwin Core
 * Export to any [SQLAlchemy-compatible database engine](https://docs.sqlalchemy.org/en/14/core/engines.html#supported-databases)
 * Import and convert metadata and images from [iNaturalist open data on Amazon]()
     * See also [pyinaturalist-open-data](https://github.com/JWCook/pyinaturalist-open-data), which may eventually be merged with this package

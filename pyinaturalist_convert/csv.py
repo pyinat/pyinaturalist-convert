@@ -37,6 +37,7 @@ DTYPES = {
     'user.site_id': int,
     'user.species_count': int,
     'user.suspended': bool,
+    # TODO: Convert datetimes to UTC and datetime64
     # 'observed_on': 'datetime64',
     # 'created_at': 'datetime64',
     # 'updated_at': 'datetime64',
@@ -127,7 +128,6 @@ def format_response(response):
     return df
 
 
-# TODO: Normalize datetimes to UTC, convert to datetime64
 def format_export(df):
     """Format an exported CSV file to be more consistent with API response format"""
     logger.info(f'Formatting {len(df)} observation records')
