@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<dwr:SimpleDarwinRecordSet xsi:schemaLocation="http://rs.tdwg.org/dwc/xsd/simpledarwincore/  http://rs.tdwg.org/dwc/xsd/tdwg_dwc_simple.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ac="http://rs.tdwg.org/ac/terms/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dwc="http://rs.tdwg.org/dwc/terms/" xmlns:dwr="http://rs.tdwg.org/dwc/xsd/simpledarwincore/" xmlns:eol="http://www.eol.org/transfer/content/1.0" xmlns:geo="http://www.w3.org/2003/01/geo/wgs84_pos#" xmlns:media="http://eol.org/schema/media/" xmlns:ref="http://eol.org/schema/reference/" xmlns:xap="http://ns.adobe.com/xap/1.0/">
+<dwr:SimpleDarwinRecordSet xsi:schemaLocation="http://rs.tdwg.org/dwc/xsd/simpledarwincore/  http://rs.tdwg.org/dwc/xsd/tdwg_dwc_simple.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ac="http://rs.tdwg.org/ac/terms/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dwc="http://rs.tdwg.org/dwc/terms/" xmlns:dwr="http://rs.tdwg.org/dwc/xsd/simpledarwincore/" xmlns:eol="http://www.eol.org/transfer/content/1.0" xmlns:geo="http://www.w3.org/2003/01/geo/wgs84_pos#" xmlns:media="http://eol.org/schema/media/" xmlns:ref="http://eol.org/schema/reference/" xmlns:xap="http://ns.adobe.com/xap/1.0/" xmlns:inat="https://www.inaturalist.org/schema/terms/">
     <dwr:SimpleDarwinRecord>
         <xap:CreateDate>2020-05-10 13:42:12-07:00</xap:CreateDate>
         <dcterms:description>x13 seen this morning </dcterms:description>
@@ -24,6 +24,17 @@
         <dwc:occurrenceID>https://www.inaturalist.org/observations/45524803</dwc:occurrenceID>
         <dwc:inaturalistLogin>alex_bairstow</dwc:inaturalistLogin>
         <dwc:recordedBy>Alex Bairstow</dwc:recordedBy>
+        <dcterms:rightsHolder>Alex Bairstow</dcterms:rightsHolder>
+        <dwc:recordedByID></dwc:recordedByID>
+        <dwc:dateIdentified>2020-05-10T20:42:12+00:00</dwc:dateIdentified>
+        <dwc:identificationID>102092369</dwc:identificationID>
+        <dwc:identificationRemarks></dwc:identificationRemarks>
+        <dwc:identifiedBy>Alex Bairstow</dwc:identifiedBy>
+        <dwc:identifiedByID></dwc:identifiedByID>
+        <dwc:decimalLatitude>32.8430971478</dwc:decimalLatitude>
+        <dwc:decimalLongitude>-117.2815829044</dwc:decimalLongitude>
+        <inat:captive>wild</inat:captive>
+        <dwc:establishmentMeans>wild</dwc:establishmentMeans>
         <eol:dataObject>
             <dcterms:identifier>72181173</dcterms:identifier>
             <ac:furtherInformationURL>72181173</ac:furtherInformationURL>
@@ -45,5 +56,6 @@
         <dwc:basisOfRecord>HumanObservation</dwc:basisOfRecord>
         <dwc:collectionCode>Observations</dwc:collectionCode>
         <dwc:institutionCode>iNaturalist</dwc:institutionCode>
+        <dwc:geodeticDatum>EPSG:4326</dwc:geodeticDatum>
     </dwr:SimpleDarwinRecord>
 </dwr:SimpleDarwinRecordSet>
