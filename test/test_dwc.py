@@ -13,9 +13,8 @@ def test_observation_to_dwc():
 
     # Get as a dict, and just test for a few basic terms
     dwc_record = to_dwc(observation)[0]
-    print(dwc_record)
-
     assert dwc_record['dwc:catalogNumber'] == 45524803
-    assert dwc_record['dwc:scientificName'] == 'Dirona picta'
     assert dwc_record['dwc:decimalLatitude'] == 32.8430971478
     assert dwc_record['dwc:decimalLongitude'] == -117.2815829044
+    assert dwc_record['dwc:eventDate'] == '2020-05-09T06:01:00-08:00'
+    assert dwc_record['dwc:scientificName'] == 'Dirona picta'

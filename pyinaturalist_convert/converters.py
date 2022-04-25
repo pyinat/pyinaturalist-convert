@@ -153,6 +153,8 @@ def write(content, filename, mode='w'):
         makedirs(dirname(filename), exist_ok=True)
     with open(filename, mode) as f:
         f.write(content)
+        if not content.endswith('\n'):
+            f.write('\n')
 
 
 def _simplify_observation(obs):

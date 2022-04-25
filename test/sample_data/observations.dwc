@@ -5,10 +5,9 @@
         <dcterms:description>x13 seen this morning </dcterms:description>
         <dwc:catalogNumber>45524803</dwc:catalogNumber>
         <dcterms:license>http://creativecommons.org/licenses/by-nc/4.0</dcterms:license>
-        <dwc:eventDate>2020-05-09T06:01:00-07:00</dwc:eventDate>
+        <dwc:verbatimEventDate>2020-05-09 06:01:00-08:00</dwc:verbatimEventDate>
         <dwc:verbatimLocality>San Diego County, CA, USA</dwc:verbatimLocality>
         <dwc:coordinateUncertaintyInMeters>4</dwc:coordinateUncertaintyInMeters>
-        <dwc:datasetName>iNaturalist research-grade observations</dwc:datasetName>
         <dwc:taxonID>48978</dwc:taxonID>
         <dwc:taxonRank>species</dwc:taxonRank>
         <dwc:scientificName>Dirona picta</dwc:scientificName>
@@ -31,10 +30,6 @@
         <dwc:identificationRemarks></dwc:identificationRemarks>
         <dwc:identifiedBy>Alex Bairstow</dwc:identifiedBy>
         <dwc:identifiedByID></dwc:identifiedByID>
-        <dwc:decimalLatitude>32.8430971478</dwc:decimalLatitude>
-        <dwc:decimalLongitude>-117.2815829044</dwc:decimalLongitude>
-        <inat:captive>wild</inat:captive>
-        <dwc:establishmentMeans>wild</dwc:establishmentMeans>
         <eol:dataObject>
             <dcterms:identifier>72181173</dcterms:identifier>
             <ac:furtherInformationURL>72181173</ac:furtherInformationURL>
@@ -57,5 +52,12 @@
         <dwc:collectionCode>Observations</dwc:collectionCode>
         <dwc:institutionCode>iNaturalist</dwc:institutionCode>
         <dwc:geodeticDatum>EPSG:4326</dwc:geodeticDatum>
+        <dwc:decimalLatitude>32.8430971478</dwc:decimalLatitude>
+        <dwc:decimalLongitude>-117.2815829044</dwc:decimalLongitude>
+        <inat:captive>wild</inat:captive>
+        <dwc:establishmentMeans>wild</dwc:establishmentMeans>
+        <dwc:datasetName>iNaturalist research-grade observations</dwc:datasetName>
+        <dwc:eventDate>2020-05-09T06:01:00-08:00</dwc:eventDate>
+        <dwc:eventTime>06:01-0800</dwc:eventTime>
     </dwr:SimpleDarwinRecord>
 </dwr:SimpleDarwinRecordSet>

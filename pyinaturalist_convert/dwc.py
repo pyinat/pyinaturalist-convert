@@ -8,17 +8,16 @@ from pyinaturalist import get_taxa_by_id
 from .constants import PathOrStr
 from .converters import AnyObservations, flatten_observations, write
 
-# Fields from observation JSON
+# Top-level fields from observation JSON
 OBSERVATION_FIELDS = {
     'created_at': 'xap:CreateDate',  # Different format
     'description': 'dcterms:description',
     'id': 'dwc:catalogNumber',
     'license_code': 'dcterms:license',
-    'observed_on': 'dwc:eventDate',
+    'observed_on': 'dwc:verbatimEventDate',  # Original timestamp, unconverted
     'place_guess': 'dwc:verbatimLocality',
     'positional_accuracy': 'dwc:coordinateUncertaintyInMeters',
     'public_positional_accuracy': 'dwc:coordinateUncertaintyInMeters',
-    'quality_grade': 'dwc:datasetName',
     'taxon.id': 'dwc:taxonID',
     'taxon.rank': 'dwc:taxonRank',
     'taxon.name': 'dwc:scientificName',
@@ -28,24 +27,29 @@ OBSERVATION_FIELDS = {
     'taxon.order': 'dwc:order',
     'taxon.family': 'dwc:family',
     'taxon.genus': 'dwc:genus',
-    'time_observed_at': 'dwc:eventDate',  # ISO format; use as-is
     'updated_at': 'dcterms:modified',
     'uri': ['dcterms:references', 'dwc:occurrenceDetails', 'dwc:occurrenceID'],
     'user.login': 'dwc:inaturalistLogin',
     'user.name': ['dwc:recordedBy', 'dcterms:rightsHolder'],
     'user.orcid': 'dwc:recordedByID',
-    # 'observed_on': 'dwc:verbatimEventDate',  # but with different format: March 17, 2008 12:00 UTC
-    # 'time_observed_at: 'dwc:eventTime'  # Time portion only, in UTC
-    # 'dwc:verbatimEventDate': Probably the user-submitted date from photo metadata; just reuse observed_on?
-    # 'dwc:establishmentMeans': 'wild' or 'cultivated'; may need a separate API request to get this info?
-    # 'dwc:countryCode': 2-letter country code; possibly get from place_guess?
-    # 'dwc:stateProvince': Also get from place_guess? Or separate query to /places endpoint? Or just omit this?
-    # 'dwc:sex': From annotations
-    # 'dwc:lifeStage': From annotations
 }
 
+# For reference: other fields that are added with additional formatting:
+# 'license_code': 'dcterms:license'
+# 'quality_grade': 'dwc:datasetName'
+# 'captive': ['inat:captive', 'dwc:establishmentMeans']
+# 'location': ['dwc:decimalLatitude', 'dwc:decimalLongitude']
+# 'observed_on': 'dwc:eventDate'  # ISO datetime
+# 'observed_on', 'dwc:eventTime'  # ISO datetime, Time portion only
 
-# TODO: Fields from first ID (observation['identifications'][0])
+# Additional fields that could potentially be added:
+# 'dwc:sex': From annotations
+# 'dwc:lifeStage': From annotations
+# 'dwc:countryCode': 2-letter country code; possibly get from place_guess
+# 'dwc:stateProvince':This may require a separate query to /places endpoint, so skipping for now
+
+
+# Fields from first ID (observation['identifications'][0])
 ID_FIELDS = {
     'created_at': 'dwc:dateIdentified',
     'id': 'dwc:identificationID',
@@ -88,12 +92,6 @@ PHOTO_CONSTANTS = {
     # TODO: Is this value different if there are sound recordings?
     'dcterms:type': 'http://purl.org/dc/dcmitype/StillImage',
 }
-
-# Other fields that are added with additional formatting:
-# 'license_code': 'dcterms:license'
-# 'quality_grade': 'dwc:datasetName'
-# 'captive': ['inat:captive', 'dwc:establishmentMeans']
-# 'location': ['dwc:decimalLatitude', 'dwc:decimalLongitude']
 
 # Other constants needed for converting/formatting
 CC_BASE_URL = 'http://creativecommons.org/licenses'
@@ -161,14 +159,6 @@ def observation_to_dwc_record(observation: Dict) -> Dict:
         for inat_field, dwc_field in ID_FIELDS.items():
             dwc_record[dwc_field] = first_id.get(inat_field)
 
-    # Add additional formatted fields
-    dwc_record.update(format_location(observation['location']))
-    establishment_means = 'cultivated' if observation['captive'] else 'wild'
-    dwc_record['inat:captive'] = establishment_means
-    dwc_record['dwc:establishmentMeans'] = establishment_means
-    dwc_record['dwc:datasetName'] = format_dataset_name(observation['quality_grade'])
-    dwc_record['dcterms:license'] = format_license(observation['license_code'])
-
     # Add photos
     photos = [photo_to_data_object(photo) for photo in observation['photos']]
     dwc_record['eol:dataObject'] = photos
@@ -176,6 +166,15 @@ def observation_to_dwc_record(observation: Dict) -> Dict:
     # Add constants
     for dwc_field, value in CONSTANTS.items():
         dwc_record[dwc_field] = value
+
+    # Add fields that require some formatting
+    dwc_record.update(format_location(observation['location']))
+    dwc_record['inat:captive'] = format_captive(observation['captive'])
+    dwc_record['dwc:establishmentMeans'] = format_captive(observation['captive'])
+    dwc_record['dwc:datasetName'] = format_dataset_name(observation['quality_grade'])
+    dwc_record['dwc:eventDate'] = format_datetime(observation['observed_on'])
+    dwc_record['dwc:eventTime'] = format_time(observation['observed_on'])
+    dwc_record['dcterms:license'] = format_license(observation['license_code'])
 
     return dwc_record
 
@@ -211,13 +210,16 @@ def ensure_str_list(value):
     return value if isinstance(value, list) else [value]
 
 
+def format_captive(captive: bool) -> str:
+    return 'cultivated' if captive else 'wild'
+
+
 def format_dataset_name(quality_grade: str) -> str:
     return f'iNaturalist {DATASET_TITLES.get(quality_grade, "")} observations'
 
 
-# TODO
 def format_datetime(dt: datetime) -> str:
-    pass
+    return dt.replace(microsecond=0).isoformat()
 
 
 def format_license(license_code: str) -> str:
@@ -230,3 +232,7 @@ def format_license(license_code: str) -> str:
 
 def format_location(location: List[float]) -> Dict[str, float]:
     return {'dwc:decimalLatitude': location[0], 'dwc:decimalLongitude': location[1]}
+
+
+def format_time(dt: datetime):
+    return dt.strftime("%H:%M%z")
