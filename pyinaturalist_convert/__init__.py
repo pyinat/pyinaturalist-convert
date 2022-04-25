@@ -3,7 +3,7 @@ from .constants import *
 from .converters import *
 from .csv import load_csv_exports
 from .dwc import to_dwc
-from .dwca import download_dwca
+from .dwca import download_dwca, download_taxa
 from .geojson import to_geojson
 from .odp import download_odp_metadata
 

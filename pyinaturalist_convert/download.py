@@ -144,10 +144,11 @@ def download_s3_file(bucket_name: str, key: str, dest: PathOrStr):
         )
 
 
-def unzip_progress(archive_path, dest_dir):
+def unzip_progress(archive_path: Path, dest_dir: Path):
     """Extract a zip file with progress"""
     # total = sum(getattr(member, "file_size", 0) for member in archive.infolist())
     # progress = get_download_progress(total)
+    dest_dir.mkdir(parents=True, exist_ok=True)
     with ZipFile(archive_path) as archive:
         for member in archive.infolist():
             progress_file = ProgressIO(
@@ -160,8 +161,9 @@ def unzip_progress(archive_path, dest_dir):
                 copyfileobj(f, progress_file)
 
 
-def untar_progress(archive_path, dest_dir):
+def untar_progress(archive_path: Path, dest_dir: Path):
     """Extract a tar file with progress"""
+    dest_dir.mkdir(parents=True, exist_ok=True)
     progress_file = ProgressIO(archive_path)
     with FlatTarFile.open(fileobj=progress_file) as archive, progress_file.progress:
         archive.extractall(path=dest_dir)
