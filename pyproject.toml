@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyinaturalist-convert"
-version = "0.2.2"
+version = "0.3"
 description = "Convert iNaturalist observation data to and from multiple formats"
 authors = ["Jordan Cook"]
 license = "MIT"
@@ -26,12 +26,14 @@ include = [
 
 [tool.poetry.dependencies]
 python = "^3.8"
-pyinaturalist = ">=0.15"
+geojson = ">=2.5"
+pyinaturalist = ">=0.17.0.dev2"  # TODO: stable release
 flatten-dict = "^0.4.0"
-tablib = "^3.0.0"
+tablib = "^3.0"
 tabulate = "^0.8.9"
 
 # Optional dependencies for specific data formats
+boto3 = {version = ">=1.20", optional = true}
 gpxpy = {version = "^1.4.2", optional = true}
 openpyxl = {version = ">=2.6", optional = true}
 pandas = {version = ">=1.2", optional = true}
@@ -39,10 +41,9 @@ pyarrow = {version = ">=4.0", optional = true}
 python-dwca-reader = {version = "^0.15.0", optional = true}
 xmltodict = {version = ">=0.12", optional = true}
 tables = {version = ">=3.6", optional = true}
-geojson = "^2.5.0"
 
 [tool.poetry.extras]
-all = ["gpxpy", "openpyxl", "pandas", "pyarrow", "python-dwca-reader", "tablib[all]", "xmltodict", "geojson"]
+all = ["boto3", "gpxpy", "openpyxl", "pandas", "pyarrow", "python-dwca-reader", "tablib[all]", "xmltodict"]
 csv-import = ["pandas"]
 df = ["pandas"]
 dwc = ["python-dwca-reader", "xmltodict"]
@@ -50,9 +51,9 @@ feather = ["pandas", "pyarrow"]
 hdf = ["pandas", "tables"]
 html = ["jinja", "tablib[html]"]
 gpx = ["gpxpy"]
+odp = ["boto3"]
 parquet = ["pandas", "pyarrow"]
 xlsx = ["openpyxl"]
-geojson = ["geojson"]
 
 [tool.poetry.dev-dependencies]
 coverage = ">=6.3"
@@ -85,3 +86,7 @@ line_length = 100
 skip_gitignore = true
 skip = ['pyinaturalist_convert/__init__.py']
 known_first_party = ['test']
+
+[tool.mypy]
+ignore_missing_imports = true
+files = ['pyinaturalist_convert']

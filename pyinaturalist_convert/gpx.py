@@ -5,7 +5,7 @@ from pyinaturalist import Observation
 from pyinaturalist.constants import ResponseResult
 from pyinaturalist.converters import convert_observation_timestamps
 
-from pyinaturalist_convert.converters import AnyObservations, ensure_list, write
+from .converters import AnyObservations, ensure_list, write
 
 logger = getLogger(__name__)
 
