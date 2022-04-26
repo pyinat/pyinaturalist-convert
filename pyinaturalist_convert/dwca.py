@@ -1,13 +1,18 @@
 """Utilities for working with the iNat GBIF DwC archive"""
 import sqlite3
+from logging import getLogger
 from os.path import basename, splitext
 from pathlib import Path
 from time import time
-from typing import Dict, Iterable
+from typing import Iterable, List
+
+from pyinaturalist.models import Taxon
 
 from .constants import DATA_DIR, DWCA_DIR, DWCA_TAXA_URL, DWCA_URL, PathOrStr
 from .download import check_download, download_file, unzip_progress
 from .sqlite import load_table
+
+logger = getLogger(__name__)
 
 
 def download_dwca(dest_dir: PathOrStr = DATA_DIR):
@@ -126,6 +131,12 @@ def load_taxonomy_text_search_tables(
 ):
     """Create full text search tables from the iNat taxonomy DwC-A archive.
     Requires SQLite FTS5 extension.
+
+    Args:
+        csv_dir: Directory containing extracted CSV files
+        db_path: Path to SQLite database; use `:memory:` to create an in-memory database
+        base_table_name: Base table name for the text search table(s)
+        lanugages: List of languages for which common names will be loaded
     """
     csv_dir = Path(csv_dir).expanduser()
     with sqlite3.connect(db_path) as conn:
@@ -153,8 +164,10 @@ def load_taxonomy_text_search_tables(
             for path in csv_dir.glob('VernacularNames-*.csv')
         }
 
-    print(f'Loading common names for {len(common_name_csvs)} languages:')
-    print(list(common_name_csvs.keys()))
+    logger.info(
+        f'Loading common names for {len(common_name_csvs)} languages:'
+        ', '.join(common_name_csvs.keys())
+    )
     for lang, csv_file in common_name_csvs.items():
         table_name = f'{base_table_name}_{lang}'.replace('-', '_')
         with sqlite3.connect(db_path) as conn:
@@ -179,38 +192,23 @@ class TaxonAutocompleter:
         self.base_table_name = base_table_name
         self.limit = limit
         self.connection = sqlite3.connect(db_path)
+        self.connection.row_factory = sqlite3.Row
 
-    def search(
-        self,
-        q: str,
-        language: str = 'english',
-        # common_only: bool = False,
-    ) -> Dict[int, str]:
+    def search(self, q: str, language: str = 'english') -> List[Taxon]:
         """Search for taxa by scientific and/or common name.
 
         Returns:
             ``{taxon_id: name}``
         """
-        # base_query = f"SELECT * FROM {{}} WHERE name MATCH '{q}*'"
-        # q_latin = base_query.format(self.base_table_name)
-        # q_common = base_query.format(f'{self.base_table_name}_{language}'.replace('-', '_'))
-
-        # if language and not common_only:
-        #     query = f'{q_latin} UNION {q_common}'
-        # elif not language:
-        #     query = q_latin
-        # elif common_only:
-        #     query = q_common
-        # query += f' LIMIT {self.limit}'
-
         query = f"SELECT * FROM {self.base_table_name} WHERE name MATCH '{q}*' "
         if language:
             query += (
                 f"UNION SELECT * FROM {self.base_table_name}_{language} WHERE name MATCH '{q}*' "
             )
         query += f' LIMIT {self.limit}'
-        results = self.connection.execute(query).fetchall()
-        return {int(row[1]): row[0] for row in results}
+
+        with self.connection as conn:
+            return [Taxon(id=int(row['taxon_id']), name=row['name']) for row in conn.execute(query)]
 
 
 def benchmark():
@@ -222,5 +220,5 @@ def benchmark():
         autocompleter.search('berry', language=None)
     elapsed = time() - start
 
-    print(f'Total: {elapsed:.2f}s')
-    print(f'Avg per query: {(elapsed/iterations)*1000:2f}ms')
+    logger.info(f'Total: {elapsed:.2f}s')
+    logger.info(f'Avg per query: {(elapsed/iterations)*1000:2f}ms')

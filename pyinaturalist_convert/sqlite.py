@@ -1,13 +1,17 @@
 """Utilities to help load date into a SQLite database"""
 # TODO: Indexes
 # TODO: Progress bar!
+# TODO: Load all columns with original names if a column map isn't provided
 import sqlite3
 from csv import reader as csv_reader
+from logging import getLogger
 from pathlib import Path
 from time import time
 from typing import Dict, List
 
 from .constants import PathOrStr
+
+logger = getLogger(__name__)
 
 
 def load_table(
@@ -31,7 +35,7 @@ def load_table(
     csv_path = Path(csv_path).expanduser()
     db_path = Path(db_path).expanduser()
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    print(f'Loading {csv_path} into {db_path}')
+    logger.info(f'Loading {csv_path} into {db_path}')
 
     table_name = table_name or db_path.stem
     table_cols = ', '.join([f'{k} TEXT' for k in column_map.values() if k != pk])
@@ -43,12 +47,13 @@ def load_table(
         conn.execute(
             f'CREATE TABLE IF NOT EXISTS {table_name} ({pk} INTEGER PRIMARY KEY, {table_cols})'
         )
+
         reader = ChunkReader(f, fields=csv_cols)
         for chunk in reader:
             conn.executemany(f'INSERT OR REPLACE INTO {table_name} VALUES ({placeholders})', chunk)
         conn.commit()
 
-    print(f'Completed in {time() - start:.2f}s')
+    logger.info(f'Completed in {time() - start:.2f}s')
 
 
 class ChunkReader:
