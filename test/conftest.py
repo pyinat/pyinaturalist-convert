@@ -1,12 +1,12 @@
 import json
-from os.path import abspath, dirname, join
+from pathlib import Path
 
-PROJECT_DIR = abspath(dirname(dirname(__file__)))
-SAMPLE_DATA_DIR = join(PROJECT_DIR, 'test', 'sample_data')
+PROJECT_DIR = Path(__file__).parent.parent.absolute()
+SAMPLE_DATA_DIR = PROJECT_DIR / 'test' / 'sample_data'
 
 
 def load_sample_data(filename):
-    with open(join(SAMPLE_DATA_DIR, filename), encoding='utf-8') as f:
+    with open(SAMPLE_DATA_DIR / filename, encoding='utf-8') as f:
         if filename.endswith('json'):
             return json.load(f)
         else:

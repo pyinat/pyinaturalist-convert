@@ -1,0 +1,30 @@
+# flake8: noqa: F401
+from pathlib import Path
+from tempfile import gettempdir
+
+from pyinaturalist_convert.dwca import (
+    TaxonAutocompleter,
+    download_dwca,
+    download_taxa,
+    load_taxonomy_table,
+    load_taxonomy_text_search_tables,
+)
+from test.conftest import SAMPLE_DATA_DIR
+
+CSV_DIR = SAMPLE_DATA_DIR / 'inaturalist-taxonomy.dwca'
+TEMP = Path(gettempdir())
+
+
+def test_text_search():
+    db_path = TEMP / 'taxa.db'
+    load_taxonomy_text_search_tables(csv_dir=CSV_DIR, db_path=db_path)
+    ta = TaxonAutocompleter(db_path=db_path)
+
+    results = ta.search('ave')
+    assert results[0].id == 3 and results[0].name == 'Aves'
+
+    results = ta.search('franco')
+    assert len(results) == 3
+    assert results[0].id == 649 and results[0].name == 'Black Francolin'
+
+    db_path.unlink()
