@@ -1,6 +1,8 @@
 # flake8: noqa: F401
+from logging import getLogger
 from pathlib import Path
 from tempfile import gettempdir
+from time import time
 
 from pyinaturalist_convert.dwca import (
     TaxonAutocompleter,
@@ -13,6 +15,8 @@ from test.conftest import SAMPLE_DATA_DIR
 
 CSV_DIR = SAMPLE_DATA_DIR / 'inaturalist-taxonomy.dwca'
 TEMP = Path(gettempdir())
+
+logger = getLogger(__name__)
 
 
 def test_text_search():
@@ -28,3 +32,16 @@ def test_text_search():
     assert results[0].id == 649 and results[0].name == 'Black Francolin'
 
     db_path.unlink()
+
+
+def benchmark():
+    iterations = 10000
+    ta = TaxonAutocompleter()
+    start = time()
+
+    for _ in range(iterations):
+        ta.search('berry', language=None)
+    elapsed = time() - start
+
+    logger.info(f'Total: {elapsed:.2f}s')
+    logger.info(f'Avg per query: {(elapsed/iterations)*1000:2f}ms')
