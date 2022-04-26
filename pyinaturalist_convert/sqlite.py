@@ -1,4 +1,6 @@
 """Utilities to help load date into a SQLite database"""
+# TODO: Indexes
+# TODO: Progress bar!
 import sqlite3
 from csv import reader as csv_reader
 from pathlib import Path
@@ -29,10 +31,12 @@ def load_table(
     csv_path = Path(csv_path).expanduser()
     db_path = Path(db_path).expanduser()
     db_path.parent.mkdir(parents=True, exist_ok=True)
+    print(f'Loading {csv_path} into {db_path}')
 
     table_name = table_name or db_path.stem
     table_cols = ', '.join([f'{k} TEXT' for k in column_map.values() if k != pk])
     csv_cols = list(column_map.keys())
+    placeholders = ','.join(['?'] * len(column_map))
     start = time()
 
     with sqlite3.connect(db_path) as conn, open(csv_path) as f:
@@ -41,7 +45,7 @@ def load_table(
         )
         reader = ChunkReader(f, fields=csv_cols)
         for chunk in reader:
-            conn.executemany(f'INSERT OR REPLACE INTO {table_name} VALUES (?,?,?)', chunk)
+            conn.executemany(f'INSERT OR REPLACE INTO {table_name} VALUES ({placeholders})', chunk)
         conn.commit()
 
     print(f'Completed in {time() - start:.2f}s')
