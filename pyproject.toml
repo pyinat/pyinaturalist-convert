@@ -27,7 +27,7 @@ include = [
 [tool.poetry.dependencies]
 python = "^3.8"
 geojson = ">=2.5"
-pyinaturalist = ">=0.17.0.dev2"  # TODO: stable release
+pyinaturalist = ">=0.17.0.dev4"  # TODO: stable release
 flatten-dict = "^0.4.0"
 tablib = "^3.0"
 tabulate = "^0.8.9"
@@ -42,18 +42,33 @@ python-dwca-reader = {version = "^0.15.0", optional = true}
 xmltodict = {version = ">=0.12", optional = true}
 tables = {version = ">=3.6", optional = true}
 
+# Documentation dependencies
+furo                        = {optional=true, version="^2022.2.14.1"}
+myst-parser                 = {optional=true, version="^0.17.0"}
+sphinx                      = {optional=true, version="^4.2.0"}
+sphinx-autodoc-typehints    = {optional=true, version="^1.17"}
+sphinx-copybutton           = {optional=true, version=">=0.5"}
+sphinx-inline-tabs          = {optional=true, version="^2022.1.2b11"}
+sphinx-panels               = {optional=true, version="^0.6.0"}
+sphinxcontrib-apidoc        = {optional=true, version="^0.3"}
+
 [tool.poetry.extras]
-all = ["boto3", "gpxpy", "openpyxl", "pandas", "pyarrow", "python-dwca-reader", "tablib[all]", "xmltodict"]
-csv-import = ["pandas"]
-df = ["pandas"]
-dwc = ["python-dwca-reader", "xmltodict"]
-feather = ["pandas", "pyarrow"]
-hdf = ["pandas", "tables"]
-html = ["jinja", "tablib[html]"]
-gpx = ["gpxpy"]
-odp = ["boto3"]
-parquet = ["pandas", "pyarrow"]
-xlsx = ["openpyxl"]
+csv        = ["pandas"]
+df         = ["pandas"]
+dwc        = ["python-dwca-reader", "xmltodict"]
+feather    = ["pandas", "pyarrow"]
+gpx        = ["gpxpy"]
+hdf        = ["pandas", "tables"]
+html       = ["jinja", "tablib[html]"]
+odp        = ["boto3"]
+parquet    = ["pandas", "pyarrow"]
+xlsx       = ["openpyxl"]
+
+all = ["boto3", "gpxpy", "openpyxl", "pandas", "pyarrow", "python-dwca-reader",
+       "tablib[all]", "xmltodict"]
+docs = ["furo", "myst-parser", "sphinx", "sphinx-autodoc-typehints", "sphinx-copybutton",
+        "sphinx-inline-tabs", "sphinx-panels", "sphinxcontrib-apidoc"]
+
 
 [tool.poetry.dev-dependencies]
 coverage = ">=6.3"
