@@ -19,6 +19,7 @@ DEFAULT_OBSERVATION_ATTRS = [
 ]
 
 
+# TODO: filename option
 def to_geojson(
     observations: AnyObservations, properties: List[str] = DEFAULT_OBSERVATION_ATTRS
 ) -> FeatureCollection:
