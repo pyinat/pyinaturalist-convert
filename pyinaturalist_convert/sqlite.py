@@ -9,6 +9,9 @@ from typing import Dict, List
 from .constants import PathOrStr
 from .download import MultiProgress
 
+# Add extra text search prefix indexes to speed up searches for these prefix lengths
+PREFIX_INDEXES = [2, 3, 4, 5]
+
 logger = getLogger(__name__)
 
 
@@ -100,12 +103,13 @@ def _create_table(conn, table_name, non_pk_cols, pk, fts5):
     # For text search, the "pk" will be the indexed text column; all others are unindexed
     if fts5:
         table_cols = [pk] + [f'{k} UNINDEXED' for k in non_pk_cols]
+        prefix_idxs = [f'prefix={i}' for i in PREFIX_INDEXES]
         stmt = (
-            f'CREATE VIRTUAL TABLE IF NOT EXISTS {table_name} USING fts5({", ".join(table_cols)});'
+            f'CREATE VIRTUAL TABLE IF NOT EXISTS {table_name} '
+            f'USING fts5({", ".join(table_cols + prefix_idxs)});'
         )
-    # For regular tables, assume an integer pk and text columns for the rest
+    # For regular tables, assume an integer primary key and text columns for the rest
     else:
-        table_cols = ', '.join([f'{k} TEXT' for k in non_pk_cols])
         table_cols = [f'{pk} INTEGER PRIMARY KEY'] + [f'{k} TEXT' for k in non_pk_cols]
         stmt = f'CREATE TABLE IF NOT EXISTS {table_name} ({", ".join(table_cols)});'
     conn.execute(stmt)

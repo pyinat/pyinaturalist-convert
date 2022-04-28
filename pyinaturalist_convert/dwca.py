@@ -90,13 +90,17 @@ class TaxonAutocompleter:
         Returns:
             Taxon objects (with ID and name only)
         """
-        query = f"SELECT * FROM {self.base_table_name} WHERE name MATCH '{q}*' "
-        if language:
-            query += (
-                f"UNION SELECT * FROM {self.base_table_name}_{language} WHERE name MATCH '{q}*' "
-            )
-        query += f' LIMIT {self.limit}'
+        # Start with scientific name text search
+        base_query = f"SELECT *, rank FROM {{}} WHERE name MATCH '{q}*' "
+        query = base_query.format(self.base_table_name)
 
+        # Union with common name results for specified language
+        if language:
+            lang_table = f'{self.base_table_name}_{language}'.replace('-', '_')
+            query += 'UNION ' + base_query.format(lang_table)
+
+        # Order by hidden FTS5 column 'rank'
+        query += f' ORDER BY rank LIMIT {self.limit}'
         with self.connection as conn:
             return [Taxon(id=int(row['taxon_id']), name=row['name']) for row in conn.execute(query)]
 
@@ -200,10 +204,10 @@ def load_taxonomy_text_search_tables(
             f'Loading taxon scientific names + common names for {len(common_name_csvs)} languages:'
             ', '.join(common_name_csvs.keys())
         )
-        _load_fts5_table(main_csv, base_table_name, TAXON_NAME_MAP)
         for lang, csv_file in common_name_csvs.items():
             table_name = f'{base_table_name}_{lang}'.replace('-', '_')
             _load_fts5_table(csv_file, table_name, COMMON_TAXON_NAME_MAP)
+        _load_fts5_table(main_csv, base_table_name, TAXON_NAME_MAP)
 
 
 def _get_common_name_csvs(csv_dir: Path, languages: Iterable[str] = None) -> Dict[str, Path]:
