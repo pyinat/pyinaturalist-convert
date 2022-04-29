@@ -27,7 +27,6 @@ OBSERVATION_FIELDS = {
     'observed_on': 'dwc:verbatimEventDate',  # Original timestamp, unconverted
     'place_guess': 'dwc:verbatimLocality',
     'positional_accuracy': 'dwc:coordinateUncertaintyInMeters',
-    'public_positional_accuracy': 'dwc:coordinateUncertaintyInMeters',
     'taxon.id': 'dwc:taxonID',
     'taxon.rank': 'dwc:taxonRank',
     'taxon.name': 'dwc:scientificName',
@@ -50,7 +49,8 @@ OBSERVATION_FIELDS = {
 # 'captive': ['inat:captive', 'dwc:establishmentMeans']
 # 'location': ['dwc:decimalLatitude', 'dwc:decimalLongitude']
 # 'observed_on': 'dwc:eventDate'  # ISO datetime
-# 'observed_on', 'dwc:eventTime'  # ISO datetime, Time portion only
+# 'observed_on' 'dwc:eventTime'  # ISO datetime, Time portion only
+# 'geoprivacy': 'informationWithheld'
 
 # Additional fields that could potentially be added:
 # 'dwc:sex': From annotations
@@ -181,9 +181,22 @@ def observation_to_dwc_record(observation: Dict) -> Dict:
     dwc_record['dwc:datasetName'] = format_dataset_name(observation['quality_grade'])
     dwc_record['dwc:eventDate'] = format_datetime(observation['observed_on'])
     dwc_record['dwc:eventTime'] = format_time(observation['observed_on'])
+    dwc_record['dwc:informationWithheld'] = format_geoprivacy(observation)
     dwc_record['dcterms:license'] = format_license(observation['license_code'])
 
     return dwc_record
+
+
+def format_geoprivacy(observation: Dict) -> Optional[str]:
+    if observation['geoprivacy'] == 'obscured':
+        return (
+            f'Coordinate uncertainty increased to {observation["positional_accuracy"]}'
+            'at the request of the observer'
+        )
+    elif observation['geoprivacy'] == 'private':
+        return 'Coordinates removed at the request of the observer'
+    else:
+        return None
 
 
 def photo_to_data_object(observation: Dict, photo: Dict) -> Dict:
