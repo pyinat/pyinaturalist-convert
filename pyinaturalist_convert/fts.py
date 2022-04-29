@@ -151,3 +151,38 @@ def create_fts5_table(db_path, table_name, column_map, pk='name'):
             f'CREATE VIRTUAL TABLE IF NOT EXISTS {table_name} '
             f'USING fts5({", ".join(table_cols + prefix_idxs)});'
         )
+
+
+def get_taxon_counts(db_path: PathOrStr = DATA_DIR / 'observations.db') -> Dict[int, int]:
+    """Get taxon counts based on GBIF export"""
+    with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT taxonID, COUNT(*) AS count FROM observations GROUP BY taxonID;"
+        ).fetchall()
+
+        return {
+            int(row['taxonID']): row['count']
+            for row in sorted(rows, key=lambda r: r['count'], reverse=True)
+        }
+
+
+def normalize_taxon_counts(taxon_counts):
+    import numpy as np
+    import pandas as pd
+
+    # Alternative to get_taxon_counts():
+    # df = pd.read_csv('taxon_counts_raw.csv', delimiter='|')
+    # df = df[df['count'] > 1]
+    # df = df.sort_values(by=['count'], ascending=False)
+    # df.to_csv('taxon_counts.csv', index=False)
+
+    def normalize(series):
+        series = np.log(series.copy())
+        series[np.isneginf(series)] = 0
+        return (series - series.mean()) / series.std()
+
+    df = pd.DataFrame(taxon_counts.items(), columns=['taxon_id', 'count'])
+    df['count_rank'] = normalize(df['count'])
+    df['count_rank'].fillna(0)
+    return df.sort_values(by='count_rank', ascending=False)
