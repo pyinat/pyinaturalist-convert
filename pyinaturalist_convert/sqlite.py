@@ -9,9 +9,6 @@ from typing import Dict, List
 from .constants import PathOrStr
 from .download import MultiProgress
 
-# Add extra text search prefix indexes to speed up searches for these prefix lengths
-PREFIX_INDEXES = [2, 3, 4, 5]
-
 logger = getLogger(__name__)
 
 
@@ -55,7 +52,6 @@ def load_table(
     table_name: str = None,
     column_map: Dict = None,
     pk: str = 'id',
-    fts5: bool = False,
     progress: MultiProgress = None,
 ):
     """Load a CSV file into a sqlite3 table.
@@ -68,7 +64,6 @@ def load_table(
         column_map: Dictionary mapping CSV column names to SQLite column names. And columns not
             listed will be ignored.
         pk: Primary key column name
-        fts5: Create a full-text search table instead of a regular table
         progress: Progress bar, if tracking loading from multiple files
     """
     if column_map is None:
@@ -89,7 +84,7 @@ def load_table(
         progress.start_job(csv_path)
 
     with sqlite3.connect(db_path) as conn, open(csv_path) as f:
-        _create_table(conn, table_name, non_pk_cols, pk, fts5)
+        create_table(conn, table_name, non_pk_cols, pk)
         for chunk in ChunkReader(f, fields=csv_cols):
             conn.executemany(f'INSERT OR REPLACE INTO {table_name} VALUES ({placeholders})', chunk)
             if progress:
@@ -99,17 +94,7 @@ def load_table(
     logger.info(f'Completed in {time() - start:.2f}s')
 
 
-def _create_table(conn, table_name, non_pk_cols, pk, fts5):
-    # For text search, the "pk" will be the indexed text column; all others are unindexed
-    if fts5:
-        table_cols = [pk] + [f'{k} UNINDEXED' for k in non_pk_cols]
-        prefix_idxs = [f'prefix={i}' for i in PREFIX_INDEXES]
-        stmt = (
-            f'CREATE VIRTUAL TABLE IF NOT EXISTS {table_name} '
-            f'USING fts5({", ".join(table_cols + prefix_idxs)});'
-        )
-    # For regular tables, assume an integer primary key and text columns for the rest
-    else:
-        table_cols = [f'{pk} INTEGER PRIMARY KEY'] + [f'{k} TEXT' for k in non_pk_cols]
-        stmt = f'CREATE TABLE IF NOT EXISTS {table_name} ({", ".join(table_cols)});'
-    conn.execute(stmt)
+def create_table(conn, table_name, non_pk_cols, pk):
+    # Assume an integer primary key and text columns for the rest
+    table_cols = [f'{pk} INTEGER PRIMARY KEY'] + [f'{k} TEXT' for k in non_pk_cols]
+    conn.execute(f'CREATE TABLE IF NOT EXISTS {table_name} ({", ".join(table_cols)});')
