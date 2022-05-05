@@ -76,6 +76,7 @@ def load_table(
 
     table_name = table_name or db_path.stem
     non_pk_cols = [k for k in column_map.values() if k != pk]
+    columns_str = ', '.join(column_map.values())
     csv_cols = list(column_map.keys())
     placeholders = ','.join(['?'] * len(column_map))
     start = time()
@@ -85,8 +86,9 @@ def load_table(
 
     with sqlite3.connect(db_path) as conn, open(csv_path) as f:
         create_table(conn, table_name, non_pk_cols, pk)
+        stmt = f'INSERT OR REPLACE INTO {table_name} ({columns_str}) VALUES ({placeholders})'
         for chunk in ChunkReader(f, fields=csv_cols):
-            conn.executemany(f'INSERT OR REPLACE INTO {table_name} VALUES ({placeholders})', chunk)
+            conn.executemany(stmt, chunk)
             if progress:
                 progress.advance(len(chunk))
         conn.commit()

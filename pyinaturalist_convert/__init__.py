@@ -4,6 +4,7 @@ from .converters import *
 from .csv import load_csv_exports
 from .dwc import to_dwc
 from .dwca import *
+from .fts import TaxonAutocompleter, load_taxonomy_text_search_tables
 from .geojson import to_geojson
 from .gpx import to_gpx
 from .odp import download_odp_metadata
