@@ -34,7 +34,7 @@ def download_dwca(dest_dir: PathOrStr = DATA_DIR):
 
     Example to load into a SQLite database (using the `sqlite3` shell, from bash):
 
-    .. highlight:: bash
+    .. code-block:: bash
 
         export DATA_DIR="$HOME/.local/share/pyinaturalist"
         sqlite3 -csv $DATA_DIR/observations.db ".import $DATA_DIR/gbif-observations-dwca/observations.csv observations"
