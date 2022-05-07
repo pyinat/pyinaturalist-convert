@@ -55,7 +55,7 @@ sphinxcontrib-apidoc        = {optional=true, version="^0.3"}
 [tool.poetry.extras]
 csv        = ["pandas"]
 df         = ["pandas"]
-dwc        = ["python-dwca-reader", "xmltodict"]
+dwc        = ["xmltodict"]
 feather    = ["pandas", "pyarrow"]
 gpx        = ["gpxpy"]
 hdf        = ["pandas", "tables"]

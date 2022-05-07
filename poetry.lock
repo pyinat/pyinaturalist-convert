@@ -1291,7 +1291,7 @@ all = ["boto3", "gpxpy", "openpyxl", "pandas", "pyarrow", "python-dwca-reader", 
 csv = ["pandas"]
 df = ["pandas"]
 docs = ["furo", "myst-parser", "sphinx", "sphinx-autodoc-typehints", "sphinx-copybutton", "sphinx-inline-tabs", "sphinx-panels", "sphinxcontrib-apidoc"]
-dwc = ["python-dwca-reader", "xmltodict"]
+dwc = ["xmltodict"]
 feather = ["pandas", "pyarrow"]
 gpx = ["gpxpy"]
 hdf = ["pandas", "tables"]
@@ -1303,7 +1303,7 @@ xlsx = ["openpyxl"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "f78360daf064cbcc278c262e5aab2c2e9bc3b19c4cd99bf653c5a8bef49102ea"
+content-hash = "7e4a5977984517e7bced7fbc73450ddd083671b9dc5618f181c8956b2a7878d5"
 
 [metadata.files]
 alabaster = [

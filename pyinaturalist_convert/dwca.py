@@ -69,24 +69,6 @@ def _download_archive(url: str, dest_dir: PathOrStr = DATA_DIR):
     unzip_progress(dest_file, dest_dir / splitext(basename(url))[0])
 
 
-def get_dwca_reader(dest_path: PathOrStr = DWCA_DIR):
-    """Get a :py:class:`~dwca.DwCAReader` for the GBIF DwC archive.
-
-    Args:
-        dwca_dir: Alternative archive file path (zipped) or directory (extracted)
-    """
-    from dwca.read import DwCAReader
-
-    # Extract the archive, if it hasn't already been done
-    dest_path = Path(dest_path).expanduser()
-    if dest_path.is_file():
-        subdir = splitext(basename(dest_path))[0]
-        unzip_progress(dest_path, dest_path / subdir)
-        dest_path = dest_path / subdir
-
-    return DwCAReader(dest_path)
-
-
 def load_taxonomy_table(
     csv_path: PathOrStr = DATA_DIR / 'inaturalist-taxonomy.dwca' / 'taxa.csv',
     db_path: PathOrStr = DATA_DIR / 'taxa.db',
