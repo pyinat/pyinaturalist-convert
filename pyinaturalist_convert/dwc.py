@@ -43,22 +43,6 @@ OBSERVATION_FIELDS = {
     'user.orcid': 'dwc:recordedByID',
 }
 
-# For reference: other fields that are added with additional formatting:
-# 'license_code': 'dcterms:license'
-# 'quality_grade': 'dwc:datasetName'
-# 'captive': ['inat:captive', 'dwc:establishmentMeans']
-# 'location': ['dwc:decimalLatitude', 'dwc:decimalLongitude']
-# 'observed_on': 'dwc:eventDate'  # ISO datetime
-# 'observed_on' 'dwc:eventTime'  # ISO datetime, Time portion only
-# 'geoprivacy': 'informationWithheld'
-
-# Additional fields that could potentially be added:
-# 'dwc:sex': From annotations
-# 'dwc:lifeStage': From annotations
-# 'dwc:countryCode': 2-letter country code; possibly get from place_guess
-# 'dwc:stateProvince':This may require a separate query to /places endpoint, so skipping for now
-
-
 # Fields from first ID (observation['identifications'][0])
 ID_FIELDS = {
     'created_at': 'dwc:dateIdentified',
@@ -70,15 +54,11 @@ ID_FIELDS = {
 
 # Fields from items in observation['photos']
 PHOTO_FIELDS = {
-    'url': ['dcterms:identifier', 'ac:furtherInformationURL', 'ac:derivedFrom'],
+    'id': 'dcterms:identifier',
+    'url': 'ac:derivedFrom',
     'attribution': 'dcterms:rights',
 }
 
-# For reference: other photo fields that are added with additional formatting:
-# 'ac:accessURI': link to 'original' size photo
-# 'media:thumbnailURL': link to 'thumbnail' size photo
-# 'dcterms:format': MIME type, based on file extension
-# 'xap:UsageTerms': license code URL
 
 # Fields from observation JSON to add to photo info in eol:dataObject
 PHOTO_OBS_FIELDS = {
@@ -102,7 +82,7 @@ PHOTO_CONSTANTS = {
 # Other constants needed for converting/formatting
 CC_BASE_URL = 'http://creativecommons.org/licenses'
 CC_VERSION = '4.0'
-DATASET_TITLES = {'casual': 'casual', 'needs_id': 'unidentified', 'research': 'research-grade'}
+DATASET_TITLES = {'casual': 'casual', 'needs_id': 'unconfirmed', 'research': 'research-grade'}
 DATETIME_FIELDS = ['observed_on', 'created_at']
 PHOTO_BASE_URL = 'https://www.inaturalist.org/photos'
 XML_NAMESPACES = {
@@ -119,6 +99,28 @@ XML_NAMESPACES = {
     'xmlns:xap': 'http://ns.adobe.com/xap/1.0/',
     'xmlns:inat': 'https://www.inaturalist.org/schema/terms/',
 }
+
+# For reference: other observation fields that are added with additional formatting:
+#   license_code: dcterms:license
+#   quality_grade: dwc:datasetName
+#   captive: [inat:captive, dwc:establishmentMeans]
+#   location: [dwc:decimalLatitude, dwc:decimalLongitude]
+#   observed_on: dwc:eventDate  # ISO datetime
+#   observed_on: dwc:eventTime  # ISO datetime, Time portion only
+#   geoprivacy: informationWithheld
+
+# Photo fields:
+#   ac:accessURI: link to 'original' size photo
+#   media:thumbnailURL: link to 'thumbnail' size photo
+#   ac:furtherInformationURL: Link to photo info page
+#   dcterms:format: MIME type, based on file extension
+#   xap:UsageTerms: license code URL
+
+# Additional fields that could potentially be added:
+#   dwc:sex: From annotations
+#   dwc:lifeStage: From annotations
+#   dwc:countryCode: 2-letter country code; possibly get from place_guess
+#   dwc:stateProvince:This may require a separate query to /places endpoint, so skipping for now
 
 
 def to_dwc(observations: AnyObservations, filename: PathOrStr = None) -> Optional[List[Dict]]:
@@ -202,9 +204,8 @@ def format_geoprivacy(observation: Dict) -> Optional[str]:
 def photo_to_data_object(observation: Dict, photo: Dict) -> Dict:
     """Translate observation photo fields to eol:dataObject fields"""
     dwc_photo = {}
-    for inat_field, dwc_fields in PHOTO_FIELDS.items():
-        for dwc_field in ensure_str_list(dwc_fields):
-            dwc_photo[dwc_field] = photo[inat_field]
+    for inat_field, dwc_field in PHOTO_FIELDS.items():
+        dwc_photo[dwc_field] = photo[inat_field]
     for inat_field, dwc_fields in PHOTO_OBS_FIELDS.items():
         for dwc_field in ensure_str_list(dwc_fields):
             dwc_photo[dwc_field] = observation.get(inat_field)
@@ -214,7 +215,8 @@ def photo_to_data_object(observation: Dict, photo: Dict) -> Dict:
     # TODO: pending fix in BaseModel.from_json()
     photo.pop('_url_format', None)
     photo_obj = Photo.from_json(photo)
-    dwc_photo['ac:accessURI'] = photo_obj.square_url
+    dwc_photo['ac:accessURI'] = photo_obj.original_url
+    dwc_photo['ac:furtherInformationURL'] = photo_obj.info_url
     dwc_photo['media:thumbnailURL'] = photo_obj.thumbnail_url
     dwc_photo['dcterms:format'] = format_mimetype(photo['url'])  # Photo.mimetype in pyinat 0.17
     dwc_photo['xap:UsageTerms'] = format_license(photo['license_code'])
