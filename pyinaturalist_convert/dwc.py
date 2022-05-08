@@ -190,6 +190,19 @@ def observation_to_dwc_record(observation: Dict) -> Dict:
     return dwc_record
 
 
+def taxon_to_dwc_record(taxon: Dict) -> Dict:
+    """Translate a taxon from API results to a partial DwC record (taxonomy terms only)"""
+    # Translate 'ancestors' from API results to 'rank': 'name' fields
+    for ancestor in taxon['ancestors'] + [taxon]:
+        taxon[ancestor['rank']] = ancestor['name']
+
+    return {
+        dwc_field: taxon.get(inat_field.replace('taxon.', ''))
+        for inat_field, dwc_field in OBSERVATION_FIELDS.items()
+        if inat_field.startswith('taxon.')
+    }
+
+
 def format_geoprivacy(observation: Dict) -> Optional[str]:
     if observation['geoprivacy'] == 'obscured':
         return (

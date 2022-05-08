@@ -2,7 +2,7 @@
 from .constants import *
 from .converters import *
 from .csv import load_csv_exports
-from .dwc import to_dwc
+from .dwc import to_dwc, observation_to_dwc_record, taxon_to_dwc_record
 from .dwca import *
 from .geojson import to_geojson
 from .odp import download_odp_metadata
