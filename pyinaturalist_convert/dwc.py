@@ -16,7 +16,7 @@ from flatten_dict import flatten
 from pyinaturalist import Photo, get_taxa_by_id
 
 from .constants import PathOrStr
-from .converters import AnyObservations, flatten_observations, write
+from .converters import AnyObservations, AnyTaxa, flatten_observations, to_dict_list, write
 
 # Top-level fields from observation JSON
 OBSERVATION_FIELDS = {
@@ -43,22 +43,6 @@ OBSERVATION_FIELDS = {
     'user.orcid': 'dwc:recordedByID',
 }
 
-# For reference: other fields that are added with additional formatting:
-# 'license_code': 'dcterms:license'
-# 'quality_grade': 'dwc:datasetName'
-# 'captive': ['inat:captive', 'dwc:establishmentMeans']
-# 'location': ['dwc:decimalLatitude', 'dwc:decimalLongitude']
-# 'observed_on': 'dwc:eventDate'  # ISO datetime
-# 'observed_on' 'dwc:eventTime'  # ISO datetime, Time portion only
-# 'geoprivacy': 'informationWithheld'
-
-# Additional fields that could potentially be added:
-# 'dwc:sex': From annotations
-# 'dwc:lifeStage': From annotations
-# 'dwc:countryCode': 2-letter country code; possibly get from place_guess
-# 'dwc:stateProvince':This may require a separate query to /places endpoint, so skipping for now
-
-
 # Fields from first ID (observation['identifications'][0])
 ID_FIELDS = {
     'created_at': 'dwc:dateIdentified',
@@ -70,15 +54,11 @@ ID_FIELDS = {
 
 # Fields from items in observation['photos']
 PHOTO_FIELDS = {
-    'url': ['dcterms:identifier', 'ac:furtherInformationURL', 'ac:derivedFrom'],
+    'id': 'dcterms:identifier',
+    'url': 'ac:derivedFrom',
     'attribution': 'dcterms:rights',
 }
 
-# For reference: other photo fields that are added with additional formatting:
-# 'ac:accessURI': link to 'original' size photo
-# 'media:thumbnailURL': link to 'thumbnail' size photo
-# 'dcterms:format': MIME type, based on file extension
-# 'xap:UsageTerms': license code URL
 
 # Fields from observation JSON to add to photo info in eol:dataObject
 PHOTO_OBS_FIELDS = {
@@ -102,7 +82,7 @@ PHOTO_CONSTANTS = {
 # Other constants needed for converting/formatting
 CC_BASE_URL = 'http://creativecommons.org/licenses'
 CC_VERSION = '4.0'
-DATASET_TITLES = {'casual': 'casual', 'needs_id': 'unidentified', 'research': 'research-grade'}
+DATASET_TITLES = {'casual': 'casual', 'needs_id': 'unconfirmed', 'research': 'research-grade'}
 DATETIME_FIELDS = ['observed_on', 'created_at']
 PHOTO_BASE_URL = 'https://www.inaturalist.org/photos'
 XML_NAMESPACES = {
@@ -120,33 +100,62 @@ XML_NAMESPACES = {
     'xmlns:inat': 'https://www.inaturalist.org/schema/terms/',
 }
 
+# For reference: other observation fields that are added with additional formatting:
+#   license_code: dcterms:license
+#   quality_grade: dwc:datasetName
+#   captive: [inat:captive, dwc:establishmentMeans]
+#   location: [dwc:decimalLatitude, dwc:decimalLongitude]
+#   observed_on: dwc:eventDate  # ISO datetime
+#   observed_on: dwc:eventTime  # ISO datetime, Time portion only
+#   geoprivacy: informationWithheld
 
-def to_dwc(observations: AnyObservations, filename: PathOrStr = None) -> Optional[List[Dict]]:
+# Photo fields:
+#   ac:accessURI: link to 'original' size photo
+#   media:thumbnailURL: link to 'thumbnail' size photo
+#   ac:furtherInformationURL: Link to photo info page
+#   dcterms:format: MIME type, based on file extension
+#   xap:UsageTerms: license code URL
+
+# Additional fields that could potentially be added:
+#   dwc:sex: From annotations
+#   dwc:lifeStage: From annotations
+#   dwc:countryCode: 2-letter country code; possibly get from place_guess
+#   dwc:stateProvince:This may require a separate query to /places endpoint, so skipping for now
+
+
+def to_dwc(
+    observations: AnyObservations = None, filename: PathOrStr = None, taxa: AnyTaxa = None
+) -> Optional[List[Dict]]:
     """Convert observations into to a Simple Darwin Core RecordSet.
 
     Args:
         observations: Observation records to convert
         filename: Path to write XML output
+        taxa: Convert taxon records instead of observations
 
     Returns:
-        If no filename is provided, records will be returned a list of dictionaries.
+        If no filename is provided, records will be returned as a list of dictionaries.
+    """
+    if observations:
+        records = [observation_to_dwc_record(obs) for obs in flatten_observations(observations)]
+    elif taxa:
+        records = [taxon_to_dwc_record(taxon) for taxon in to_dict_list(taxa)]
+    if filename:
+        write(get_dwc_record_set(records), filename)
+        return None
+    else:
+        return records
+
+
+def get_dwc_record_set(records: List[Dict]) -> str:
+    """Make a DwC RecordSet as an XML string, including namespaces and the provided observation
+    records
     """
     import xmltodict
 
-    records = [observation_to_dwc_record(obs) for obs in flatten_observations(observations)]
-    if not filename:
-        return records
-
-    record_set = get_dwc_record_set(records)
-    record_xml = xmltodict.unparse(record_set, pretty=True, indent=' ' * 4)
-    write(record_xml, filename)
-    return None
-
-
-def get_dwc_record_set(records: List[Dict]) -> Dict:
-    """Make a DwC RecordSet including XML namespaces and the provided observation records"""
     namespaces = {f'@{k}': v for k, v in XML_NAMESPACES.items()}
-    return {'dwr:SimpleDarwinRecordSet': {**namespaces, 'dwr:SimpleDarwinRecord': records}}
+    records = {**namespaces, 'dwr:SimpleDarwinRecord': records}  # type: ignore
+    return xmltodict.unparse({'dwr:SimpleDarwinRecordSet': records}, pretty=True, indent=' ' * 4)
 
 
 def observation_to_dwc_record(observation: Dict) -> Dict:
@@ -187,6 +196,19 @@ def observation_to_dwc_record(observation: Dict) -> Dict:
     return dwc_record
 
 
+def taxon_to_dwc_record(taxon: Dict) -> Dict:
+    """Translate a taxon from API results to a partial DwC record (taxonomy terms only)"""
+    # Translate 'ancestors' from API results to 'rank': 'name' fields
+    for ancestor in taxon['ancestors'] + [taxon]:
+        taxon[ancestor['rank']] = ancestor['name']
+
+    return {
+        dwc_field: taxon.get(inat_field.replace('taxon.', ''))
+        for inat_field, dwc_field in OBSERVATION_FIELDS.items()
+        if inat_field.startswith('taxon.')
+    }
+
+
 def format_geoprivacy(observation: Dict) -> Optional[str]:
     if observation['geoprivacy'] == 'obscured':
         return (
@@ -202,17 +224,19 @@ def format_geoprivacy(observation: Dict) -> Optional[str]:
 def photo_to_data_object(observation: Dict, photo: Dict) -> Dict:
     """Translate observation photo fields to eol:dataObject fields"""
     dwc_photo = {}
-    for inat_field, dwc_fields in PHOTO_FIELDS.items():
-        for dwc_field in ensure_str_list(dwc_fields):
-            dwc_photo[dwc_field] = photo[inat_field]
+    for inat_field, dwc_field in PHOTO_FIELDS.items():
+        dwc_photo[dwc_field] = photo[inat_field]
     for inat_field, dwc_fields in PHOTO_OBS_FIELDS.items():
         for dwc_field in ensure_str_list(dwc_fields):
             dwc_photo[dwc_field] = observation.get(inat_field)
     for dwc_field, value in PHOTO_CONSTANTS.items():
         dwc_photo[dwc_field] = value
 
+    # TODO: pending fix in BaseModel.from_json()
+    photo.pop('_url_format', None)
     photo_obj = Photo.from_json(photo)
-    dwc_photo['ac:accessURI'] = photo_obj.square_url
+    dwc_photo['ac:accessURI'] = photo_obj.original_url
+    dwc_photo['ac:furtherInformationURL'] = photo_obj.info_url
     dwc_photo['media:thumbnailURL'] = photo_obj.thumbnail_url
     dwc_photo['dcterms:format'] = format_mimetype(photo['url'])  # Photo.mimetype in pyinat 0.17
     dwc_photo['xap:UsageTerms'] = format_license(photo['license_code'])
