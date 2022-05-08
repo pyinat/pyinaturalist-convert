@@ -133,22 +133,23 @@ def to_dwc(observations: AnyObservations, filename: PathOrStr = None) -> Optiona
     Returns:
         If no filename is provided, records will be returned as a list of dictionaries.
     """
-    import xmltodict
-
     records = [observation_to_dwc_record(obs) for obs in flatten_observations(observations)]
-    if not filename:
+    if filename:
+        write(get_dwc_record_set(records), filename)
+        return None
+    else:
         return records
 
-    record_set = get_dwc_record_set(records)
-    record_xml = xmltodict.unparse(record_set, pretty=True, indent=' ' * 4)
-    write(record_xml, filename)
-    return None
 
+def get_dwc_record_set(records: List[Dict]) -> str:
+    """Make a DwC RecordSet as an XML string, including namespaces and the provided observation
+    records
+    """
+    import xmltodict
 
-def get_dwc_record_set(records: List[Dict]) -> Dict:
-    """Make a DwC RecordSet including XML namespaces and the provided observation records"""
     namespaces = {f'@{k}': v for k, v in XML_NAMESPACES.items()}
-    return {'dwr:SimpleDarwinRecordSet': {**namespaces, 'dwr:SimpleDarwinRecord': records}}
+    records = {**namespaces, 'dwr:SimpleDarwinRecord': records}  # type: ignore
+    return xmltodict.unparse({'dwr:SimpleDarwinRecordSet': records}, pretty=True, indent=' ' * 4)
 
 
 def observation_to_dwc_record(observation: Dict) -> Dict:
