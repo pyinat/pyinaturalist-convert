@@ -5,7 +5,6 @@ from os import makedirs
 from os.path import dirname, expanduser
 from typing import List, Optional, Sequence, Union
 
-import attr
 import tabulate
 from flatten_dict import flatten
 from pyinaturalist.constants import ResponseOrResults, ResponseResult
@@ -35,7 +34,6 @@ AnyObservations = Union[Dataset, Observation, List[Observation], Response, Respo
 logger = getLogger(__name__)
 
 
-# TODO: Handle Obervation model objects
 def ensure_list(value: AnyObservations) -> List:
     """Convert any supported input type into a list of observation dicts"""
     if not value:
@@ -47,9 +45,9 @@ def ensure_list(value: AnyObservations) -> List:
     if isinstance(value, dict) and 'results' in value:
         value = value['results']
     if isinstance(value, Observation):
-        return [to_dict(value)]
+        return [value.to_dict()]
     if isinstance(value, Sequence) and isinstance(value[0], Observation):
-        return [to_dict(v) for v in value]
+        return [v.to_dict() for v in value]
     if isinstance(value, Sequence):
         return list(value)
     else:
@@ -124,14 +122,9 @@ def to_parquet(observations: AnyObservations, filename: str):
     df.to_parquet(filename)
 
 
-# TODO: Handle this in Observation.from_json_list
 def to_observation_objs(value: AnyObservations) -> List[Observation]:
     """Convert any supported input type into a list of Observation objects"""
-
-    def _to_observation(item):
-        return Observation.from_json(item) if not isinstance(item, Observation) else item
-
-    return [_to_observation(item) for item in ensure_list(value)]
+    return Observation.from_json_list(ensure_list(value))
 
 
 def simplify_observations(observations: AnyObservations) -> List[ResponseResult]:
@@ -188,24 +181,3 @@ def _fix_dimensions(flat_observations):
         for field in optional_fields:
             obs.setdefault(field, None)
     return headers, flat_observations
-
-
-# TODO: Add this as a method on BaseModel?
-def to_dict(observation: Observation):
-    """Convert an Observation object back to dict format"""
-    return _unprefix_attrs(attr.asdict(observation))
-
-
-def _unprefix_attrs(value):
-    """Internally, nested objects are stored in attrs prefixed with `_`, and wrapped in a @property.
-    This recursively removes the `_` prefix from all attribute names.
-    """
-    if isinstance(value, (list, tuple)):
-        return [_unprefix_attrs(v) for v in value]
-    elif not isinstance(value, dict):
-        return value
-
-    value = value.copy()
-    for k in [k for k in value if k.startswith('_')]:
-        value[k.lstrip('_')] = _unprefix_attrs(value.pop(k))
-    return value

@@ -4,7 +4,7 @@ from os.path import basename, splitext
 from pathlib import Path
 from typing import Dict
 
-from .constants import DATA_DIR, DWCA_DIR, DWCA_TAXA_URL, DWCA_URL, PathOrStr
+from .constants import DATA_DIR, DWCA_TAXA_URL, DWCA_URL, PathOrStr
 from .download import check_download, download_file, unzip_progress
 from .sqlite import load_table
 

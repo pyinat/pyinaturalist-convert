@@ -129,7 +129,7 @@ def to_dwc(observations: AnyObservations, filename: PathOrStr = None) -> Optiona
         filename: Path to write XML output
 
     Returns:
-        If no filename is provided, records will be returned a list of dictionaries.
+        If no filename is provided, records will be returned as a list of dictionaries.
     """
     import xmltodict
 
@@ -211,6 +211,8 @@ def photo_to_data_object(observation: Dict, photo: Dict) -> Dict:
     for dwc_field, value in PHOTO_CONSTANTS.items():
         dwc_photo[dwc_field] = value
 
+    # TODO: pending fix in BaseModel.from_json()
+    photo.pop('_url_format', None)
     photo_obj = Photo.from_json(photo)
     dwc_photo['ac:accessURI'] = photo_obj.square_url
     dwc_photo['media:thumbnailURL'] = photo_obj.thumbnail_url
