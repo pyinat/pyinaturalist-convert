@@ -1,4 +1,5 @@
 """Config file for Sphinx documentation"""
+from importlib.metadata import version as pkg_version
 from pathlib import Path
 
 PACKAGE_DIR = Path(__file__).parent.parent / 'pyinaturalist_convert'
@@ -13,6 +14,7 @@ needs_sphinx = '4.0'
 project = 'pyinaturalist-convert'
 source_suffix = ['.rst', '.md']
 templates_path = ['_templates']
+version = release = pkg_version('pyinaturalist-convert')
 
 # Sphinx extensions
 extensions = [
