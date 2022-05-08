@@ -305,3 +305,32 @@ def _get_next_level(df, level_ids, processed_ids, skipped_ids) -> Tuple[set, set
     processed_ids = processed_ids | (level_ids - skipped_ids)
     level_ids = next_level_ids - processed_ids
     return level_ids, processed_ids
+
+
+# TODO: Translate subset of DwC terms to API-compatible field names
+# Observation columns:
+#   "id" TEXT,
+#   "modified" TEXT,
+#   "informationWithheld" TEXT,
+#   "catalogNumber" TEXT,
+#   "occurrenceRemarks" TEXT,
+#   "recordedBy" TEXT,  # username
+#   "inaturalistLogin" TEXT,  # user real name
+#   "license" TEXT,
+#   "captive" TEXT,
+#   "eventDate" TEXT,
+#   "decimalLatitude" TEXT,
+#   "decimalLongitude" TEXT,
+#   "coordinateUncertaintyInMeters" TEXT,
+#   "geodeticDatum" TEXT,
+#   "taxonID" TEXT,
+#   "scientificName" TEXT,
+#   "taxonRank" TEXT,
+#   "kingdom" TEXT,
+#   "phylum" TEXT,
+#   "class" TEXT,
+#   "order" TEXT,
+#   "family" TEXT,
+#   "genus" TEXT,
+#   "sex" TEXT,
+#   "lifeStage" TEXT,

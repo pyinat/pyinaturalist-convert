@@ -37,6 +37,8 @@ boto3                       = {version = ">=1.20", optional = true}
 gpxpy                       = {version = "^1.4.2", optional = true}
 openpyxl                    = {version = ">=2.6", optional = true}
 pyarrow                     = {version = ">=4.0", optional = true}
+sqlmodel                    = {version = ">=0.0.6", optional = true}
+sqlalchemy                  = {version = "<1.4.36", optional = true}
 tables                      = {version = ">=3.6", optional = true}
 xmltodict                   = {version = ">=0.12", optional = true}
 
@@ -52,6 +54,7 @@ sphinx-panels               = {optional=true, version="^0.6.0"}
 sphinxcontrib-apidoc        = {optional=true, version="^0.3"}
 
 [tool.poetry.extras]
+db         = ["sqlalchemy", "sqlmodel"]
 dwc        = ["xmltodict"]
 feather    = ["pyarrow"]
 gpx        = ["gpxpy"]
@@ -61,10 +64,9 @@ odp        = ["boto3"]
 parquet    = ["pyarrow"]
 xlsx       = ["openpyxl"]
 
-all = ["boto3", "gpxpy", "openpyxl", "pyarrow", "tables", "tablib[all]", "xmltodict"]
+all = ["boto3", "gpxpy", "openpyxl", "pyarrow", "sqlalchemy", "sqlmodel", "tables", "tablib[all]", "xmltodict"]
 docs = ["furo", "myst-parser", "sphinx", "sphinx-autodoc-typehints", "sphinx-automodapi",
         "sphinx-copybutton", "sphinx-inline-tabs", "sphinx-panels", "sphinxcontrib-apidoc"]
-
 
 [tool.poetry.dev-dependencies]
 coverage = ">=6.3"
