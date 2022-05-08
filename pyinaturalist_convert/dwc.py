@@ -16,7 +16,7 @@ from flatten_dict import flatten
 from pyinaturalist import Photo, get_taxa_by_id
 
 from .constants import PathOrStr
-from .converters import AnyObservations, flatten_observations, write
+from .converters import AnyObservations, AnyTaxa, flatten_observations, to_dict_list, write
 
 # Top-level fields from observation JSON
 OBSERVATION_FIELDS = {
@@ -123,17 +123,23 @@ XML_NAMESPACES = {
 #   dwc:stateProvince:This may require a separate query to /places endpoint, so skipping for now
 
 
-def to_dwc(observations: AnyObservations, filename: PathOrStr = None) -> Optional[List[Dict]]:
+def to_dwc(
+    observations: AnyObservations = None, filename: PathOrStr = None, taxa: AnyTaxa = None
+) -> Optional[List[Dict]]:
     """Convert observations into to a Simple Darwin Core RecordSet.
 
     Args:
         observations: Observation records to convert
         filename: Path to write XML output
+        taxa: Convert taxon records instead of observations
 
     Returns:
         If no filename is provided, records will be returned as a list of dictionaries.
     """
-    records = [observation_to_dwc_record(obs) for obs in flatten_observations(observations)]
+    if observations:
+        records = [observation_to_dwc_record(obs) for obs in flatten_observations(observations)]
+    elif taxa:
+        records = [taxon_to_dwc_record(taxon) for taxon in to_dict_list(taxa)]
     if filename:
         write(get_dwc_record_set(records), filename)
         return None

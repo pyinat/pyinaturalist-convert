@@ -1,9 +1,9 @@
 from pyinaturalist import get_observations
 
-from pyinaturalist_convert import taxon_to_dwc_record, to_dwc
+from pyinaturalist_convert import to_dwc
 
 
-def test_to_dwc():
+def test_observation_to_dwc():
     """Get a test observation, and convert it to DwC"""
     response = get_observations(id=45524803)
     observation = response['results'][0]
@@ -20,7 +20,7 @@ def test_to_dwc():
     assert dwc_record['dwc:scientificName'] == 'Dirona picta'
 
 
-def test_taxon_to_dwc_record():
+def test_taxon_to_dwc():
     taxon = {
         'id': 12345,
         'rank': 'species',
@@ -36,7 +36,7 @@ def test_taxon_to_dwc_record():
         ],
     }
 
-    dwc_record = taxon_to_dwc_record(taxon)
+    dwc_record = to_dwc(taxa=[taxon])[0]
     assert dwc_record == {
         'dwc:taxonID': 12345,
         'dwc:taxonRank': 'species',

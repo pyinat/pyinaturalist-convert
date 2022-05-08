@@ -3,16 +3,13 @@ from copy import deepcopy
 from logging import getLogger
 from os import makedirs
 from os.path import dirname, expanduser
-from typing import List, Optional, Sequence, Union
+from typing import Dict, Iterable, List, Optional, Sequence, Union
 
 import tabulate
 from flatten_dict import flatten
-from pyinaturalist.constants import ResponseOrResults, ResponseResult
-from pyinaturalist.models import Observation  # noqa
+from pyinaturalist import BaseModel, JsonResponse, ModelObjects, Observation, ResponseResult, Taxon
 from requests import Response
 from tablib import Dataset
-
-# from pyinaturalist.formatters import simplify_observations
 
 TABLIB_FORMATS = [
     'csv',
@@ -30,11 +27,15 @@ TABLIB_FORMATS = [
 TABULATE_FORMATS = sorted(set(tabulate._table_formats) - set(TABLIB_FORMATS))  # type: ignore
 PANDAS_FORMATS = ['feather', 'gbq', 'hdf', 'parquet', 'sql', 'xarray']
 
-AnyObservations = Union[Dataset, Observation, List[Observation], Response, ResponseOrResults]
+CollectionTypes = Union[Dataset, Response, JsonResponse, Iterable[ResponseResult]]
+InputTypes = Union[CollectionTypes, ModelObjects]
+AnyObservations = Union[CollectionTypes, Observation, Iterable[Observation]]
+AnyTaxa = Union[CollectionTypes, Taxon, Iterable[Taxon]]
+
 logger = getLogger(__name__)
 
 
-def ensure_list(value: AnyObservations) -> List:
+def to_dict_list(value: InputTypes) -> List[Dict]:
     """Convert any supported input type into a list of observation dicts"""
     if not value:
         return []
@@ -44,9 +45,9 @@ def ensure_list(value: AnyObservations) -> List:
         value = value.json()
     if isinstance(value, dict) and 'results' in value:
         value = value['results']
-    if isinstance(value, Observation):
+    if isinstance(value, BaseModel):
         return [value.to_dict()]
-    if isinstance(value, Sequence) and isinstance(value[0], Observation):
+    if isinstance(value, Sequence) and isinstance(value[0], BaseModel):
         return [v.to_dict() for v in value]
     if isinstance(value, Sequence):
         return list(value)
@@ -57,7 +58,7 @@ def ensure_list(value: AnyObservations) -> List:
 def flatten_observations(observations: AnyObservations, flatten_lists: bool = False):
     if flatten_lists:
         observations = simplify_observations(observations)
-    return [flatten(obs, reducer='dot') for obs in ensure_list(observations)]
+    return [flatten(obs, reducer='dot') for obs in to_dict_list(observations)]
 
 
 def flatten_observation(observation: ResponseResult, flatten_lists: bool = False):
@@ -124,7 +125,7 @@ def to_parquet(observations: AnyObservations, filename: str):
 
 def to_observation_objs(value: AnyObservations) -> List[Observation]:
     """Convert any supported input type into a list of Observation objects"""
-    return Observation.from_json_list(ensure_list(value))
+    return Observation.from_json_list(to_dict_list(value))
 
 
 def simplify_observations(observations: AnyObservations) -> List[ResponseResult]:
@@ -135,7 +136,7 @@ def simplify_observations(observations: AnyObservations) -> List[ResponseResult]
     * identifications
     * non-owner IDs
     """
-    return [_simplify_observation(o) for o in ensure_list(observations)]
+    return [_simplify_observation(o) for o in to_dict_list(observations)]
 
 
 def write(content, filename, mode='w'):

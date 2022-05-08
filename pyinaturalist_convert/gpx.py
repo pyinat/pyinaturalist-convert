@@ -5,7 +5,7 @@ from pyinaturalist import Observation
 from pyinaturalist.constants import ResponseResult
 from pyinaturalist.converters import convert_observation_timestamps
 
-from .converters import AnyObservations, ensure_list, write
+from .converters import AnyObservations, to_dict_list, write
 
 logger = getLogger(__name__)
 
@@ -37,7 +37,7 @@ def to_gpx(observations: AnyObservations, filename: str = None, track: bool = Tr
         GPX XML as a string
     """
     gpx = GPX()
-    points = [to_gpx_point(obs, track=track) for obs in ensure_list(observations)]
+    points = [to_gpx_point(obs, track=track) for obs in to_dict_list(observations)]
 
     if track:
         gpx_track = GPXTrack()
