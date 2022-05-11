@@ -1,13 +1,13 @@
 """Taxon full text search utilities"""
 import sqlite3
+from functools import partial
 from logging import getLogger
 from pathlib import Path
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Union
 
 from pyinaturalist.models import Taxon
-from rich.progress import track
 
-from .constants import DATA_DIR, PathOrStr
+from .constants import DATA_DIR, OBS_DB, TAXON_COUNTS, TAXON_DB, PathOrStr
 from .download import CSVProgress, get_progress_spinner
 from .sqlite import load_table
 
@@ -23,9 +23,19 @@ TAXON_FTS_COLUMNS = {
     'language': False,
 }
 
-TAXON_COUNT_RANK_FACTOR = 5
-TAXON_NAME_MAP = {'scientificName': 'name', 'id': 'taxon_id', 'taxonRank': 'taxon_rank'}
-COMMON_TAXON_NAME_MAP = {'vernacularName': 'name', 'id': 'taxon_id', 'language': 'language_code'}
+TAXON_COUNT_RANK_FACTOR = 2.5
+TAXON_NAME_MAP = {
+    'scientificName': 'name',
+    'id': 'taxon_id',
+    'taxonRank': 'taxon_rank',
+    'count_rank': 'count_rank',
+}
+COMMON_TAXON_NAME_MAP = {
+    'vernacularName': 'name',
+    'id': 'taxon_id',
+    'language': 'language_code',
+    'count_rank': 'count_rank',
+}
 # Other available fields:
 # 'language',
 # 'locality',
@@ -38,6 +48,8 @@ COMMON_TAXON_NAME_MAP = {'vernacularName': 'name', 'id': 'taxon_id', 'language':
 logger = getLogger(__name__)
 
 
+# TODO: Load taxon counts with number of exact + child taxa observations, not just exact rank observations
+# TODO: Deduplicate results (if both common and scientific names are present)
 class TaxonAutocompleter:
     """Taxon autocomplete search.
 
@@ -72,7 +84,7 @@ class TaxonAutocompleter:
 
     def __init__(
         self,
-        db_path: PathOrStr = DATA_DIR / 'taxa.db',
+        db_path: PathOrStr = TAXON_DB,
         base_table_name: str = 'taxon_names',
         limit: int = 10,
     ):
@@ -92,21 +104,36 @@ class TaxonAutocompleter:
             Taxon objects (with ID and name only)
         """
         language = (language or '').lower().replace('-', '_')
-        query = 'SELECT name, taxon_id, taxon_rank, count_rank, rank FROM taxon_names '
+        query = 'SELECT name, taxon_id, taxon_rank, count_rank, rank, (rank - count_rank) AS combined_rank FROM taxon_names '
         query += f"WHERE name MATCH '{q}*' AND (language_code IS NULL "
         query += f"OR language_code = '{language}') " if language else ' '
-        query += f'ORDER BY rank LIMIT {self.limit}'
+        query += f'ORDER BY combined_rank LIMIT {self.limit}'
 
         with self.connection as conn:
+            results = sorted(conn.execute(query).fetchall(), key=lambda row: row['combined_rank'])
+            logger.debug(
+                '\n'.join(
+                    [
+                        f"[{t['taxon_id']}] {t['name']}: {t['rank']}, {t['count_rank']}, {t['combined_rank']}"
+                        for t in results
+                    ]
+                )
+            )
             return [
                 Taxon(id=int(row['taxon_id']), name=row['name'], rank=row['taxon_rank'])
-                for row in conn.execute(query)
+                for row in results[: self.limit]
             ]
+
+            # return [
+            #     Taxon(id=int(row['taxon_id']), name=row['name'], rank=row['taxon_rank'])
+            #     for row in conn.execute(query)
+            # ]
 
 
 def load_taxonomy_text_search_tables(
     csv_dir: PathOrStr = DATA_DIR / 'inaturalist-taxonomy.dwca',
-    db_path: PathOrStr = DATA_DIR / 'taxa.db',
+    db_path: PathOrStr = TAXON_DB,
+    obs_db_path: PathOrStr = OBS_DB,
     languages: Iterable[str] = ('english',),
 ):
     """Create full text search tables from the iNat taxonomy DwC-A archive.
@@ -120,11 +147,21 @@ def load_taxonomy_text_search_tables(
     """
     csv_dir = Path(csv_dir).expanduser()
     main_csv = csv_dir / 'taxa.csv'
-    common_name_csvs = _get_common_name_csvs(csv_dir, languages)
+    common_name_csvs = get_common_name_csvs(csv_dir, languages)
     progress = CSVProgress(main_csv, *common_name_csvs.values())
 
+    taxon_counts = load_taxon_counts(obs_db_path)
+    transform = partial(add_taxon_counts, taxon_counts=taxon_counts)
+
     def load_fts5_table(csv_path, column_map):
-        load_table(csv_path, db_path, 'taxon_names', column_map, progress=progress)
+        load_table(
+            csv_path,
+            db_path,
+            'taxon_names',
+            column_map,
+            progress=progress,
+            transform=transform,
+        )
 
     with progress:
         logger.info(
@@ -138,10 +175,10 @@ def load_taxonomy_text_search_tables(
             load_fts5_table(csv_file, COMMON_TAXON_NAME_MAP)
         load_fts5_table(main_csv, TAXON_NAME_MAP)
 
-    load_taxon_counts()
+    optimize_fts_table(db_path)
 
 
-def _get_common_name_csvs(csv_dir: Path, languages: Iterable[str] = None) -> Dict[str, Path]:
+def get_common_name_csvs(csv_dir: Path, languages: Iterable[str] = None) -> Dict[str, Path]:
     """Get common name CSVs, for either all or some languages, with a separate table per language"""
     if languages and languages != 'all':
         common_name_csvs = {lang: csv_dir / f'VernacularNames-{lang}.csv' for lang in languages}
@@ -155,32 +192,47 @@ def _get_common_name_csvs(csv_dir: Path, languages: Iterable[str] = None) -> Dic
         }
 
 
-def create_fts5_table(db_path: PathOrStr):
+def create_fts5_table(db_path: PathOrStr = TAXON_DB):
     prefix_idxs = ', '.join([f'prefix={i}' for i in PREFIX_INDEXES])
 
     with sqlite3.connect(db_path) as conn:
         conn.execute(
             f'CREATE VIRTUAL TABLE IF NOT EXISTS taxon_names USING fts5( '
-            '   name, taxon_id UNINDEXED, taxon_rank UNINDEXED, count_rank UNINDEXED, language_code,'
+            '   name, taxon_id, taxon_rank UNINDEXED, count_rank UNINDEXED, language_code,'
             f'  {prefix_idxs})'
         )
 
 
+def optimize_fts_table(db_path: PathOrStr = TAXON_DB):
+    logger.info('Optimizing FTS table')
+    progress = get_progress_spinner('Optimizing table')
+    with progress, sqlite3.connect(db_path) as conn:
+        conn.execute('UPDATE taxon_names SET language_code="zh_cn" WHERE language_code="zh-CN"')
+        conn.execute("INSERT INTO taxon_names(taxon_names) VALUES('optimize')")
+        conn.commit()
+        conn.execute('VACUUM')
+        conn.execute('ANALYZE taxon_names')
+
+
 def load_taxon_counts(
-    taxon_db_path: PathOrStr = DATA_DIR / 'taxa.db',
-    obs_db_path: PathOrStr = DATA_DIR / 'observations.db',
-):
-    """Calculate normalized taxon counts, and add to taxon text search table"""
-    taxon_counts = _read_taxon_counts()
+    obs_db_path: PathOrStr = OBS_DB,
+) -> Dict[int, int]:
+    """Calculate normalized taxon counts (or load previously saved counts)"""
+    taxon_counts = load_saved_taxon_counts()
     if not taxon_counts:
-        taxon_counts = _get_taxon_counts(obs_db_path)
-        taxon_counts = _normalize_taxon_counts(taxon_counts)
-
-    _load_taxon_counts(taxon_db_path, taxon_counts)
-    _optimize_fts_table(taxon_db_path)
+        taxon_counts = load_db_taxon_counts(obs_db_path)
+        taxon_counts = normalize_taxon_counts(taxon_counts)
+    return taxon_counts
 
 
-def _get_taxon_counts(db_path: PathOrStr) -> Dict[int, int]:
+def add_taxon_counts(row: Dict[str, Union[int, str]], taxon_counts: Dict[int, int]):
+    """Add taxon counts to a chunk of taxon records read from CSV"""
+    taxon_id = int(row['id'])
+    row['count_rank'] = taxon_counts.get(taxon_id, -1)
+    return row
+
+
+def load_db_taxon_counts(db_path: PathOrStr = OBS_DB) -> Dict[int, int]:
     """Get taxon counts based on GBIF export"""
     if not Path(db_path).is_file():
         logger.warning(f'Observation database {db_path} not found')
@@ -188,6 +240,8 @@ def _get_taxon_counts(db_path: PathOrStr) -> Dict[int, int]:
 
     logger.info(f'Getting taxon counts from {db_path}')
     with sqlite3.connect(db_path) as conn:
+        conn.execute("DELETE FROM observations WHERE taxonId IS NULL or taxonId = ''")
+
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
             "SELECT taxonID, COUNT(*) AS count FROM observations GROUP BY taxonID;"
@@ -199,27 +253,24 @@ def _get_taxon_counts(db_path: PathOrStr) -> Dict[int, int]:
         }
 
 
-def _read_taxon_counts(csv_file: Path = DATA_DIR / 'taxon_counts.csv') -> Dict[int, int]:
+def load_saved_taxon_counts(csv_file: PathOrStr = TAXON_COUNTS) -> Dict[int, int]:
     """Read previously calculated taxon counts from a CSV file"""
     import pandas as pd
 
-    if csv_file.is_file():
+    if Path(csv_file).is_file():
         logger.info(f'Reading taxon counts from {csv_file}')
         df = pd.read_csv(csv_file)
         return df.set_index('taxon_id')['count_rank'].to_dict()
     return {}
 
 
-def _normalize_taxon_counts(taxon_counts: Dict[int, int]) -> Dict[int, int]:
+def normalize_taxon_counts(taxon_counts: Dict[int, int]) -> Dict[int, int]:
     """Normalize taxon counts to a distribution between -10 and 10"""
     import numpy as np
     import pandas as pd
 
-    # Alternative to get_taxon_counts():
-    # sqlite3 "SELECT..." > taxon_counts_raw.csv
-    # df = pd.read_csv('taxon_counts_raw.csv', delimiter='|')
-    # df = df[df['count'] > 1]
-    # df = df.sort_values(by=['count'], ascending=False)
+    if not taxon_counts:
+        return {}
 
     def normalize(series):
         with np.errstate(divide='ignore'):
@@ -236,26 +287,3 @@ def _normalize_taxon_counts(taxon_counts: Dict[int, int]) -> Dict[int, int]:
     df = df.sort_values(by='count_rank', ascending=False)
     df.to_csv(DATA_DIR / 'taxon_counts.csv', index=False)
     return df.set_index('taxon_id')['count_rank'].to_dict()
-
-
-def _load_taxon_counts(db_path: PathOrStr, taxon_counts: Dict[int, int]):
-    """Update text search table with normalized taxon counts"""
-    logger.info(f'Loading taxon counts into {db_path}')
-    with sqlite3.connect(db_path) as conn:
-        for taxon_id, count_rank in track(taxon_counts.items(), description='Loading taxon counts'):
-            conn.execute(
-                'UPDATE taxon_names SET count_rank=? WHERE taxon_id=?', (count_rank, taxon_id)
-            )
-        conn.commit()
-
-
-def _optimize_fts_table(db_path: PathOrStr):
-    logger.info('Optimizing FTS table')
-    progress = get_progress_spinner('Optimizing table')
-    with progress, sqlite3.connect(db_path) as conn:
-        conn.execute('UPDATE taxon_names SET count_rank=-10 WHERE count_rank IS NULL')
-        conn.execute('UPDATE taxon_names SET language_code="zh_cn" WHERE language_code="zh-CN"')
-        conn.execute("INSERT INTO taxon_names(taxon_names) VALUES('optimize')")
-        conn.commit()
-        conn.execute('VACUUM')
-        conn.execute('ANALYZE taxon_names')
