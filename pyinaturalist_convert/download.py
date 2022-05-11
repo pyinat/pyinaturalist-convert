@@ -17,6 +17,7 @@ from rich.progress import (
     BarColumn,
     DownloadColumn,
     Progress,
+    SpinnerColumn,
     TaskID,
     TimeRemainingColumn,
     TransferSpeedColumn,
@@ -244,6 +245,12 @@ def _get_progress_dl(**kwargs) -> Progress:
         TimeRemainingColumn(),
         **kwargs,
     )
+
+
+def get_progress_spinner(description: str = 'Loading') -> Progress:
+    progress = Progress('[progress.description]{task.description}', SpinnerColumn(style='green'))
+    _get_task(progress, total=None, description=description)
+    return progress
 
 
 def _count_lines(filename: PathOrStr) -> int:

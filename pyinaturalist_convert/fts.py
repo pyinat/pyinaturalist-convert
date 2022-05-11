@@ -81,25 +81,27 @@ class TaxonAutocompleter:
         self.connection = sqlite3.connect(db_path)
         self.connection.row_factory = sqlite3.Row
 
-    def search(self, q: str, language: str = 'english') -> List[Taxon]:
+    def search(self, q: str, language: str = 'en') -> List[Taxon]:
         """Search for taxa by scientific and/or common name.
+
+        Args:
+            q: Search query
+            language: Language code for common names
 
         Returns:
             Taxon objects (with ID and name only)
         """
-        # Start with scientific name text search
-        base_query = f"SELECT *, rank FROM {{}} WHERE name MATCH '{q}*' "
-        query = base_query.format(self.base_table_name)
+        language = (language or '').lower().replace('-', '_')
+        query = 'SELECT name, taxon_id, taxon_rank, count_rank, rank FROM taxon_names '
+        query += f"WHERE name MATCH '{q}*' AND (language_code IS NULL "
+        query += f"OR language_code = '{language}') " if language else ' '
+        query += f'ORDER BY rank LIMIT {self.limit}'
 
-        # Union with common name results for specified language
-        if language:
-            language = language.lower().replace('-', '_')
-            query += 'UNION ' + base_query.format(f'{self.base_table_name}_{language}')
-
-        # Order by hidden FTS5 column 'rank'
-        query += f' ORDER BY rank LIMIT {self.limit}'
         with self.connection as conn:
-            return [Taxon(id=int(row['taxon_id']), name=row['name']) for row in conn.execute(query)]
+            return [
+                Taxon(id=int(row['taxon_id']), name=row['name'], rank=row['taxon_rank'])
+                for row in conn.execute(query)
+            ]
 
 
 def load_taxonomy_text_search_tables(
