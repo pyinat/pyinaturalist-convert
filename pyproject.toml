@@ -23,11 +23,15 @@ include = [
     { path = "examples", format = "sdist" },
     { path = "test", format = "sdist" }
 ]
+packages = [
+    { include = "pyinaturalist_convert" },
+    { include = "pyinat" },
+]
 
 [tool.poetry.dependencies]
 python = "^3.8"
 geojson = ">=2.5"
-pyinaturalist = ">=0.17.0.dev4"  # TODO: stable release
+pyinaturalist = ">=0.17.0.dev7"  # TODO: stable release
 flatten-dict = "^0.4.0"
 tablib = "^3.0"
 tabulate = "^0.8.9"
