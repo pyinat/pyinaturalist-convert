@@ -53,7 +53,7 @@ class ProgressIO(FileIO):
         if callback:
             self.callback = callback
         else:
-            self.progress = _get_progress_dl()
+            self.progress = get_progress_dl()
             task = _get_task(self.progress, getsize(path), description)
             self.callback = lambda x: self.progress.advance(task, x)
         super().__init__(path, *args, **kwargs)
@@ -77,9 +77,9 @@ class MultiProgress:
         job_progress: Progress = None,
         task_description: str = 'Loading',
     ):
-        self.total_progress = total_progress or _get_progress()
+        self.total_progress = total_progress or get_progress()
         self.total_task = self.total_progress.add_task('[cyan]Total', total=sum(totals.values()))
-        self.job_progress = job_progress or _get_progress()
+        self.job_progress = job_progress or get_progress()
         self.job_task = self.job_progress.add_task('[cyan]File ')
 
         self.table = Table.grid()
@@ -125,8 +125,8 @@ class ZipProgress(MultiProgress):
 
     def __init__(self, archive: ZipFile, **kwargs):
         super().__init__(
-            total_progress=_get_progress_dl(),
-            job_progress=_get_progress_dl(),
+            total_progress=get_progress_dl(),
+            job_progress=get_progress_dl(),
             totals=_get_zip_totals(archive),
             task_description='Extracting',
             **kwargs,
@@ -171,7 +171,7 @@ def download_file(url: str, dest_file: PathOrStr):
     # Get file size for progress bar
     response = requests.head(url)
     file_size = int(response.headers['Content-Length'])
-    progress = _get_progress_dl()
+    progress = get_progress_dl()
     task = _get_task(progress, file_size, 'Downloading')
     progress.log(f'[cyan]Downloading to: {dest_file}')
 
@@ -189,7 +189,7 @@ def download_s3_file(bucket_name: str, key: str, dest: PathOrStr):
     s3 = _get_s3_client()
     head = s3.head_object(Bucket=bucket_name, Key=key)
     file_size = head['ContentLength']
-    progress = _get_progress_dl()
+    progress = get_progress_dl()
     task = _get_task(progress, file_size, 'Downloading')
     progress.log(f'[cyan]Downloading to:[/cyan] {dest}')
 
@@ -222,7 +222,7 @@ def unzip_progress(archive_path: Path, dest_dir: Path):
                 copyfileobj(f, progress_file)
 
 
-def _get_progress(**kwargs) -> Progress:
+def get_progress(**kwargs) -> Progress:
     """Default progress bar format"""
     return Progress(
         '[progress.description]{task.description}',
@@ -234,7 +234,7 @@ def _get_progress(**kwargs) -> Progress:
     )
 
 
-def _get_progress_dl(**kwargs) -> Progress:
+def get_progress_dl(**kwargs) -> Progress:
     """Track progress of processing a file in bytes"""
     return Progress(
         '[progress.description]{task.description}',

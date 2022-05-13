@@ -8,7 +8,7 @@ from typing import Dict, List, Tuple
 from pyinaturalist import enable_logging
 
 from .constants import DATA_DIR, DWCA_TAXA_URL, DWCA_URL, OBS_DB, TAXON_CSV, TAXON_DB, PathOrStr
-from .download import check_download, download_file, unzip_progress
+from .download import check_download, download_file, get_progress, unzip_progress
 from .sqlite import load_table
 
 TAXON_COLUMN_MAP = {
@@ -91,20 +91,21 @@ def load_taxonomy_table(
         try:
             row['parentNameUsageID'] = int(row['parentNameUsageID'].split('/')[-1])
         except (TypeError, ValueError):
-            pass
+            row['parentNameUsageID'] = None
         return row
 
     with sqlite3.connect(db_path) as conn:
         conn.execute(
             f'CREATE TABLE IF NOT EXISTS {table_name} ('
             'id INTEGER PRIMARY KEY, name TEXT, parent_id INTEGER, rank TEXT, '
-            'FOREIGN KEY (parent_id) REFERENCES taxa(id))'
+            f'FOREIGN KEY (parent_id) REFERENCES {table_name}(id))'
         )
 
     load_table(csv_path, db_path, table_name, column_map, transform=get_parent_id)
 
     with sqlite3.connect(db_path) as conn:
-        conn.execute("CREATE INDEX IF NOT EXISTS taxon_name_idx ON taxa(name)")
+        conn.execute(f"UPDATE {table_name} SET parent_id=NULL WHERE parent_id=''")
+        conn.execute(f"CREATE INDEX IF NOT EXISTS taxon_name_idx ON {table_name}(name)")
 
 
 def get_observation_taxon_counts(db_path: PathOrStr = OBS_DB) -> Dict[int, int]:
@@ -151,7 +152,7 @@ def get_leaf_taxa_parents(db_path: PathOrStr = TAXON_DB) -> List[int]:
         return [row[0] for row in rows]
 
 
-def aggregate_taxon_counts():
+def aggregate_taxon_counts(db_path: PathOrStr = TAXON_DB, obs_db_path: PathOrStr = OBS_DB):
     """Aggregate taxon observation counts up to all ancestors.
 
     What we have to work with from the GBIF dataset are IDs, parent IDs, and a subset of ancestor
@@ -167,56 +168,43 @@ def aggregate_taxon_counts():
     import pandas as pd
 
     logger.info('Loading taxa')
-    df = pd.read_csv(TAXON_CSV, index_col='id')
-    df = df.fillna('')
-    # Or from SQLite:
-    # df = pd.read_sql_query('SELECT * FROM taxa', sqlite3.connect(TAXON_DB))
-
-    # Get parent IDs from URLs
-    def get_id(x):
-        return int(x.split('/')[-1]) if x else None
-
-    df['parent_id'] = df['parentNameUsageID'].apply(get_id)
+    df = pd.read_sql_query('SELECT * FROM taxa', sqlite3.connect(db_path), index_col='id')
     df['parent_id'] = df['parent_id'].astype(pd.Int64Dtype())
+    if 'count' in df.dtypes:
+        df = df.drop('count', axis=1)
 
     # Get taxon counts
-    taxon_counts_dict = get_observation_taxon_counts()
+    taxon_counts_dict = get_observation_taxon_counts(obs_db_path)
     taxon_counts = pd.DataFrame(taxon_counts_dict.items(), columns=['id', 'count'])
     taxon_counts = taxon_counts.set_index('id')
     df = df.join(taxon_counts)
+    df = df.rename_axis('id').reset_index()
     df['count'] = df['count'].fillna(0).astype(np.int64)
-    df = df[['parent_id', 'count']].rename_axis('id').reset_index()
 
-    # This seems to be much faster in SQL, but maybe there's an equivalent pandas way to do this?
+    def add_child_counts(row):
+        """Add child counts to the given taxon, if all children have been counted"""
+        children = df[df['parent_id'] == row['id']]
+        if children['id'].isin(processed_ids).all():
+            row['count'] += children['count'].sum()
+            progress.advance(task, 1)
+        else:
+            skipped_ids.add(row['id'])
+        return row
+
+    level = 1
     level_ids = set(get_leaf_taxa_parents())
     processed_ids = set(get_leaf_taxa())
 
-    def add_child_counts(row: pd.Series) -> pd.Series:
-        """Add counts of all children to the given taxon"""
-        row['count'] += df[df['parent_id'] == row['id']]['count'].sum()
-        return row
-
-    def all_children_counted(row: pd.Series) -> bool:
-        """Check if all children of the given taxon have been counted"""
-        return df[df['parent_id'] == row['id']]['id'].isin(processed_ids).all()
-
-    level = 1
-    while len(level_ids) > 0:
-        logger.info(
-            f'Finding taxa with fully counted children for level {level} '
-            f'(out of {len(level_ids)} taxa)'
-        )
-        mask_1 = df['id'].isin(level_ids)
-        mask_2 = df.loc[mask_1].apply(all_children_counted, axis=1)
-        sub_df = df.loc[mask_1].copy()
-        skipped_ids = set(sub_df.loc[~mask_2]['id'])
-
-        # Aggregate counts
-        logger.info(f'Aggregating taxon counts at level {level} ({len(sub_df.loc[mask_2])} taxa)')
-        sub_df.loc[mask_2] = sub_df.loc[mask_2].apply(add_child_counts, axis=1)
-        df[mask_1] = sub_df
-        level_ids, processed_ids = _get_next_level(df, level_ids, processed_ids, skipped_ids)
-        level += 1
+    progress = get_progress()
+    task = progress.add_task('[cyan]Processing...', total=len(df) - len(processed_ids))
+    with progress:
+        while len(level_ids) > 0:
+            logger.info(f'Aggregating taxon counts at level {level} ({len(level_ids)} taxa)')
+            skipped_ids = set()
+            mask = df['id'].isin(level_ids)
+            df.loc[mask] = df.loc[mask].apply(add_child_counts, axis=1)
+            level_ids, processed_ids = _get_next_level(df, level_ids, processed_ids, skipped_ids)
+            level += 1
 
     df.to_csv('out.csv', index=False)
     return df
