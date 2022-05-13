@@ -78,7 +78,6 @@ class XFormChunkReader(ChunkReader):
         return [row[f] for f in self.include_fields] if self.include_fields else row
 
 
-# TODO: Indexes
 # TODO: Load all columns with original names if a column map isn't provided
 def load_table(
     csv_path: PathOrStr,

@@ -16,6 +16,7 @@ ODP_BUCKET_NAME = 'inaturalist-open-data'
 ODP_METADATA_KEY = f'metadata/{ODP_ARCHIVE_NAME}'
 PHOTO_BASE_URL = 'https://inaturalist-open-data.s3.amazonaws.com/photos/'
 
+TAXON_CSV = DATA_DIR / 'inaturalist-taxonomy.dwca' / 'taxa.csv'
 TAXON_COUNTS = DATA_DIR / 'taxon_counts.csv'
 TAXON_DB = DATA_DIR / 'taxa.db'
 OBS_DB = DATA_DIR / 'observations.db'

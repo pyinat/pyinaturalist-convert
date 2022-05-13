@@ -1,4 +1,4 @@
-"""Taxon full text search utilities"""
+"""Tools to build and search a Taxon full text search database"""
 import sqlite3
 from functools import partial
 from logging import getLogger
@@ -9,6 +9,7 @@ from pyinaturalist.models import Taxon
 
 from .constants import DATA_DIR, OBS_DB, TAXON_COUNTS, TAXON_DB, PathOrStr
 from .download import CSVProgress, get_progress_spinner
+from .dwca import get_observation_taxon_counts
 from .sqlite import load_table
 
 # Add extra text search prefix indexes to speed up searches for these prefix lengths
@@ -48,7 +49,6 @@ COMMON_TAXON_NAME_MAP = {
 logger = getLogger(__name__)
 
 
-# TODO: Load taxon counts with number of exact + child taxa observations, not just exact rank observations
 # TODO: Deduplicate results (if both common and scientific names are present)
 class TaxonAutocompleter:
     """Taxon autocomplete search.
@@ -111,23 +111,14 @@ class TaxonAutocompleter:
 
         with self.connection as conn:
             results = sorted(conn.execute(query).fetchall(), key=lambda row: row['combined_rank'])
-            logger.debug(
-                '\n'.join(
-                    [
-                        f"[{t['taxon_id']}] {t['name']}: {t['rank']}, {t['count_rank']}, {t['combined_rank']}"
-                        for t in results
-                    ]
-                )
-            )
+            # logger.debug('\n'.join([
+            #     f"[{t['taxon_id']}] {t['name']}: {t['rank']}, {t['count_rank']}, {t['combined_rank']}"
+            #         for t in results]))
             return [
                 Taxon(id=int(row['taxon_id']), name=row['name'], rank=row['taxon_rank'])
                 for row in results[: self.limit]
+                # for row in conn.execute(query)
             ]
-
-            # return [
-            #     Taxon(id=int(row['taxon_id']), name=row['name'], rank=row['taxon_rank'])
-            #     for row in conn.execute(query)
-            # ]
 
 
 def load_taxonomy_text_search_tables(
@@ -214,13 +205,14 @@ def optimize_fts_table(db_path: PathOrStr = TAXON_DB):
         conn.execute('ANALYZE taxon_names')
 
 
+# TODO: Save to and read from taxa SQLite table instead of CSV
 def load_taxon_counts(
     obs_db_path: PathOrStr = OBS_DB,
 ) -> Dict[int, int]:
     """Calculate normalized taxon counts (or load previously saved counts)"""
-    taxon_counts = load_saved_taxon_counts()
+    taxon_counts = read_saved_taxon_counts()
     if not taxon_counts:
-        taxon_counts = load_db_taxon_counts(obs_db_path)
+        taxon_counts = get_observation_taxon_counts(obs_db_path)
         taxon_counts = normalize_taxon_counts(taxon_counts)
     return taxon_counts
 
@@ -232,39 +224,20 @@ def add_taxon_counts(row: Dict[str, Union[int, str]], taxon_counts: Dict[int, in
     return row
 
 
-def load_db_taxon_counts(db_path: PathOrStr = OBS_DB) -> Dict[int, int]:
-    """Get taxon counts based on GBIF export"""
-    if not Path(db_path).is_file():
-        logger.warning(f'Observation database {db_path} not found')
-        return {}
-
-    logger.info(f'Getting taxon counts from {db_path}')
-    with sqlite3.connect(db_path) as conn:
-        conn.execute("DELETE FROM observations WHERE taxonId IS NULL or taxonId = ''")
-
-        conn.row_factory = sqlite3.Row
-        rows = conn.execute(
-            "SELECT taxonID, COUNT(*) AS count FROM observations GROUP BY taxonID;"
-        ).fetchall()
-
-        return {
-            int(row['taxonID']): int(row['count'])
-            for row in sorted(rows, key=lambda r: r['count'], reverse=True)
-        }
-
-
-def load_saved_taxon_counts(csv_file: PathOrStr = TAXON_COUNTS) -> Dict[int, int]:
-    """Read previously calculated taxon counts from a CSV file"""
+def read_saved_taxon_counts(csv_file: PathOrStr = TAXON_COUNTS) -> Dict[int, int]:
+    """Read previously calculated taxon count ranks from a CSV file"""
     import pandas as pd
 
     if Path(csv_file).is_file():
-        logger.info(f'Reading taxon counts from {csv_file}')
-        df = pd.read_csv(csv_file)
+        logger.info(f'Reading taxon count ranks from {csv_file}')
+        df = pd.read_csv(csv_file, index_col='id')
         return df.set_index('taxon_id')['count_rank'].to_dict()
     return {}
 
 
-def normalize_taxon_counts(taxon_counts: Dict[int, int]) -> Dict[int, int]:
+def normalize_taxon_counts(
+    taxon_counts: Dict[int, int], csv_file: PathOrStr = TAXON_COUNTS
+) -> Dict[int, int]:
     """Normalize taxon counts to a distribution between -10 and 10"""
     import numpy as np
     import pandas as pd
@@ -279,11 +252,11 @@ def normalize_taxon_counts(taxon_counts: Dict[int, int]) -> Dict[int, int]:
         return (series - series.mean()) / series.std()
 
     logger.info('Normalizing taxon counts')
-    df = pd.DataFrame(taxon_counts.items(), columns=['taxon_id', 'count'])
+    df = pd.DataFrame(taxon_counts.items(), columns=['id', 'count'])
     df['count_rank'] = normalize(df['count'])
     df['count_rank'].fillna(0)
     df['count_rank'] = df['count_rank'] * TAXON_COUNT_RANK_FACTOR
 
     df = df.sort_values(by='count_rank', ascending=False)
-    df.to_csv(DATA_DIR / 'taxon_counts.csv', index=False)
+    df.to_csv(csv_file, index=False)
     return df.set_index('taxon_id')['count_rank'].to_dict()
