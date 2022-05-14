@@ -1,10 +1,11 @@
 """Utilities to help load date into a SQLite database"""
 import sqlite3
+from csv import DictReader
 from csv import reader as csv_reader
 from logging import getLogger
 from pathlib import Path
 from time import time
-from typing import Dict, List
+from typing import Callable, Dict, List
 
 from .constants import PathOrStr
 from .download import MultiProgress
@@ -35,16 +36,48 @@ class ChunkReader:
         chunk = []
         try:
             for _ in range(self._chunk_size):
-                row = next(self.reader)
-                chunk.append([row[i] for i in self._include_idx] if self._include_idx else row)
+                chunk.append(self._next_row())
         except StopIteration:
             # Ignore first StopIteration to return final chunk
             if not chunk:
                 raise
         return chunk
 
+    def _next_row(self):
+        row = next(self.reader)
+        return [row[i] for i in self._include_idx] if self._include_idx else row
 
-# TODO: Indexes
+
+class XFormChunkReader(ChunkReader):
+    """A CSV reader that yields chunks of rows, and applies a transform callback to each row
+
+    Args:
+        chunk_size: Number of rows to yield at a time
+        fields: List of fields to include in each chunk
+        transform: Callback to transform a row before inserting into the database
+    """
+
+    def __init__(
+        self,
+        f,
+        chunk_size: int = 2000,
+        fields: List[str] = None,
+        transform: Callable = None,
+        **kwargs,
+    ):
+        self.reader = DictReader(f, **kwargs)  # type: ignore
+        self._chunk_size = chunk_size
+        self.include_fields = fields
+        self.transform = transform or (lambda x: x)
+
+    def __iter__(self):
+        return self
+
+    def _next_row(self) -> list:
+        row = self.transform(next(self.reader))
+        return [row[f] for f in self.include_fields] if self.include_fields else row
+
+
 # TODO: Load all columns with original names if a column map isn't provided
 def load_table(
     csv_path: PathOrStr,
@@ -53,6 +86,7 @@ def load_table(
     column_map: Dict = None,
     pk: str = 'id',
     progress: MultiProgress = None,
+    transform: Callable = None,
 ):
     """Load a CSV file into a sqlite3 table.
     This is less efficient than the sqlite3 shell `.import` command, but easier to use.
@@ -65,6 +99,7 @@ def load_table(
             listed will be ignored.
         pk: Primary key column name
         progress: Progress bar, if tracking loading from multiple files
+        transform: Callback to transform a row before inserting into the database
     """
     if column_map is None:
         raise NotImplementedError
@@ -76,6 +111,7 @@ def load_table(
 
     table_name = table_name or db_path.stem
     non_pk_cols = [k for k in column_map.values() if k != pk]
+    columns_str = ', '.join(column_map.values())
     csv_cols = list(column_map.keys())
     placeholders = ','.join(['?'] * len(column_map))
     start = time()
@@ -84,9 +120,18 @@ def load_table(
         progress.start_job(csv_path)
 
     with sqlite3.connect(db_path) as conn, open(csv_path) as f:
+        conn.execute('PRAGMA synchronous = 0')
+        conn.execute('PRAGMA journal_mode = MEMORY')
         create_table(conn, table_name, non_pk_cols, pk)
-        for chunk in ChunkReader(f, fields=csv_cols):
-            conn.executemany(f'INSERT OR REPLACE INTO {table_name} VALUES ({placeholders})', chunk)
+        stmt = f'INSERT OR REPLACE INTO {table_name} ({columns_str}) VALUES ({placeholders})'
+
+        if not transform:
+            reader = ChunkReader(f, fields=csv_cols)
+        else:
+            reader = XFormChunkReader(f, fields=csv_cols, transform=transform)
+
+        for chunk in reader:
+            conn.executemany(stmt, chunk)
             if progress:
                 progress.advance(len(chunk))
         conn.commit()

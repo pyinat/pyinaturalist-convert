@@ -1,21 +1,17 @@
-# flake8: noqa: F401
 from logging import getLogger
-from pathlib import Path
-from tempfile import gettempdir
 from time import time
 
-from pyinaturalist_convert.fts import TaxonAutocompleter, load_taxonomy_text_search_tables
+from pyinaturalist_convert.fts import TaxonAutocompleter, load_taxon_fts_table
 from test.conftest import SAMPLE_DATA_DIR
 
 CSV_DIR = SAMPLE_DATA_DIR / 'inaturalist-taxonomy.dwca'
-TEMP = Path(gettempdir())
 
 logger = getLogger(__name__)
 
 
-def test_text_search():
-    db_path = TEMP / 'taxa.db'
-    load_taxonomy_text_search_tables(csv_dir=CSV_DIR, db_path=db_path)
+def test_text_search(tmp_path):
+    db_path = tmp_path / 'taxa.db'
+    load_taxon_fts_table(csv_dir=CSV_DIR, db_path=db_path)
     ta = TaxonAutocompleter(db_path=db_path)
 
     results = ta.search('ave')
@@ -23,7 +19,7 @@ def test_text_search():
 
     results = ta.search('franco')
     assert len(results) == 3
-    assert results[0].id == 649 and results[0].name == 'Black Francolin'
+    assert results[0].id == 644 and results[0].name == 'Painted Francolin'
 
     db_path.unlink()
 

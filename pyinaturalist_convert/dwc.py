@@ -292,3 +292,26 @@ def format_mimetype(url: str) -> str:
 
 def format_time(dt: datetime):
     return dt.strftime("%H:%M%z")
+
+
+# WIP
+def dwc_record_to_observation(dwc_record: Dict) -> Dict:
+    """Translate a DwC record to a dict formatted like an observation API response"""
+    lookup = _get_dwc_term_lookup()
+
+    json_record = {json_key: dwc_record.get(dwc_key) for dwc_key, json_key in lookup.items()}
+    json_record['location'] = (dwc_record['decimalLatitude'], dwc_record['decimalLongitude'])
+    return json_record
+
+
+def _get_dwc_term_lookup() -> Dict:
+    """Get a lookup table of DwC terms to JSON keys"""
+    lookup = {}
+    for k, v in OBSERVATION_FIELDS.items():
+        if isinstance(v, list):
+            lookup.update({subval: k for subval in v})
+        else:
+            lookup[v] = k
+    # lookup['decimalLatitude'] = 'latitude'
+    # lookup['decimalLongitude'] = 'longitude'
+    return {k.split(':')[-1]: v for k, v in lookup.items()}

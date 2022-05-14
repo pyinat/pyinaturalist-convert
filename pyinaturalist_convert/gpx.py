@@ -1,6 +1,5 @@
 from logging import getLogger
 
-from gpxpy.gpx import GPX, GPXTrack, GPXTrackPoint, GPXTrackSegment, GPXWaypoint
 from pyinaturalist import Observation
 from pyinaturalist.constants import ResponseResult
 from pyinaturalist.converters import convert_observation_timestamps
@@ -36,6 +35,9 @@ def to_gpx(observations: AnyObservations, filename: str = None, track: bool = Tr
     Returns:
         GPX XML as a string
     """
+
+    from gpxpy.gpx import GPX, GPXTrack, GPXTrackSegment
+
     gpx = GPX()
     points = [to_gpx_point(obs, track=track) for obs in to_dict_list(observations)]
 
@@ -63,6 +65,8 @@ def to_gpx_point(observation: ResponseResult, track: bool = True):
             otherwise, assume it is an unordered waypoint
 
     """
+    from gpxpy.gpx import GPXTrackPoint, GPXWaypoint
+
     logger.debug(f'Processing observation {observation["id"]}')
     observation = convert_observation_timestamps(observation)
     # GeoJSON coordinates are ordered as `longitude, latitude`

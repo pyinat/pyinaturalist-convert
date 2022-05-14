@@ -12,6 +12,7 @@ downloads/
 .venv
 bin
 build
+dask-worker-space
 develop-eggs
 dist
 eggs
