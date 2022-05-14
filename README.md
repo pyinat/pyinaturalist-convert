@@ -93,12 +93,12 @@ download_dwca()
 
 Or the complete taxonomy dataset:
 ```python
-download_taxa()
+download_dwca_taxa()
 ```
 
 Load taxonomy and common name data into a full text search database:
 ```python
-load_taxonomy_text_search_tables(languages=['english', 'german'])
+load_taxon_fts_table(languages=['english', 'german'])
 ```
 
 And get lightning-fast autocomplete results from it:

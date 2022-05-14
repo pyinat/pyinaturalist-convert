@@ -134,7 +134,7 @@ def load_taxon_table(
         """Get parent taxon ID from URL"""
         try:
             row['parentNameUsageID'] = int(row['parentNameUsageID'].split('/')[-1])
-        except (TypeError, ValueError):
+        except (KeyError, TypeError, ValueError):
             row['parentNameUsageID'] = None
         return row
 
@@ -174,7 +174,9 @@ def get_observation_taxon_counts(db_path: PathOrStr = OBS_DB) -> Dict[int, int]:
         }
 
 
-def aggregate_taxon_counts(db_path: PathOrStr = TAXON_DB, obs_db_path: PathOrStr = OBS_DB):
+def aggregate_taxon_counts(
+    db_path: PathOrStr = TAXON_DB, obs_db_path: PathOrStr = OBS_DB, save_counts_only: bool = False
+):
     """Aggregate taxon observation counts up to all ancestors, and save results back to taxonomy
     database.
 
@@ -209,8 +211,8 @@ def aggregate_taxon_counts(db_path: PathOrStr = TAXON_DB, obs_db_path: PathOrStr
         return row
 
     level = 1
-    level_ids = set(_get_leaf_taxa_parents())
-    processed_ids = set(_get_leaf_taxa())
+    level_ids = set(_get_leaf_taxa_parents(db_path))
+    processed_ids = set(_get_leaf_taxa(db_path))
     skipped_ids: Set[int]
 
     progress = get_progress()
@@ -224,14 +226,16 @@ def aggregate_taxon_counts(db_path: PathOrStr = TAXON_DB, obs_db_path: PathOrStr
             level_ids, processed_ids = _get_next_level(df, level_ids, processed_ids, skipped_ids)
             level += 1
 
-    # Save a copy of minimal {id: count} mapping
+    # Save a copy of minimal {id: count} mapping, if specified
     df = df.set_index('id')
-    min_df = df[df['count'] > 0][['id', 'count']]
-    min_df = min_df.sort_values('count', ascending=False)
-    min_df.to_parquet(TAXON_COUNTS)
+    if save_counts_only:
+        min_df = df[df['count'] > 0][['count']]
+        min_df = min_df.sort_values('count', ascending=False)
+        min_df.to_parquet(TAXON_COUNTS)
+    # Otherwise, save back to SQLite
+    else:
+        _save_taxa_df(df, db_path)
 
-    # Save back to SQLite; clear and reuse existing table to keep indexes
-    _save_taxa_df(df, db_path)
     return df
 
 
