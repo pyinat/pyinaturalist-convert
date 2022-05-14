@@ -294,6 +294,7 @@ def _get_url_mtime(url: str) -> Optional[datetime]:
 
 
 def _get_csv_totals(filenames: Iterable[Path]):
+    print('[cyan]Estimating processing time...')
     return {_fname(f): _count_lines(f) - 1 for f in filenames}
 
 

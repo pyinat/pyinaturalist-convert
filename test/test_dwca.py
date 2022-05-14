@@ -4,7 +4,7 @@ from logging import getLogger
 from pathlib import Path
 from tempfile import gettempdir
 
-from pyinaturalist_convert.dwca import download_dwca, download_taxa, load_taxonomy_table
+from pyinaturalist_convert.dwca import download_dwca, download_dwca_taxa, load_taxon_table
 from test.conftest import SAMPLE_DATA_DIR
 
 CSV_DIR = SAMPLE_DATA_DIR / 'inaturalist-taxonomy.dwca'

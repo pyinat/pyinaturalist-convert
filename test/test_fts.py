@@ -4,7 +4,7 @@ from pathlib import Path
 from tempfile import gettempdir
 from time import time
 
-from pyinaturalist_convert.fts import TaxonAutocompleter, load_taxonomy_text_search_tables
+from pyinaturalist_convert.fts import TaxonAutocompleter, load_taxon_fts_table
 from test.conftest import SAMPLE_DATA_DIR
 
 CSV_DIR = SAMPLE_DATA_DIR / 'inaturalist-taxonomy.dwca'
@@ -15,7 +15,7 @@ logger = getLogger(__name__)
 
 def test_text_search():
     db_path = TEMP / 'taxa.db'
-    load_taxonomy_text_search_tables(csv_dir=CSV_DIR, db_path=db_path)
+    load_taxon_fts_table(csv_dir=CSV_DIR, db_path=db_path)
     ta = TaxonAutocompleter(db_path=db_path)
 
     results = ta.search('ave')
