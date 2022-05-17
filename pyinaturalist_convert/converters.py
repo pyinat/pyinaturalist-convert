@@ -17,10 +17,9 @@ from pyinaturalist import BaseModel, JsonResponse, ModelObjects, Observation, Re
 from requests import Response
 from tablib import Dataset
 
-# TODO: Use Observation model to do most of the cleanup (e.g., for _fix_dimensions())
 # TODO: Better condensed format for simplify_observations() that still works with parquet
 # TODO: For large datasets that require more than one conversion step, chained generators would be
-# useful to minimize memory useage from intermediate variables.
+# useful to minimize memory usage from intermediate variables.
 
 TABLIB_FORMATS = [
     'csv',
@@ -155,10 +154,15 @@ def read(filename: PathOrStr) -> List[Observation]:
 
     Note: For CSV files from the iNat export tool, use :py:func:`.load_csv_exports` instead.
     """
+    from .csv import is_csv_export, load_csv_exports
+
     file_path = Path(filename).expanduser()
     ext = file_path.suffix.lower().replace('.', '')
     if ext == 'json':
         return Observation.from_json_file(file_path)
+    # For CSV, check if it came from the export tool or from API results
+    elif ext == 'csv' and is_csv_export(file_path):
+        df = load_csv_exports(file_path)
     elif ext == 'csv':
         df = pd.read_csv(file_path)
     elif ext == 'feather':
@@ -192,12 +196,6 @@ def flatten_observations(observations: AnyObservations, flatten_lists: bool = Fa
     if flatten_lists:
         observations = simplify_observations(observations)
     return [flatten(obs, reducer='dot') for obs in to_dicts(observations)]
-
-
-def flatten_observation(observation: ResponseResult, flatten_lists: bool = False):
-    if flatten_lists:
-        observation = _simplify_observation(observation)
-    return flatten(observation, reducer='dot')
 
 
 def simplify_observations(observations: AnyObservations) -> List[ResponseResult]:
@@ -242,7 +240,7 @@ def _simplify_observation(obs):
 
 
 def _fix_dimensions(flat_observations):
-    """Temporary ugly hack to work around missing fields in some observations"""
+    """Add missing fields to ensure dimensions are consistent"""
     optional_fields = ['taxon.complete_rank', 'taxon.preferred_common_name']
     headers = set(flat_observations[0].keys()) | set(optional_fields)
     for obs in flat_observations:
