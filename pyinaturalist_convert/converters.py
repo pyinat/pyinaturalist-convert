@@ -30,9 +30,9 @@ TABLIB_FORMATS = [
     'xlsx',
     'yaml',
 ]
-PANDAS_FORMATS = ['csv', 'feather', 'hdf', 'parquet', 'sql']
+PANDAS_FORMATS = ['csv', 'feather', 'hdf', 'parquet', 'xlsx']
 
-CollectionTypes = Union[Dataset, Response, JsonResponse, Iterable[ResponseResult]]
+CollectionTypes = Union[DataFrame, Dataset, Response, JsonResponse, Iterable[ResponseResult]]
 InputTypes = Union[CollectionTypes, ModelObjects]
 AnyObservations = Union[CollectionTypes, Observation, Iterable[Observation]]
 AnyTaxa = Union[CollectionTypes, Taxon, Iterable[Taxon]]
@@ -41,10 +41,39 @@ PathOrStr = Union[Path, str]
 logger = getLogger(__name__)
 
 
-def to_dicts(value: InputTypes) -> List[Dict]:
-    """Convert any supported input type into a list of observation (or other record type) dicts"""
+def to_observations(value: InputTypes) -> Iterable[Observation]:
+    """Convert any supported input type into Observation objects. Input types include:
+
+    * :py:class:`pandas.DataFrame`
+    * :py:class:`tablib.Dataset`
+    * :py:class:`requests.Response`
+    * API response JSON
+    """
+    return _to_models(value, Observation)
+
+
+def to_taxa(value: InputTypes) -> Iterable[Taxon]:
+    """Convert any supported input type into Taxon objects"""
+    return _to_models(value, Taxon)
+
+
+def _to_models(value: InputTypes, model: Type[BaseModel] = Observation) -> Iterable[BaseModel]:
+    """Convert any supported input type into a list of Observation (or other record type) objects"""
+    # If the value already contains model object(s), don't convert them to dicts and back to models
+    if isinstance(value, BaseModel):
+        return [value]
+    elif isinstance(value, Sequence) and isinstance(value[0], BaseModel):
+        return value
+    else:
+        return model.from_json_list(to_dicts(value))
+
+
+def to_dicts(value: InputTypes) -> Iterable[Dict]:
+    """Convert any supported input type into a observation (or other record type) dicts"""
     if not value:
         return []
+    if isinstance(value, DataFrame):
+        return _df_to_dicts(value)
     if isinstance(value, Dataset):
         return value.dict
     if isinstance(value, Response):
@@ -56,24 +85,9 @@ def to_dicts(value: InputTypes) -> List[Dict]:
     elif isinstance(value, Sequence) and isinstance(value[0], BaseModel):
         return [v.to_dict() for v in value]
     elif isinstance(value, Sequence):
-        return list(value)
+        return value
     else:
         return [value]
-
-
-def to_models(value: InputTypes, model: Type[BaseModel] = Observation) -> List[BaseModel]:
-    """Convert any supported input type into a list of Observation (or other record type) objects"""
-    if isinstance(value, BaseModel):
-        return [value]
-    elif isinstance(value, Sequence) and isinstance(value[0], BaseModel):
-        return list(value)
-    else:
-        return model.from_json_list(to_dicts(value))
-
-
-def to_observations(value: InputTypes) -> List[Observation]:
-    """Convert any supported input type into a list of Observation objects"""
-    return to_models(value, Observation)
 
 
 def to_csv(observations: AnyObservations, filename: str = None) -> Optional[str]:
@@ -130,44 +144,30 @@ def to_parquet(observations: AnyObservations, filename: str):
     df.to_parquet(filename)
 
 
-def df_to_dicts(df: 'DataFrame') -> List[JsonResponse]:
-    """Convert a pandas DataFrame into nested dicts (similar to API response JSON)"""
-    df = df.replace([np.nan], [None])
-    return [unflatten(flat_dict, splitter='dot') for flat_dict in df.to_dict('records')]
-
-
 def read(filename: PathOrStr) -> List[Observation]:
     """Load observations from any supported file format
     This code also serves as reference for how to load observations from various formats.
 
     Note: For CSV files from the iNat export tool, use :py:func:`.load_csv_exports` instead.
     """
-
     file_path = Path(filename).expanduser()
     ext = file_path.suffix.lower().replace('.', '')
     if ext == 'json':
         return Observation.from_json_file(file_path)
-    elif ext in PANDAS_FORMATS:
-        return _read_pd_formats(file_path, ext)
+    elif ext == 'csv':
+        df = pd.read_csv(file_path)
+    elif ext == 'feather':
+        df = pd.read_feather(file_path)
+    elif ext == 'hdf':
+        df = pd.read_hdf(file_path, 'observations')
+    elif ext == 'parquet':
+        df = pd.read_parquet(file_path)
+    elif ext == 'xlsx':
+        df = pd.read_excel(file_path)
     else:
         raise ValueError(f'File format not yet supported: {file_path.suffix}')
 
-
-# TODO: If CSV, inspect if it's from the iNat export tool and use load_csv_exports instead
-def _read_pd_formats(file_path: Path, ext: str):
-    if file_path.suffix == 'csv':
-        df = pd.read_csv(file_path)
-    elif file_path.suffix == 'feather':
-        df = pd.read_feather(file_path)
-    elif file_path.suffix == 'hdf':
-        df = pd.read_hdf(file_path, 'observations')
-    elif file_path.suffix == 'parquet':
-        df = pd.read_parquet(file_path)
-    elif file_path.suffix == 'xlsx':
-        df = pd.read_excel(file_path)
-    else:
-        return []
-    return Observation.from_json_list(df_to_dicts(df))
+    return Observation.from_json_list(_df_to_dicts(df))
 
 
 def write(content: Union[str, bytes], filename: PathOrStr, mode='w'):
@@ -177,11 +177,13 @@ def write(content: Union[str, bytes], filename: PathOrStr, mode='w'):
     file_path.parent.mkdir(parents=True, exist_ok=True)
     with file_path.open(mode) as f:
         f.write(content)
+        # Ensure trailing newline
         if isinstance(content, str) and not content.endswith('\n'):
             f.write('\n')
 
 
 def flatten_observations(observations: AnyObservations, flatten_lists: bool = False):
+    """Flatten nested dict attributes, for example ``{"taxon": {"id": 1}} -> {"taxon.id": 1}``"""
     if flatten_lists:
         observations = simplify_observations(observations)
     return [flatten(obs, reducer='dot') for obs in to_dicts(observations)]
@@ -202,6 +204,12 @@ def simplify_observations(observations: AnyObservations) -> List[ResponseResult]
     * first photo URL
     """
     return [_simplify_observation(o) for o in to_dicts(observations)]
+
+
+def _df_to_dicts(df: 'DataFrame') -> List[JsonResponse]:
+    """Convert a pandas DataFrame into nested dicts (similar to API response JSON)"""
+    df = df.replace([np.nan], [None])
+    return [unflatten(flat_dict, splitter='dot') for flat_dict in df.to_dict('records')]
 
 
 def _simplify_observation(obs):

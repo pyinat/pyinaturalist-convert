@@ -2,6 +2,7 @@
 
 Currently, the process for building the database is a bit cumbersome, and I may end up hosting a
 copy of it somewhere instead. Meanwhile, to build everything::
+
     >>> from pyinaturalist_convert import load_dwca_tables, load_taxon_fts_table
     >>>
     >>> load_dwca_tables()
