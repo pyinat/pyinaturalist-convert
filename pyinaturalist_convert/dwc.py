@@ -16,7 +16,7 @@ from flatten_dict import flatten
 from pyinaturalist import Photo, get_taxa_by_id
 
 from .constants import PathOrStr
-from .converters import AnyObservations, AnyTaxa, flatten_observations, to_dict_list, write
+from .converters import AnyObservations, AnyTaxa, flatten_observations, to_dicts, write
 
 # Top-level fields from observation JSON
 OBSERVATION_FIELDS = {
@@ -139,7 +139,7 @@ def to_dwc(
     if observations:
         records = [observation_to_dwc_record(obs) for obs in flatten_observations(observations)]
     elif taxa:
-        records = [taxon_to_dwc_record(taxon) for taxon in to_dict_list(taxa)]
+        records = [taxon_to_dwc_record(taxon) for taxon in to_dicts(taxa)]
     if filename:
         write(get_dwc_record_set(records), filename)
         return None

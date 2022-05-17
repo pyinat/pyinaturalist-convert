@@ -3,7 +3,7 @@ from typing import List
 from geojson import Feature, FeatureCollection, Point
 from pyinaturalist.constants import ResponseResult
 
-from .converters import AnyObservations, flatten_observation, to_dict_list
+from .converters import AnyObservations, flatten_observation, to_dicts
 
 # Basic observation attributes to include by default in geojson responses
 DEFAULT_OBSERVATION_ATTRS = [
@@ -34,7 +34,7 @@ def to_geojson(
     """
     try:
         feature_collection = FeatureCollection(
-            [_to_geojson_feature(obs, properties) for obs in to_dict_list(observations)]
+            [_to_geojson_feature(obs, properties) for obs in to_dicts(observations)]
         )
     except Exception as err:
         print(err)

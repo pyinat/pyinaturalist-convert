@@ -6,12 +6,17 @@ import re
 from glob import glob
 from logging import getLogger
 from os.path import basename, expanduser
-from typing import List
+from typing import TYPE_CHECKING, List
 
+from pyinaturalist import JsonResponse
 from pyinaturalist.constants import RANKS
 from pyinaturalist.converters import try_datetime
 
 from .converters import to_dataframe
+
+if TYPE_CHECKING:
+    from pandas import DataFrame
+
 
 # Explicit datatypes for columns loaded from CSV
 DTYPES = {
@@ -79,9 +84,8 @@ PHOTO_ID_PATTERN = re.compile(r'.*photos/(.*)/.*\.(\w+)')
 logger = getLogger(__name__)
 
 
-# TODO: Do this with tablib instead of pandas?
-# OR: use pandas if installed, otherwise fallback to tablib?
-def load_csv_exports(*file_paths: str):
+# TODO: Use pandas if installed, otherwise fallback to tablib?
+def load_csv_exports(*file_paths: str) -> 'DataFrame':
     """Read one or more CSV files from ithe Nat export tool into a dataframe
 
     Args:
@@ -107,7 +111,7 @@ def resolve_file_paths(*file_paths: str) -> List[str]:
     return [expanduser(p) for p in resolved_paths]
 
 
-def format_columns(df):
+def format_columns(df: 'DataFrame') -> 'DataFrame':
     """Some datatype conversions that apply to both CSV exports and API response data"""
     # Convert to expected datatypes
     for col, dtype in DTYPES.items():
@@ -119,7 +123,7 @@ def format_columns(df):
     return df.fillna('')
 
 
-def format_response(response):
+def format_response(response: JsonResponse) -> 'DataFrame':
     """Convert and format API response data into a dataframe"""
     df = to_dataframe(response['results'])
     df['photo.url'] = df['photos'].apply(lambda x: x[0]['url'])
@@ -128,7 +132,7 @@ def format_response(response):
     return df
 
 
-def format_export(df):
+def format_export(df: 'DataFrame') -> 'DataFrame':
     """Format an exported CSV file to be more consistent with API response format"""
     logger.info(f'Formatting {len(df)} observation records')
 
