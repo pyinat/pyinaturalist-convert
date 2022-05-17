@@ -1,4 +1,9 @@
-"""Base utilities for converting observation data to common formats"""
+"""Base utilities for converting observation data to common formats
+
+.. automodsumm:: pyinaturalist_convert.converters
+   :functions-only:
+   :nosignatures:
+"""
 from copy import deepcopy
 from logging import getLogger
 from pathlib import Path
