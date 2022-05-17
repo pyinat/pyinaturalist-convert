@@ -4,10 +4,11 @@
    :functions-only:
    :nosignatures:
 """
+import json
 from copy import deepcopy
 from logging import getLogger
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Sequence, Type, Union
+from typing import Dict, Iterable, List, Sequence, Type, Union
 
 import numpy as np
 import pandas as pd
@@ -17,6 +18,9 @@ from pyinaturalist import BaseModel, JsonResponse, ModelObjects, Observation, Re
 from requests import Response
 from tablib import Dataset
 
+# TODO: Flatten annotations and ofvs into top-level {term_label: value_label} fields
+# TODO: to_csv(): Maybe try to keep simple ID lists and manually parse when reading CSV?
+# TODO: dict lists not returning correctly when reading parquet and feather
 # TODO: Better condensed format for simplify_observations() that still works with parquet
 # TODO: For large datasets that require more than one conversion step, chained generators would be
 # useful to minimize memory usage from intermediate variables.
@@ -94,19 +98,16 @@ def to_dicts(value: InputTypes) -> Iterable[Dict]:
         return [value]
 
 
-def to_csv(observations: AnyObservations, filename: str = None) -> Optional[str]:
+def to_csv(observations: AnyObservations, filename: str = None):
     """Convert observations to CSV"""
-    csv_observations = to_dataset(observations).get_csv()
-    if filename:
-        write(csv_observations, filename)
-        return None
-    else:
-        return csv_observations
+    df = pd.DataFrame(flatten_observations(observations, tabular=True))
+    df.to_csv(filename, index=False)
 
 
 def to_dataframe(observations: AnyObservations):
     """Convert observations into a pandas DataFrame"""
-    return pd.json_normalize(simplify_observations(observations))
+    flat_observations = flatten_observations(observations, semitabular=True)
+    return pd.DataFrame(flat_observations).dropna(axis=1, how='all')
 
 
 def to_dataset(observations: AnyObservations) -> Dataset:
@@ -116,11 +117,11 @@ def to_dataset(observations: AnyObservations) -> Dataset:
     if isinstance(observations, Dataset):
         return observations
 
-    flat_observations = flatten_observations(observations, flatten_lists=True)
+    flat_observations = flatten_observations(observations, semitabular=True)
     dataset = Dataset()
     headers, flat_observations = _fix_dimensions(flat_observations)
     dataset.headers = headers
-    dataset.extend([item.values() for item in flat_observations])
+    dataset.extend([[item[k] for k in headers] for item in flat_observations])
     return dataset
 
 
@@ -140,6 +141,10 @@ def to_hdf(observations: AnyObservations, filename: str):
     """Convert observations into a HDF5 file"""
     df = to_dataframe(observations)
     df.to_hdf(filename, 'observations')
+
+
+def to_json(observations: AnyObservations, filename: str):
+    write(json.dumps(observations, indent=2, default=str), filename)
 
 
 def to_parquet(observations: AnyObservations, filename: str):
@@ -191,59 +196,98 @@ def write(content: Union[str, bytes], filename: PathOrStr, mode='w'):
             f.write('\n')
 
 
-def flatten_observations(observations: AnyObservations, flatten_lists: bool = False):
-    """Flatten nested dict attributes, for example ``{"taxon": {"id": 1}} -> {"taxon.id": 1}``"""
-    if flatten_lists:
-        observations = simplify_observations(observations)
-    return [flatten(obs, reducer='dot') for obs in to_dicts(observations)]
+def flatten_observations(
+    observations: AnyObservations, tabular: bool = False, semitabular: bool = False
+):
+    """Flatten nested dict attributes, for example ``{"taxon": {"id": 1}} -> {"taxon.id": 1}``
 
-
-def simplify_observations(observations: AnyObservations) -> List[ResponseResult]:
-    """Flatten out some nested data structures within observation records:
-
-    * annotations
-    * comments
-    * identifications
-    * first photo URL
+    Args:
+        semitabular: Accept one level of nested collections, for formats that can handle them
+            (like parquet)
+        tabular: Drop all collections that can't be flattened (for CSV)
     """
-    return [_simplify_observation(o) for o in to_dicts(observations)]
+    observations = to_dicts(observations)
+    if tabular:
+        observations = _drop_observation_lists(observations)
+    elif semitabular:
+        observations = _flatten_observation_lists(observations)
+    return [flatten(obs, reducer='dot') for obs in observations]
 
 
 def _df_to_dicts(df: 'DataFrame') -> List[JsonResponse]:
     """Convert a pandas DataFrame into nested dicts (similar to API response JSON)"""
     df = df.replace([np.nan], [None])
-    return [unflatten(flat_dict, splitter='dot') for flat_dict in df.to_dict('records')]
+    observations = [unflatten(flat_dict, splitter='dot') for flat_dict in df.to_dict('records')]
+    # TODO: Handle array types in Observation.from_json()
+    for obs in observations:
+        coords = obs.get('location')
+        obs['location'] = tuple(coords) if coords is not None else None
+    return observations
 
 
-def _simplify_observation(obs):
-    # Reduce annotations to IDs and values
-    obs = deepcopy(obs)
-    obs['annotations'] = [
-        {str(a['controlled_attribute_id']): a['controlled_value_id']}
-        for a in obs.get('annotations', [])
-    ]
+def _drop_observation_lists(observations: Iterable[Dict]) -> List[ResponseResult]:
+    """Drop list fields, which can't easily be represented in CSV"""
 
-    # Reduce identifications to identification IDs and taxon IDs
-    obs['identifications'] = [{str(i['id']): i['taxon_id']} for i in obs.get('identifications', [])]
+    def _drop(obs):
+        photos = obs.get('photos', [])
+        obs['photo_url'] = photos[0]['url'] if photos else None
+        taxon = obs['taxon']
+        obs['taxon']['parent_id'] = taxon['ancestor_ids'][-1] if taxon.get('ancestor_ids') else None
+        if obs.get('location'):
+            obs['latitude'] = obs['location'][0]
+            obs['longitude'] = obs['location'][1]
+        return {k: v for k, v in obs.items() if not isinstance(v, (list, tuple))}
 
-    # Reduce comments to usernames and comment text
-    obs['comments'] = [{c['user']['login']: c['body']} for c in obs.get('comments', [])]
+    return [_drop(obs) for obs in observations]
 
-    # Add first observation photo as a top-level field
-    obs['photo_url'] = obs.get('photos', [{}])[0].get('url')
 
-    # Drop some (typically) redundant collections
-    obs.pop('observation_photos', None)
-    obs.pop('non_owner_ids', None)
+def _flatten_observation_lists(observations: Iterable[Dict]) -> List[ResponseResult]:
+    """Flatten out some nested data structures within observation records:
 
-    return obs
+    * annotations
+    * comments
+    * identifications
+    * observation field values
+    * photos
+    """
+
+    def _flatten(obs: Dict):
+        # Reduce annotations to IDs and values
+        obs = deepcopy(obs)
+        obs['annotations'] = [
+            {str(a['controlled_attribute_id']): a['controlled_value_id']}
+            for a in obs.get('annotations', [])
+        ]
+
+        # Reduce identifications to identification IDs and taxon IDs
+        obs['identifications'] = [
+            {str(i['id']): i['taxon_id']} for i in obs.get('identifications', [])
+        ]
+
+        # Reduce comments to usernames and comment text
+        obs['comments'] = [{c['user']['login']: c['body']} for c in obs.get('comments', [])]
+
+        # Reduce photos to IDs and URLs, and add first photo URL as a top-level field
+        photos = obs.get('photos', [])
+        obs['photos'] = [{str(p['id']): p['url']} for p in photos]
+        obs['photo_url'] = photos[0]['url'] if photos else None
+
+        # Reduce observation field values to field IDs and values
+        obs['ofvs'] = {str(ofv['field_id']): ofv['value'] for ofv in obs.get('ofvs', [])}
+
+        # Drop some (typically) redundant collections
+        obs.pop('observation_photos', None)
+        obs.pop('non_owner_ids', None)
+        return obs
+
+    return [_flatten(obs) for obs in observations]
 
 
 def _fix_dimensions(flat_observations):
     """Add missing fields to ensure dimensions are consistent"""
     optional_fields = ['taxon.complete_rank', 'taxon.preferred_common_name']
-    headers = set(flat_observations[0].keys()) | set(optional_fields)
+    headers = list(set(flat_observations[0].keys()) | set(optional_fields))
     for obs in flat_observations:
-        for field in optional_fields:
+        for field in headers:
             obs.setdefault(field, None)
-    return headers, flat_observations
+    return sorted(headers), flat_observations

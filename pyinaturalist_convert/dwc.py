@@ -232,14 +232,12 @@ def photo_to_data_object(observation: Dict, photo: Dict) -> Dict:
     for dwc_field, value in PHOTO_CONSTANTS.items():
         dwc_photo[dwc_field] = value
 
-    # TODO: pending fix in BaseModel.from_json()
-    photo.pop('_url_format', None)
     photo_obj = Photo.from_json(photo)
     dwc_photo['ac:accessURI'] = photo_obj.original_url
     dwc_photo['ac:furtherInformationURL'] = photo_obj.info_url
+    dwc_photo['dcterms:format'] = photo_obj.mimetype
     dwc_photo['media:thumbnailURL'] = photo_obj.thumbnail_url
-    dwc_photo['dcterms:format'] = format_mimetype(photo['url'])  # Photo.mimetype in pyinat 0.17
-    dwc_photo['xap:UsageTerms'] = format_license(photo['license_code'])
+    dwc_photo['xap:UsageTerms'] = format_license(photo_obj.license_code)
     return dwc_photo
 
 
