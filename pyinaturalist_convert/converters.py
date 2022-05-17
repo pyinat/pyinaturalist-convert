@@ -2,10 +2,12 @@
 from copy import deepcopy
 from logging import getLogger
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Sequence, Type, Union
+from typing import Dict, Iterable, List, Optional, Sequence, Type, Union
 
-import tabulate
+import numpy as np
+import pandas as pd
 from flatten_dict import flatten, unflatten
+from pandas import DataFrame
 from pyinaturalist import BaseModel, JsonResponse, ModelObjects, Observation, ResponseResult, Taxon
 from requests import Response
 from tablib import Dataset
@@ -28,7 +30,6 @@ TABLIB_FORMATS = [
     'xlsx',
     'yaml',
 ]
-TABULATE_FORMATS = sorted(set(tabulate._table_formats) - set(TABLIB_FORMATS))  # type: ignore
 PANDAS_FORMATS = ['csv', 'feather', 'hdf', 'parquet', 'sql']
 
 CollectionTypes = Union[Dataset, Response, JsonResponse, Iterable[ResponseResult]]
@@ -36,9 +37,6 @@ InputTypes = Union[CollectionTypes, ModelObjects]
 AnyObservations = Union[CollectionTypes, Observation, Iterable[Observation]]
 AnyTaxa = Union[CollectionTypes, Taxon, Iterable[Taxon]]
 PathOrStr = Union[Path, str]
-
-if TYPE_CHECKING:
-    from pandas import DataFrame
 
 logger = getLogger(__name__)
 
@@ -90,8 +88,6 @@ def to_csv(observations: AnyObservations, filename: str = None) -> Optional[str]
 
 def to_dataframe(observations: AnyObservations):
     """Convert observations into a pandas DataFrame"""
-    import pandas as pd
-
     return pd.json_normalize(simplify_observations(observations))
 
 
@@ -136,8 +132,6 @@ def to_parquet(observations: AnyObservations, filename: str):
 
 def df_to_dicts(df: 'DataFrame') -> List[JsonResponse]:
     """Convert a pandas DataFrame into nested dicts (similar to API response JSON)"""
-    import numpy as np
-
     df = df.replace([np.nan], [None])
     return [unflatten(flat_dict, splitter='dot') for flat_dict in df.to_dict('records')]
 
@@ -161,8 +155,6 @@ def read(filename: PathOrStr) -> List[Observation]:
 
 # TODO: If CSV, inspect if it's from the iNat export tool and use load_csv_exports instead
 def _read_pd_formats(file_path: Path, ext: str):
-    import pandas as pd
-
     if file_path.suffix == 'csv':
         df = pd.read_csv(file_path)
     elif file_path.suffix == 'feather':

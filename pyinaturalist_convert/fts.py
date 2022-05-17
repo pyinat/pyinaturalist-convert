@@ -15,6 +15,8 @@ from logging import getLogger
 from pathlib import Path
 from typing import Dict, Iterable, List, Union
 
+import numpy as np
+import pandas as pd
 from pyinaturalist.models import Taxon
 
 from .constants import TAXON_COUNTS, TAXON_CSV_DIR, TAXON_DB, PathOrStr
@@ -230,9 +232,6 @@ def add_taxon_counts(row: Dict[str, Union[int, str]], taxon_counts: Dict[int, in
 
 def normalize_taxon_counts(counts_path: PathOrStr = TAXON_COUNTS) -> Dict[int, int]:
     """Read previously calculated taxon counts, and normalize to a logarithmic distribution"""
-    import numpy as np
-    import pandas as pd
-
     if not Path(counts_path).is_file():
         logger.warning(f'Taxon counts file not found: {counts_path}')
         return {}
