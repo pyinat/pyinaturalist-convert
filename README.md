@@ -1,6 +1,6 @@
 # pyinaturalist-convert
-[![Build status](https://github.com/JWCook/pyinaturalist-convert/workflows/Build/badge.svg)](https://github.com/JWCook/pyinaturalist-convert/actions)
-[![Codecov](https://codecov.io/gh/JWCook/pyinaturalist-convert/branch/master/graph/badge.svg?token=FnybzVWbt2)](https://codecov.io/gh/JWCook/pyinaturalist-convert)
+[![Build status](https://github.com/pyinat/pyinaturalist-convert/workflows/Build/badge.svg)](https://github.com/pyinat/pyinaturalist-convert/actions)
+[![Codecov](https://codecov.io/gh/pyinat/pyinaturalist-convert/branch/master/graph/badge.svg?token=FnybzVWbt2)](https://codecov.io/gh/pyinat/pyinaturalist-convert)
 [![Docs](https://img.shields.io/readthedocs/pyinaturalist-convert/stable)](https://pyinaturalist-convert.readthedocs.io)
 [![PyPI](https://img.shields.io/pypi/v/pyinaturalist-convert?color=blue)](https://pypi.org/project/pyinaturalist-convert)
 [![Conda](https://img.shields.io/conda/vn/conda-forge/pyinaturalist-convert?color=blue)](https://anaconda.org/conda-forge/pyinaturalist-convert)
@@ -44,7 +44,7 @@ conda install -c conda-forge pyinaturalist-convert
 
 To keep things modular, many format-specific dependencies are not installed by default, so you may need to install some
 more packages depending on which formats you want. See
-[pyproject.toml]([pyproject.toml](https://github.com/JWCook/pyinaturalist-convert/blob/7098c05a513ddfbc254a446aeec1dfcfa83e92ff/pyproject.toml#L44-L50))
+[pyproject.toml]([pyproject.toml](https://github.com/pyinat/pyinaturalist-convert/blob/7098c05a513ddfbc254a446aeec1dfcfa83e92ff/pyproject.toml#L44-L50))
 for the full list (TODO: docs on optional dependencies).
 
 To install all of the things:
