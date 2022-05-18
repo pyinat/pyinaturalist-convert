@@ -18,6 +18,7 @@ from pyinaturalist import BaseModel, JsonResponse, ModelObjects, Observation, Re
 from requests import Response
 from tablib import Dataset
 
+# TODO: Readme examples for read()
 # TODO: Flatten annotations and ofvs into top-level {term_label: value_label} fields
 # TODO: to_csv(): Maybe try to keep simple ID lists and manually parse when reading CSV?
 # TODO: dict lists not returning correctly when reading parquet and feather
