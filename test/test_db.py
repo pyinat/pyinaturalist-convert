@@ -13,7 +13,7 @@ def test_save_observations(tmp_path):
         place_ids=[1, 2, 3, 4],
     )
     create_tables(db_path)
-    save_observations(obs, db_path=db_path)
+    save_observations([obs], db_path=db_path)
 
     results = read_observations(db_path)
     obs_2 = list(results)[0]
