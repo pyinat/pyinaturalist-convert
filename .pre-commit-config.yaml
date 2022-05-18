@@ -34,4 +34,4 @@ repos:
     rev: v0.950
     hooks:
       - id: mypy
-        additional_dependencies: [attrs, sqlmodel, types-python-dateutil, types-requests, types-tabulate]
+        additional_dependencies: [attrs, sqlalchemy2-stubs, types-python-dateutil, types-requests, types-tabulate]

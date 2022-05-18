@@ -1,37 +1,65 @@
 """ORM data models. These contain a relevant subset of columns common to most iNat data sources,
 suitable for combining data from API results, CSV export, DwC-A, and/or inaturalist-open-data.
 """
+from dataclasses import dataclass, field
+
 # TODO: Abstraction for converting between DB models and attrs models
 # TODO: Annotations and observation field values
 from datetime import datetime
-from typing import List, Optional
+from typing import List
 
 from pyinaturalist import Observation, Photo, Taxon, User
-from sqlmodel import Field, Relationship, Session, SQLModel, create_engine, select
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    create_engine,
+    select,
+)
+from sqlalchemy.orm import Session, registry, relationship
 
 from pyinaturalist_convert.constants import PathOrStr
 
+Base = registry()
 
-class DbObservation(SQLModel, table=True):
+
+def sa_field(col_type, index: bool = False, primary_key: bool = False, **kwargs):
+    """Get a dataclass field with SQLAlchemy column metadata"""
+    column = Column(col_type, index=index, primary_key=primary_key)
+    return field(**kwargs, metadata={'sa': column})
+
+
+@Base.mapped
+@dataclass
+class DbObservation:
     __tablename__ = 'observation'
+    __sa_dataclass_metadata_key__ = 'sa'
 
-    id: int = Field(primary_key=True)
-    captive: Optional[bool] = None
-    description: Optional[str] = None
-    geoprivacy: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    observed_on: Optional[datetime] = Field(default=None, index=True)
-    place_guess: Optional[str] = None
-    place_ids: Optional[str] = None
-    positional_accuracy: Optional[int] = None
-    quality_grade: Optional[str] = None
-    taxon_id: Optional[int] = Field(default=None, foreign_key='taxon.id')
-    user_id: Optional[int] = None
-    uuid: Optional[str] = None
+    id: int = sa_field(Integer, primary_key=True)
+    captive: bool = sa_field(Boolean, default=None)
+    description: str = sa_field(String, default=None)
+    geoprivacy: str = sa_field(String, default=None)
+    latitude: float = sa_field(Float, default=None)
+    longitude: float = sa_field(Float, default=None)
+    observed_on: datetime = sa_field(DateTime, default=None, index=True)
+    place_guess: str = sa_field(String, default=None)
+    place_ids: str = sa_field(String, default=None)
+    positional_accuracy: int = sa_field(Integer, default=None)
+    quality_grade: str = sa_field(String, default=None, index=True)
+    taxon_id: int = sa_field(ForeignKey('taxon.id'), default=None)
+    user_id: int = sa_field(Integer, default=None)
+    uuid: str = sa_field(String, default=None, index=True)
 
-    photos: List['DbPhoto'] = Relationship(back_populates='observation')
-    taxon: Optional['DbTaxon'] = Relationship()
+    photos = relationship('DbPhoto', back_populates='observation')  # type: ignore
+    taxon = relationship('DbTaxon', back_populates='observations')  # type: ignore
+
+    # Column aliases for inaturalist-open-data
+    # observation_uuid: str = synonym('uuid')  # type: ignore
+    # observer_id: int = synonym('user_id')  # type: ignore
 
     @classmethod
     def from_observation(cls, observation: Observation) -> 'DbObservation':
@@ -45,8 +73,8 @@ class DbObservation(SQLModel, table=True):
             place_ids=_join_ids(observation.place_ids),
             positional_accuracy=observation.positional_accuracy,
             quality_grade=observation.quality_grade,
-            taxon_id=getattr(observation.taxon, 'id', None),
-            user_id=getattr(observation.user, 'id', None),
+            taxon_id=observation.taxon.id if observation.taxon else None,
+            user_id=observation.user.id if observation.user else None,
             uuid=observation.uuid,
         )
 
@@ -60,25 +88,32 @@ class DbObservation(SQLModel, table=True):
             place_ids=_split_ids(self.place_ids),
             positional_accuracy=self.positional_accuracy,
             quality_grade=self.quality_grade,
-            # photos=[p.to_photo() for p in self.photos],
+            photos=[p.to_photo() for p in self.photos],
             taxon=self.taxon.to_taxon() if self.taxon else None,
             user=User(id=self.user_id),
             uuid=self.uuid,
         )
 
 
-class DbTaxon(SQLModel, table=True):
+@Base.mapped
+@dataclass
+class DbTaxon:
     __tablename__ = 'taxon'
+    __sa_dataclass_metadata_key__ = 'sa'
 
-    id: int = Field(primary_key=True)
-    active: Optional[bool] = None
-    ancestor_ids: Optional[str] = None  # Comma-delimited ancestor IDs
-    iconic_taxon_id: Optional[int] = None
-    name: Optional[str] = Field(default=None, index=True)
-    parent_id: Optional[int] = None
-    preferred_common_name: Optional[str] = None
-    rank: Optional[str] = None
-    default_photo_url: Optional[str] = None
+    id: int = sa_field(Integer, primary_key=True)
+    active: bool = sa_field(Boolean, default=None)
+    ancestor_ids: str = sa_field(String, default=None)
+    iconic_taxon_id: int = sa_field(Integer, default=None)
+    name: str = sa_field(String, default=None, index=True)
+    parent_id: int = sa_field(String, default=None)
+    preferred_common_name: str = sa_field(String, default=None)
+    rank: str = sa_field(String, default=None)
+    default_photo_url: str = sa_field(String, default=None)
+
+    # ancestry: str = synonym('ancestor_ids')  # type: ignore
+
+    observations = relationship('DbObservation', back_populates='taxon')  # type: ignore
 
     @classmethod
     def from_taxon(cls, taxon: Taxon) -> 'DbTaxon':
@@ -109,57 +144,78 @@ class DbTaxon(SQLModel, table=True):
 
 
 # TODO: Combine observation_id/uuid into one column?
-class DbPhoto(SQLModel, table=True):
+
+
+@Base.mapped
+@dataclass
+class DbPhoto:
     __tablename__ = 'photo'
+    __sa_dataclass_metadata_key__ = 'sa'
 
-    id: int = Field(primary_key=True)
-    uuid: Optional[str] = None
-    observation_id: Optional[int] = Field(default=None, foreign_key='observation.id')
+    id: int = sa_field(Integer, primary_key=True)
+    uuid: str = sa_field(String, default=None)
+    observation_id: int = sa_field(ForeignKey('observation.id'), default=None)
     # observation_uuid: Optional[str] = Field(default=None, foreign_key='observation.uuid')
-    user_id: Optional[int] = None
-    extension: Optional[str] = None
-    license: Optional[str] = None
-    url: Optional[str] = None
-    width: Optional[int] = None
-    height: Optional[int] = None
+    user_id: int = sa_field(Integer, default=None)
+    extension: str = sa_field(String, default=None)
+    license: str = sa_field(String, default=None)
+    url: str = sa_field(String, default=None)
+    width: int = sa_field(Integer, default=None)
+    height: int = sa_field(Integer, default=None)
 
-    observation: DbObservation = Relationship(back_populates='photos')
+    observation = relationship('DbObservation', back_populates='photos')  # type: ignore
 
     @classmethod
-    def from_photo(cls, photo: Photo) -> 'DbPhoto':
-        return cls(id=photo.id, license=photo.license_code, uuid=photo.uuid, url=photo.url)
+    def from_photo(cls, photo: Photo, **kwargs) -> 'DbPhoto':
+        return cls(
+            id=photo.id,
+            license=photo.license_code,
+            url=photo.url,
+            **kwargs,
+            # uuid=photo.uuid,
+        )
 
     def to_photo(self) -> Photo:
         return Photo(
             id=self.id,
             license_code=self.license,
-            uuid=self.uuid,
             url=self.url,
-            user=User(id=self.user_id),
+            # user=User(id=self.user_id),
+            # uuid=self.uuid,
         )
 
 
 def create_tables(db_path: str):
     engine = create_engine(f'sqlite:///{db_path}')
-    SQLModel.metadata.create_all(engine)
+    Base.metadata.create_all(engine)
 
 
-def get_session(db_path: PathOrStr) -> Session:
-    return Session(create_engine(f'sqlite:///{db_path}'))
+def get_session(db_path: PathOrStr = 'observations.db') -> Session:
+    engine = create_engine(f'sqlite:///{db_path}', future=True)
+    return Session(engine, future=True)
 
 
-def save_observations(*observations: Observation):
-    session = get_session('observations.db')
-    for observation in observations:
-        session.add(DbObservation.from_observation(observation))
-    session.commit()
+def save_observations(*observations: Observation, db_path: PathOrStr = 'observations.db'):
+    with get_session(db_path) as session:
+        for observation in observations:
+            session.add(DbObservation.from_observation(observation))
+            session.add(DbTaxon.from_taxon(observation.taxon))
+            for photo in observation.photos:
+                session.add(
+                    DbPhoto.from_photo(
+                        photo,
+                        observation_id=observation.id,
+                        user_id=observation.user.id,
+                    )
+                )
+        session.commit()
 
 
-def get_observations():
-    session = get_session('observations.db')
-    results = session.exec(select(DbObservation).join(DbTaxon, isouter=True))
-    for obs in results:
-        yield obs.to_observation()
+def read_observations(db_path: PathOrStr = 'observations.db'):
+    stmt = select(DbObservation).join(DbObservation.taxon, isouter=True).join(DbObservation.photos)
+    with get_session(db_path) as session:
+        for obs in session.execute(stmt):
+            yield obs[0].to_observation()
 
 
 def _split_ids(ids_str: str = None) -> List[int]:
