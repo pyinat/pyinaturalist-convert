@@ -42,8 +42,8 @@
             <dcterms:type>http://purl.org/dc/dcmitype/StillImage</dcterms:type>
             <ac:accessURI>https://inaturalist-open-data.s3.amazonaws.com/photos/72181173/original.jpeg</ac:accessURI>
             <ac:furtherInformationURL>https://www.inaturalist.org/photos/72181173</ac:furtherInformationURL>
-            <media:thumbnailURL>https://inaturalist-open-data.s3.amazonaws.com/photos/72181173/square.jpeg</media:thumbnailURL>
             <dcterms:format>image/jpeg</dcterms:format>
+            <media:thumbnailURL>https://inaturalist-open-data.s3.amazonaws.com/photos/72181173/square.jpeg</media:thumbnailURL>
             <xap:UsageTerms>http://creativecommons.org/licenses/by-nc/4.0</xap:UsageTerms>
         </eol:dataObject>
         <eol:dataObject>
@@ -58,8 +58,8 @@
             <dcterms:type>http://purl.org/dc/dcmitype/StillImage</dcterms:type>
             <ac:accessURI>https://inaturalist-open-data.s3.amazonaws.com/photos/72180675/original.jpeg</ac:accessURI>
             <ac:furtherInformationURL>https://www.inaturalist.org/photos/72180675</ac:furtherInformationURL>
-            <media:thumbnailURL>https://inaturalist-open-data.s3.amazonaws.com/photos/72180675/square.jpeg</media:thumbnailURL>
             <dcterms:format>image/jpeg</dcterms:format>
+            <media:thumbnailURL>https://inaturalist-open-data.s3.amazonaws.com/photos/72180675/square.jpeg</media:thumbnailURL>
             <xap:UsageTerms>http://creativecommons.org/licenses/by-nc/4.0</xap:UsageTerms>
         </eol:dataObject>
         <dwc:basisOfRecord>HumanObservation</dwc:basisOfRecord>
