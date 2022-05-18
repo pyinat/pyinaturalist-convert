@@ -6,8 +6,11 @@ import subprocess
 from logging import getLogger
 from os.path import basename, splitext
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Set, Tuple
+from typing import Dict, List, Set, Tuple
 
+import numpy as np
+import pandas as pd
+from pandas import DataFrame
 from pyinaturalist import enable_logging
 
 from .constants import (
@@ -42,8 +45,6 @@ TAXON_COLUMN_MAP = {
 # 'modified',
 # 'references',
 
-if TYPE_CHECKING:
-    from pandas import DataFrame
 
 # debug
 enable_logging()
@@ -176,7 +177,7 @@ def get_observation_taxon_counts(db_path: PathOrStr = OBS_DB) -> Dict[int, int]:
 
 def aggregate_taxon_counts(
     db_path: PathOrStr = TAXON_DB, obs_db_path: PathOrStr = OBS_DB, save_counts_only: bool = False
-):
+) -> DataFrame:
     """Aggregate taxon observation counts up to all ancestors, and save results back to taxonomy
     database.
 
@@ -189,13 +190,11 @@ def aggregate_taxon_counts(
     lend themselves well to recursion. This is good enough for now, but could potentially be much
     faster.
     """
-    import pandas as pd
-
     df = _get_taxon_df(db_path)
 
     # Get taxon counts from observations table
     taxon_counts_dict = get_observation_taxon_counts(obs_db_path)
-    taxon_counts = pd.DataFrame(taxon_counts_dict.items(), columns=['id', 'count'])
+    taxon_counts = DataFrame(taxon_counts_dict.items(), columns=['id', 'count'])
     taxon_counts = taxon_counts.set_index('id')
     df = _join_counts(df, taxon_counts)
     df = df.rename_axis('id').reset_index()
@@ -239,29 +238,29 @@ def aggregate_taxon_counts(
     return df
 
 
-def update_taxon_counts(db_path: PathOrStr = TAXON_DB, counts_path: PathOrStr = TAXON_COUNTS):
+def update_taxon_counts(
+    db_path: PathOrStr = TAXON_DB, counts_path: PathOrStr = TAXON_COUNTS
+) -> DataFrame:
     """Load previously saved taxon counts (from :py:func:`.aggregate_taxon_counts` into the local
     taxon database
     """
-    import pandas as pd
 
     taxon_counts = pd.read_parquet(counts_path)
     df = _get_taxon_df(db_path)
     df = _join_counts(df, taxon_counts)
     _save_taxa_df(df, db_path)
+    return df
 
 
-def _get_taxon_df(db_path: PathOrStr = TAXON_DB) -> 'DataFrame':
+def _get_taxon_df(db_path: PathOrStr = TAXON_DB) -> DataFrame:
     """Load taxon table into a dataframe"""
-    import pandas as pd
-
     logger.info(f'Loading taxa from {db_path}')
     df = pd.read_sql_query('SELECT * FROM taxa', sqlite3.connect(db_path), index_col='id')
     df['parent_id'] = df['parent_id'].astype(pd.Int64Dtype())
     return df
 
 
-def _save_taxa_df(df: 'DataFrame', db_path: PathOrStr = TAXON_DB):
+def _save_taxa_df(df: DataFrame, db_path: PathOrStr = TAXON_DB):
     """Save taxon dataframe back to SQLite; clear and reuse existing table to keep indexes"""
     with sqlite3.connect(db_path) as conn:
         conn.execute('DELETE FROM taxa')
@@ -269,10 +268,8 @@ def _save_taxa_df(df: 'DataFrame', db_path: PathOrStr = TAXON_DB):
         conn.execute('VACUUM')
 
 
-def _join_counts(df: 'DataFrame', taxon_counts: 'DataFrame') -> 'DataFrame':
+def _join_counts(df: 'DataFrame', taxon_counts: DataFrame) -> DataFrame:
     """Join taxon dataframe with updated taxon counts"""
-    import numpy as np
-
     df = df.drop('count', axis=1)
     df = df.join(taxon_counts)
     df['count'] = df['count'].fillna(0).astype(np.int64)

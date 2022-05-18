@@ -16,7 +16,7 @@ from flatten_dict import flatten
 from pyinaturalist import Photo, get_taxa_by_id
 
 from .constants import PathOrStr
-from .converters import AnyObservations, AnyTaxa, flatten_observations, to_dict_list, write
+from .converters import AnyObservations, AnyTaxa, flatten_observations, to_dicts, write
 
 # Top-level fields from observation JSON
 OBSERVATION_FIELDS = {
@@ -139,7 +139,7 @@ def to_dwc(
     if observations:
         records = [observation_to_dwc_record(obs) for obs in flatten_observations(observations)]
     elif taxa:
-        records = [taxon_to_dwc_record(taxon) for taxon in to_dict_list(taxa)]
+        records = [taxon_to_dwc_record(taxon) for taxon in to_dicts(taxa)]
     if filename:
         write(get_dwc_record_set(records), filename)
         return None
@@ -232,14 +232,12 @@ def photo_to_data_object(observation: Dict, photo: Dict) -> Dict:
     for dwc_field, value in PHOTO_CONSTANTS.items():
         dwc_photo[dwc_field] = value
 
-    # TODO: pending fix in BaseModel.from_json()
-    photo.pop('_url_format', None)
     photo_obj = Photo.from_json(photo)
     dwc_photo['ac:accessURI'] = photo_obj.original_url
     dwc_photo['ac:furtherInformationURL'] = photo_obj.info_url
+    dwc_photo['dcterms:format'] = photo_obj.mimetype
     dwc_photo['media:thumbnailURL'] = photo_obj.thumbnail_url
-    dwc_photo['dcterms:format'] = format_mimetype(photo['url'])  # Photo.mimetype in pyinat 0.17
-    dwc_photo['xap:UsageTerms'] = format_license(photo['license_code'])
+    dwc_photo['xap:UsageTerms'] = format_license(photo_obj.license_code)
     return dwc_photo
 
 

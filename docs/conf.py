@@ -23,6 +23,8 @@ extensions = [
     'sphinx.ext.intersphinx',
     'sphinx.ext.napoleon',
     'sphinx_autodoc_typehints',
+    'sphinx_automodapi.automodapi',
+    'sphinx_automodapi.smart_resolver',
     'sphinx_copybutton',
     'sphinx_inline_tabs',
     'sphinx_panels',
@@ -36,6 +38,8 @@ intersphinx_mapping = {
     'python': ('https://docs.python.org/3', None),
     'requests': ('https://docs.python-requests.org/en/stable/', None),
     'pyinaturalist': ('https://pyinaturalist.readthedocs.io/en/stable/', None),
+    'tablib': ('https://tablib.readthedocs.io/en/stable/', None),
+    'pandas': ('https://pandas.pydata.org/pandas-docs/stable/', None),
 }
 
 # napoleon settings
@@ -73,3 +77,19 @@ pygments_dark_style = 'material'
 html_theme = 'furo'
 # html_logo = '_static/logo.png'
 # html_theme_options = {'sidebar_hide_name': True}
+
+
+def setup(app):
+    """Run some additional steps after the Sphinx builder is initialized"""
+    app.connect('builder-inited', patch_automodapi)
+
+
+def patch_automodapi(app):
+    """Monkey-patch the automodapi extension to exclude imported members.
+
+    https://github.com/astropy/sphinx-automodapi/blob/master/sphinx_automodapi/automodsumm.py#L135
+    """
+    from sphinx_automodapi import automodsumm
+    from sphinx_automodapi.utils import find_mod_objs
+
+    automodsumm.find_mod_objs = lambda *args: find_mod_objs(args[0], onlylocals=True)

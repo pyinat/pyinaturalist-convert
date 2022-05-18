@@ -16,7 +16,7 @@ Complete project documentation can be found at [pyinaturalist-convert.readthedoc
 Import formats currently supported:
 * CSV (From either [API results](https://www.inaturalist.org/pages/api+reference#get-observations)
  or the [iNaturalist export tool](https://www.inaturalist.org/observations/export))
-* JSON (from API results, either via `pyinaturalist`, `requests`, or another HTTP client)
+* JSON (from API results)
 * [`pyinaturalist.Observation`](https://pyinaturalist.readthedocs.io/en/stable/modules/pyinaturalist.models.Observation.html) objects
 * Parquet
 
