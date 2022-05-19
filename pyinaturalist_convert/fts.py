@@ -11,6 +11,7 @@ copy of it somewhere instead. Meanwhile, to build everything::
 
 Note: This process will take several hours.
 """
+# TODO: Add scientific names to common name records (unindexed, just for display purposes)
 import sqlite3
 from functools import partial
 from logging import getLogger

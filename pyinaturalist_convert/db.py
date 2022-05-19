@@ -20,12 +20,13 @@ Example::
     save_observations(observations, 'observations.db')
 
     # Read them back from the database
-    observations = read_observations('observations.db')
+    for observation in get_db_observations('observations.db'):
+        print(observation)
 """
-from dataclasses import dataclass, field
-
 # TODO: Abstraction for converting between DB models and attrs models
 # TODO: Annotations and observation field values
+# TODO: Add iconic taxon ID (requires navigating ancestry tree)
+from dataclasses import dataclass, field
 from datetime import datetime
 from logging import getLogger
 from typing import Iterable, Iterator, List
@@ -34,7 +35,6 @@ from pyinaturalist import Observation, Photo, Taxon, User
 from sqlalchemy import (
     Boolean,
     Column,
-    DateTime,
     Float,
     ForeignKey,
     Integer,
@@ -45,10 +45,9 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Session, backref, registry, relationship
 
-from pyinaturalist_convert.constants import PathOrStr
+from pyinaturalist_convert.constants import DB_PATH, PathOrStr
 
 Base = registry()
-
 logger = getLogger(__name__)
 
 
@@ -61,7 +60,11 @@ def sa_field(col_type, index: bool = False, primary_key: bool = False, **kwargs)
 @Base.mapped
 @dataclass
 class DbObservation:
-    """Intermediate data model for persisting Observation data to a relational database"""
+    """Intermediate data model for persisting Observation data to a relational database
+
+    Note: datetimes are stored as strings, since SQLAlchemy DateTime doesn't handle timezone offsets
+    from SQLite.
+    """
 
     __tablename__ = 'observation'
     __sa_dataclass_metadata_key__ = 'sa'
@@ -72,12 +75,13 @@ class DbObservation:
     geoprivacy: str = sa_field(String, default=None, index=True)
     latitude: float = sa_field(Float, default=None)
     longitude: float = sa_field(Float, default=None)
-    observed_on: datetime = sa_field(DateTime, default=None, index=True)
+    observed_on: datetime = sa_field(String, default=None, index=True)
     place_guess: str = sa_field(String, default=None)
     place_ids: str = sa_field(String, default=None)
     positional_accuracy: int = sa_field(Integer, default=None)
     quality_grade: str = sa_field(String, default=None, index=True)
     taxon_id: int = sa_field(ForeignKey('taxon.id'), default=None, index=True)
+    updated_at: datetime = sa_field(String, default=None, index=True)
     user_id: int = sa_field(Integer, default=None)
     user_login: int = sa_field(Integer, default=None)
     uuid: str = sa_field(String, default=None, index=True)
@@ -96,12 +100,13 @@ class DbObservation:
             captive=observation.captive,
             latitude=observation.location[0] if observation.location else None,
             longitude=observation.location[1] if observation.location else None,
-            observed_on=observation.observed_on,
+            observed_on=observation.observed_on.isoformat() if observation.observed_on else None,
             place_guess=observation.place_guess,
             place_ids=_join_ids(observation.place_ids),
             positional_accuracy=observation.positional_accuracy,
             quality_grade=observation.quality_grade,
             taxon_id=observation.taxon.id if observation.taxon else None,
+            updated_at=observation.updated_at.isoformat() if observation.updated_at else None,
             user_id=observation.user.id if observation.user else None,
             uuid=observation.uuid,
         )
@@ -118,6 +123,7 @@ class DbObservation:
             quality_grade=self.quality_grade,
             photos=[p.to_model() for p in self.photos],  # type: ignore
             taxon=self.taxon.to_model() if self.taxon else None,
+            updated_at=self.updated_at,
             user=User(id=self.user_id),
             uuid=self.uuid,
         )
@@ -185,15 +191,15 @@ class DbPhoto:
     __sa_dataclass_metadata_key__ = 'sa'
 
     id: int = sa_field(Integer, primary_key=True)
-    uuid: str = sa_field(String, default=None)
+    extension: str = sa_field(String, default=None)
+    height: int = sa_field(Integer, default=None)
+    license: str = sa_field(String, default=None)
     observation_id: int = sa_field(ForeignKey('observation.id'), default=None, index=True)
     # observation_uuid: Optional[str] = Field(default=None, foreign_key='observation.uuid')
-    user_id: int = sa_field(Integer, default=None)
-    extension: str = sa_field(String, default=None)
-    license: str = sa_field(String, default=None)
     url: str = sa_field(String, default=None)
+    user_id: int = sa_field(Integer, default=None)
     width: int = sa_field(Integer, default=None)
-    height: int = sa_field(Integer, default=None)
+    # uuid: str = sa_field(String, default=None)
 
     observation = relationship('DbObservation', back_populates='photos')  # type: ignore
 
@@ -212,12 +218,12 @@ class DbPhoto:
             id=self.id,
             license_code=self.license,
             url=self.url,
-            # user=User(id=self.user_id),
+            # user_id=self.user_id,
             # uuid=self.uuid,
         )
 
 
-def create_table(model, db_path: PathOrStr = 'observations.db'):
+def create_table(model, db_path: PathOrStr = DB_PATH):
     """Create a single table for the specified model, if it doesn't already exist"""
     engine = _get_engine(db_path)
     table = model.__tablename__
@@ -238,12 +244,48 @@ def _get_engine(db_path):
     return create_engine(f'sqlite:///{db_path}')
 
 
-def get_session(db_path: PathOrStr = 'observations.db') -> Session:
+def get_session(db_path: PathOrStr = DB_PATH) -> Session:
     """Get a SQLAlchemy session for a SQLite database"""
     return Session(_get_engine(db_path), future=True)
 
 
-def save_observations(observations: Iterable[Observation], db_path: PathOrStr = 'observations.db'):
+def get_db_observations(
+    db_path: PathOrStr = DB_PATH,
+    ids: List[int] = None,
+    limit: int = 200,
+) -> Iterator[Observation]:
+    """Example query to get observation records (and associated taxa and photos) from SQLite"""
+    stmt = (
+        select(DbObservation)
+        .join(DbObservation.taxon, isouter=True)
+        .join(DbObservation.photos, isouter=True)
+    )
+    if ids:
+        stmt = stmt.where(DbObservation.id.in_(ids))  # type: ignore
+    if limit:
+        stmt = stmt.limit(limit)
+
+    with get_session(db_path) as session:
+        for obs in session.execute(stmt):
+            yield obs[0].to_model()
+
+
+def get_db_taxa(
+    db_path: PathOrStr = DB_PATH, ids: List[int] = None, limit: int = 200
+) -> Iterator[Observation]:
+    """Example query to get taxon records from SQLite"""
+    stmt = select(DbTaxon)
+    if ids:
+        stmt = stmt.where(DbTaxon.id.in_(ids))  # type: ignore
+    if limit:
+        stmt = stmt.limit(limit)
+
+    with get_session(db_path) as session:
+        for obs in session.execute(stmt):
+            yield obs[0].to_model()
+
+
+def save_observations(observations: Iterable[Observation], db_path: PathOrStr = DB_PATH):
     """Example of saving Observation objects (and associated taxa and photos) to SQLite"""
     with get_session(db_path) as session:
         for observation in observations:
@@ -260,12 +302,12 @@ def save_observations(observations: Iterable[Observation], db_path: PathOrStr = 
         session.commit()
 
 
-def read_observations(db_path: PathOrStr = 'observations.db') -> Iterator[Observation]:
-    """Example of reading observations (and associated taxa and photos) from SQLite"""
-    stmt = select(DbObservation).join(DbObservation.taxon, isouter=True).join(DbObservation.photos)
+def save_taxa(taxa: Iterable[Taxon], db_path: PathOrStr = DB_PATH):
+    """Example of saving Taxon objects to SQLite"""
     with get_session(db_path) as session:
-        for obs in session.execute(stmt):
-            yield obs[0].to_model()
+        for taxon in taxa:
+            session.merge(DbTaxon.from_model(taxon))
+        session.commit()
 
 
 def _split_ids(ids_str: str = None) -> List[int]:
