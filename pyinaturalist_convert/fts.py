@@ -20,7 +20,7 @@ import numpy as np
 import pandas as pd
 from pyinaturalist.models import Taxon
 
-from .constants import TAXON_COUNTS, TAXON_CSV_DIR, TAXON_DB, PathOrStr
+from .constants import DB_PATH, TAXON_COUNTS, TAXON_CSV_DIR, PathOrStr
 from .download import CSVProgress, get_progress_spinner
 from .sqlite import load_table
 
@@ -28,6 +28,7 @@ from .sqlite import load_table
 PREFIX_INDEXES = [2, 3, 4]
 
 # Columns to use for text search table, and which should be indexes
+TAXON_FTS_TABLE = 'taxon_fts'
 TAXON_FTS_COLUMNS = {
     'name': True,
     'taxon_id': False,
@@ -84,17 +85,10 @@ class TaxonAutocompleter:
 
     Args:
         db_path: Path to SQLite database
-        base_table_name: Base table name for the text search table(s)
         limit: Maximum number of results to return per query
     """
 
-    def __init__(
-        self,
-        db_path: PathOrStr = TAXON_DB,
-        base_table_name: str = 'taxon_names',
-        limit: int = 10,
-    ):
-        self.base_table_name = base_table_name
+    def __init__(self, db_path: PathOrStr = DB_PATH, limit: int = 10):
         self.limit = limit
         self.connection = sqlite3.connect(db_path)
         self.connection.row_factory = sqlite3.Row
@@ -110,7 +104,7 @@ class TaxonAutocompleter:
             Taxon objects (with ID and name only)
         """
         language = (language or '').lower().replace('-', '_')
-        query = 'SELECT *, rank, (rank - count_rank) AS combined_rank FROM taxon_names '
+        query = f'SELECT *, rank, (rank - count_rank) AS combined_rank FROM {TAXON_FTS_TABLE} '
         query += f"WHERE name MATCH '{q}*' AND (language_code IS NULL "
         query += f"OR language_code = '{language}') " if language else ' '
         query += f'ORDER BY combined_rank LIMIT {self.limit}'
@@ -125,7 +119,7 @@ class TaxonAutocompleter:
 
 def load_taxon_fts_table(
     csv_dir: PathOrStr = TAXON_CSV_DIR,
-    db_path: PathOrStr = TAXON_DB,
+    db_path: PathOrStr = DB_PATH,
     counts_path: PathOrStr = TAXON_COUNTS,
     languages: Iterable[str] = ('english',),
 ):
@@ -135,7 +129,8 @@ def load_taxon_fts_table(
     Args:
         csv_dir: Directory containing extracted CSV files
         db_path: Path to SQLite database
-        base_table_name: Base table name for the text search table(s)
+        counts_path: Path to previously calculated taxon counts
+            (from :py:func:`.aggregate_taxon_counts`)
         lanugages: List of common name languages to load, or 'all' to load everything
     """
     csv_dir = Path(csv_dir).expanduser()
@@ -150,7 +145,7 @@ def load_taxon_fts_table(
         load_table(
             csv_path,
             db_path,
-            'taxon_names',
+            TAXON_FTS_TABLE,
             column_map,
             progress=progress,
             transform=transform,
@@ -185,27 +180,27 @@ def get_common_name_csvs(csv_dir: Path, languages: Iterable[str] = None) -> Dict
         }
 
 
-def create_fts5_table(db_path: PathOrStr = TAXON_DB):
+def create_fts5_table(db_path: PathOrStr = DB_PATH):
     prefix_idxs = ', '.join([f'prefix={i}' for i in PREFIX_INDEXES])
 
     with sqlite3.connect(db_path) as conn:
         conn.execute(
-            f'CREATE VIRTUAL TABLE IF NOT EXISTS taxon_names USING fts5( '
+            f'CREATE VIRTUAL TABLE IF NOT EXISTS {TAXON_FTS_TABLE} USING fts5( '
             '   name, taxon_id, taxon_rank UNINDEXED, count_rank UNINDEXED, language_code,'
             f'  {prefix_idxs})'
         )
 
 
-def optimize_fts_table(db_path: PathOrStr = TAXON_DB):
+def optimize_fts_table(db_path: PathOrStr = DB_PATH):
     """Some final cleanup after loading text search tables"""
     logger.info('Optimizing FTS table')
     progress = get_progress_spinner('Optimizing table')
     with progress, sqlite3.connect(db_path) as conn:
         _load_taxon_ranks(conn)
-        conn.execute("INSERT INTO taxon_names(taxon_names) VALUES('optimize')")
+        conn.execute(f"INSERT INTO {TAXON_FTS_TABLE}({TAXON_FTS_TABLE}) VALUES('optimize')")
         conn.commit()
         conn.execute('VACUUM')
-        conn.execute('ANALYZE taxon_names')
+        conn.execute(f'ANALYZE {TAXON_FTS_TABLE}')
 
 
 def _load_taxon_ranks(conn):
@@ -214,8 +209,8 @@ def _load_taxon_ranks(conn):
     """
     try:
         conn.execute(
-            'UPDATE taxon_names SET taxon_rank = '
-            '(SELECT t2.rank from taxa t2 WHERE t2.id = taxon_names.taxon_id) '
+            f'UPDATE {TAXON_FTS_TABLE} SET taxon_rank = '
+            f'(SELECT t2.rank from taxon t2 WHERE t2.id = {TAXON_FTS_TABLE}.taxon_id) '
             'WHERE taxon_rank IS NULL'
         )
     except sqlite3.OperationalError:

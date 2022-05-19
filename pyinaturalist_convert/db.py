@@ -22,9 +22,11 @@ Example::
 """
 from dataclasses import dataclass, field
 
+# TODO: Hide ImportErrors if sqlalchemy isn't installed
 # TODO: Abstraction for converting between DB models and attrs models
 # TODO: Annotations and observation field values
 from datetime import datetime
+from logging import getLogger
 from typing import Iterable, Iterator, List
 
 from pyinaturalist import Observation, Photo, Taxon, User
@@ -37,13 +39,16 @@ from sqlalchemy import (
     Integer,
     String,
     create_engine,
+    inspect,
     select,
 )
-from sqlalchemy.orm import Session, registry, relationship
+from sqlalchemy.orm import Session, backref, registry, relationship
 
 from pyinaturalist_convert.constants import PathOrStr
 
 Base = registry()
+
+logger = getLogger(__name__)
 
 
 def sa_field(col_type, index: bool = False, primary_key: bool = False, **kwargs):
@@ -71,7 +76,7 @@ class DbObservation:
     place_ids: str = sa_field(String, default=None)
     positional_accuracy: int = sa_field(Integer, default=None)
     quality_grade: str = sa_field(String, default=None, index=True)
-    taxon_id: int = sa_field(ForeignKey('taxon.id'), default=None)
+    taxon_id: int = sa_field(ForeignKey('taxon.id'), default=None, index=True)
     user_id: int = sa_field(Integer, default=None)
     uuid: str = sa_field(String, default=None, index=True)
 
@@ -127,9 +132,10 @@ class DbTaxon:
     id: int = sa_field(Integer, primary_key=True)
     active: bool = sa_field(Boolean, default=None)
     ancestor_ids: str = sa_field(String, default=None)
+    count: int = sa_field(Integer, default=0)
     iconic_taxon_id: int = sa_field(Integer, default=None)
     name: str = sa_field(String, default=None, index=True)
-    parent_id: int = sa_field(String, default=None)
+    parent_id: int = sa_field(ForeignKey('taxon.id'), default=None, index=True)
     preferred_common_name: str = sa_field(String, default=None)
     rank: str = sa_field(String, default=None)
     default_photo_url: str = sa_field(String, default=None)
@@ -137,6 +143,7 @@ class DbTaxon:
     # ancestry: str = synonym('ancestor_ids')  # type: ignore
 
     observations = relationship('DbObservation', back_populates='taxon')  # type: ignore
+    children = relationship('DbTaxon', backref=backref('parent', remote_side='DbTaxon.id'))  # type: ignore
 
     @classmethod
     def from_model(cls, taxon: Taxon) -> 'DbTaxon':
@@ -177,7 +184,7 @@ class DbPhoto:
 
     id: int = sa_field(Integer, primary_key=True)
     uuid: str = sa_field(String, default=None)
-    observation_id: int = sa_field(ForeignKey('observation.id'), default=None)
+    observation_id: int = sa_field(ForeignKey('observation.id'), default=None, index=True)
     # observation_uuid: Optional[str] = Field(default=None, foreign_key='observation.uuid')
     user_id: int = sa_field(Integer, default=None)
     extension: str = sa_field(String, default=None)
@@ -208,16 +215,30 @@ class DbPhoto:
         )
 
 
-def create_tables(db_path: str):
+def create_table(model, db_path: PathOrStr = 'observations.db'):
+    """Create a single table for the specified model, if it doesn't already exist"""
+    engine = _get_engine(db_path)
+    table = model.__tablename__
+    if inspect(engine).has_table(table):
+        logger.info(f'Table {table} already exists')
+    else:
+        model.__table__.create(engine)
+        logger.info(f'Table {table} created')
+
+
+def create_tables(db_path: PathOrStr):
     """Example of creating all tables in a SQLite database"""
-    engine = create_engine(f'sqlite:///{db_path}')
+    engine = _get_engine(db_path)
     Base.metadata.create_all(engine)
+
+
+def _get_engine(db_path):
+    return create_engine(f'sqlite:///{db_path}')
 
 
 def get_session(db_path: PathOrStr = 'observations.db') -> Session:
     """Get a SQLAlchemy session for a SQLite database"""
-    engine = create_engine(f'sqlite:///{db_path}', future=True)
-    return Session(engine, future=True)
+    return Session(_get_engine(db_path), future=True)
 
 
 def save_observations(observations: Iterable[Observation], db_path: PathOrStr = 'observations.db'):

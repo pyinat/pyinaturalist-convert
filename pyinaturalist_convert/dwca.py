@@ -1,6 +1,6 @@
 """Utilities for working with the iNat GBIF DwC archive"""
-# TODO: ORM models for these
 # TODO: Faster way to load observation table without subprocess
+# TODO: Rename columns in observations CSV, only use subset of columns; not possible with .import?
 import sqlite3
 import subprocess
 from logging import getLogger
@@ -13,18 +13,19 @@ import pandas as pd
 from pandas import DataFrame
 from pyinaturalist import enable_logging
 
+from pyinaturalist_convert.db import DbTaxon, create_table  # , create_tables
+
 from .constants import (
     DATA_DIR,
+    DB_PATH,
     DWCA_TAXA_URL,
     DWCA_URL,
     OBS_CSV,
-    OBS_DB,
     TAXON_COUNTS,
     TAXON_CSV,
-    TAXON_DB,
     PathOrStr,
 )
-from .download import check_download, download_file, get_progress, unzip_progress
+from .download import CSVProgress, check_download, download_file, get_progress, unzip_progress
 from .sqlite import load_table
 
 TAXON_COLUMN_MAP = {
@@ -105,8 +106,7 @@ def load_dwca_tables():
 
 def load_observation_table(
     csv_path: PathOrStr = OBS_CSV,
-    db_path: PathOrStr = OBS_DB,
-    table_name: str = 'observations',
+    db_path: PathOrStr = DB_PATH,
 ):
     """Create an observations SQLite table from the GBIF DwC-A archive.
 
@@ -115,18 +115,18 @@ def load_observation_table(
     module.
     """
     logger.info(f'Loading {csv_path} into {db_path}')
-    subprocess.run(f'sqlite3 -csv {db_path} ".import {csv_path} {table_name}"', shell=True)
+    # create_tables(db_path)
+    subprocess.run(f'sqlite3 -csv {db_path} ".import {csv_path} observation"', shell=True)
 
     # Super slow alternative:
     # column_map ={'id': 'id', 'taxonID': 'taxon_id'}  # etc.
     # with CSVProgress(csv_path) as progress:
-    #     load_table(csv_path, db_path, table_name, column_map, progress=progress)
+    #     load_table(csv_path, db_path, 'observation', column_map, progress=progress)
 
 
 def load_taxon_table(
     csv_path: PathOrStr = TAXON_CSV,
-    db_path: PathOrStr = TAXON_DB,
-    table_name: str = 'taxa',
+    db_path: PathOrStr = DB_PATH,
     column_map: Dict = TAXON_COLUMN_MAP,
 ):
     """Create a taxonomy SQLite table from the GBIF DwC-A archive"""
@@ -139,21 +139,17 @@ def load_taxon_table(
             row['parentNameUsageID'] = None
         return row
 
-    with sqlite3.connect(db_path) as conn:
-        conn.execute(
-            f'CREATE TABLE IF NOT EXISTS {table_name} ('
-            'id INTEGER PRIMARY KEY, parent_id INTEGER, name TEXT, rank TEXT, count INTEGER DEFAULT 0, '
-            f'FOREIGN KEY (parent_id) REFERENCES {table_name}(id))'
+    create_table(DbTaxon, db_path)
+
+    with CSVProgress(Path(csv_path)) as progress:
+        load_table(
+            csv_path, db_path, 'taxon', column_map, transform=get_parent_id, progress=progress
         )
-
-    load_table(csv_path, db_path, table_name, column_map, transform=get_parent_id)
-
     with sqlite3.connect(db_path) as conn:
-        conn.execute(f"UPDATE {table_name} SET parent_id=NULL WHERE parent_id=''")
-        conn.execute(f"CREATE INDEX IF NOT EXISTS taxon_name_idx ON {table_name}(name)")
+        conn.execute("UPDATE taxon SET parent_id=NULL WHERE parent_id=''")
 
 
-def get_observation_taxon_counts(db_path: PathOrStr = OBS_DB) -> Dict[int, int]:
+def get_observation_taxon_counts(db_path: PathOrStr = DB_PATH) -> Dict[int, int]:
     """Get taxon counts based on GBIF export (exact rank counts only, no aggregage counts)"""
     if not Path(db_path).is_file():
         logger.warning(f'Observation database {db_path} not found')
@@ -161,12 +157,12 @@ def get_observation_taxon_counts(db_path: PathOrStr = OBS_DB) -> Dict[int, int]:
 
     logger.info(f'Getting taxon counts from {db_path}')
     with sqlite3.connect(db_path) as conn:
-        conn.execute("CREATE INDEX IF NOT EXISTS taxon_id_idx ON observations(taxonID)")
-        conn.execute("DELETE FROM observations WHERE taxonID IS NULL or taxonID = ''")
+        conn.execute("CREATE INDEX IF NOT EXISTS taxon_id_idx ON observation(taxonID)")
+        conn.execute("DELETE FROM observation WHERE taxonID IS NULL or taxonID = ''")
 
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
-            "SELECT taxonID, COUNT(*) AS count FROM observations GROUP BY taxonID;"
+            "SELECT taxonID, COUNT(*) AS count FROM observation GROUP BY taxonID;"
         ).fetchall()
 
         return {
@@ -176,7 +172,7 @@ def get_observation_taxon_counts(db_path: PathOrStr = OBS_DB) -> Dict[int, int]:
 
 
 def aggregate_taxon_counts(
-    db_path: PathOrStr = TAXON_DB, obs_db_path: PathOrStr = OBS_DB, save_counts_only: bool = False
+    db_path: PathOrStr = DB_PATH, save_counts_only: bool = False
 ) -> DataFrame:
     """Aggregate taxon observation counts up to all ancestors, and save results back to taxonomy
     database.
@@ -193,7 +189,7 @@ def aggregate_taxon_counts(
     df = _get_taxon_df(db_path)
 
     # Get taxon counts from observations table
-    taxon_counts_dict = get_observation_taxon_counts(obs_db_path)
+    taxon_counts_dict = get_observation_taxon_counts(db_path)
     taxon_counts = DataFrame(taxon_counts_dict.items(), columns=['id', 'count'])
     taxon_counts = taxon_counts.set_index('id')
     df = _join_counts(df, taxon_counts)
@@ -239,7 +235,7 @@ def aggregate_taxon_counts(
 
 
 def update_taxon_counts(
-    db_path: PathOrStr = TAXON_DB, counts_path: PathOrStr = TAXON_COUNTS
+    db_path: PathOrStr = DB_PATH, counts_path: PathOrStr = TAXON_COUNTS
 ) -> DataFrame:
     """Load previously saved taxon counts (from :py:func:`.aggregate_taxon_counts` into the local
     taxon database
@@ -252,19 +248,19 @@ def update_taxon_counts(
     return df
 
 
-def _get_taxon_df(db_path: PathOrStr = TAXON_DB) -> DataFrame:
+def _get_taxon_df(db_path: PathOrStr = DB_PATH) -> DataFrame:
     """Load taxon table into a dataframe"""
     logger.info(f'Loading taxa from {db_path}')
-    df = pd.read_sql_query('SELECT * FROM taxa', sqlite3.connect(db_path), index_col='id')
+    df = pd.read_sql_query('SELECT * FROM taxon', sqlite3.connect(db_path), index_col='id')
     df['parent_id'] = df['parent_id'].astype(pd.Int64Dtype())
     return df
 
 
-def _save_taxa_df(df: DataFrame, db_path: PathOrStr = TAXON_DB):
+def _save_taxa_df(df: DataFrame, db_path: PathOrStr = DB_PATH):
     """Save taxon dataframe back to SQLite; clear and reuse existing table to keep indexes"""
     with sqlite3.connect(db_path) as conn:
-        conn.execute('DELETE FROM taxa')
-        df.to_sql('taxa', conn, if_exists='append')
+        conn.execute('DELETE FROM taxon')
+        df.to_sql('taxon', conn, if_exists='append')
         conn.execute('VACUUM')
 
 
@@ -276,23 +272,23 @@ def _join_counts(df: 'DataFrame', taxon_counts: DataFrame) -> DataFrame:
     return df
 
 
-def _get_leaf_taxa(db_path: PathOrStr = TAXON_DB) -> List[int]:
+def _get_leaf_taxa(db_path: PathOrStr = DB_PATH) -> List[int]:
     """Get leaf taxa (species, subspecies, and any other taxa with no descendants)"""
     with sqlite3.connect(db_path) as conn:
         rows = conn.execute(
-            'SELECT DISTINCT t1.id FROM taxa t1 '
-            'LEFT JOIN taxa t2 ON t2.parent_id = t1.id '
+            'SELECT DISTINCT t1.id FROM taxon t1 '
+            'LEFT JOIN taxon t2 ON t2.parent_id = t1.id '
             'WHERE t2.id IS NULL'
         )
         return [row[0] for row in rows]
 
 
-def _get_leaf_taxa_parents(db_path: PathOrStr = TAXON_DB) -> List[int]:
+def _get_leaf_taxa_parents(db_path: PathOrStr = DB_PATH) -> List[int]:
     """Get taxa with only one level of descendants"""
     with sqlite3.connect(db_path) as conn:
         rows = conn.execute(
-            'SELECT DISTINCT t1.parent_id FROM taxa t1 '
-            'LEFT JOIN taxa t2 ON t2.parent_id = t1.id '
+            'SELECT DISTINCT t1.parent_id FROM taxon t1 '
+            'LEFT JOIN taxon t2 ON t2.parent_id = t1.id '
             'WHERE t2.id IS NULL'
         )
         return [row[0] for row in rows]
@@ -309,28 +305,28 @@ def _get_next_level(df, level_ids, processed_ids, skipped_ids) -> Tuple[set, set
 
 # TODO: Translate subset of DwC terms to API-compatible field names
 # Observation columns:
-#   "id" TEXT,
-#   "modified" TEXT,
-#   "informationWithheld" TEXT,
-#   "catalogNumber" TEXT,
-#   "occurrenceRemarks" TEXT,
-#   "recordedBy" TEXT,  # username
-#   "inaturalistLogin" TEXT,  # user real name
-#   "license" TEXT,
-#   "captive" TEXT,
-#   "eventDate" TEXT,
-#   "decimalLatitude" TEXT,
-#   "decimalLongitude" TEXT,
-#   "coordinateUncertaintyInMeters" TEXT,
-#   "geodeticDatum" TEXT,
-#   "taxonID" TEXT,
-#   "scientificName" TEXT,
-#   "taxonRank" TEXT,
-#   "kingdom" TEXT,
-#   "phylum" TEXT,
-#   "class" TEXT,
-#   "order" TEXT,
-#   "family" TEXT,
-#   "genus" TEXT,
-#   "sex" TEXT,
-#   "lifeStage" TEXT,
+# id
+# modified
+# informationWithheld
+# catalogNumber
+# occurrenceRemarks
+# recordedBy  # username
+# inaturalistLogin  # user real name
+# license
+# captive
+# eventDate
+# decimalLatitude
+# decimalLongitude
+# coordinateUncertaintyInMeters
+# geodeticDatum
+# taxonID
+# scientificName
+# taxonRank
+# kingdom
+# phylum
+# class
+# order
+# family
+# genus
+# sex
+# lifeStage
