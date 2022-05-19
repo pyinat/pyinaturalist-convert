@@ -1,4 +1,4 @@
-"""Utilities to help load date into a SQLite database"""
+"""Utilities to help load data directly from CSV into a SQLite database"""
 import sqlite3
 from csv import DictReader
 from csv import reader as csv_reader
@@ -45,7 +45,7 @@ class ChunkReader:
 
     def _next_row(self):
         row = next(self.reader)
-        return [row[i] for i in self._include_idx] if self._include_idx else row
+        return [row[i] or None for i in self._include_idx] if self._include_idx else row
 
 
 class XFormChunkReader(ChunkReader):
@@ -94,7 +94,7 @@ def load_table(
     Args:
         csv_path: Path to CSV file
         db_path: Path to SQLite database
-        table_name: Name of table to load into
+        table_name: Name of table to load into (defaults to db_path basename)
         column_map: Dictionary mapping CSV column names to SQLite column names. And columns not
             listed will be ignored.
         pk: Primary key column name
@@ -122,7 +122,7 @@ def load_table(
     with sqlite3.connect(db_path) as conn, open(csv_path) as f:
         conn.execute('PRAGMA synchronous = 0')
         conn.execute('PRAGMA journal_mode = MEMORY')
-        create_table(conn, table_name, non_pk_cols, pk)
+        _create_table(conn, table_name, non_pk_cols, pk)
         stmt = f'INSERT OR REPLACE INTO {table_name} ({columns_str}) VALUES ({placeholders})'
 
         if not transform:
@@ -139,7 +139,7 @@ def load_table(
     logger.info(f'Completed in {time() - start:.2f}s')
 
 
-def create_table(conn, table_name, non_pk_cols, pk):
+def _create_table(conn, table_name, non_pk_cols, pk):
     # Assume an integer primary key and text columns for the rest
     table_cols = [f'{pk} INTEGER PRIMARY KEY'] + [f'{k} TEXT' for k in non_pk_cols]
     conn.execute(f'CREATE TABLE IF NOT EXISTS {table_name} ({", ".join(table_cols)});')

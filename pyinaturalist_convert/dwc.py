@@ -21,7 +21,7 @@ from .converters import AnyObservations, AnyTaxa, flatten_observations, to_dicts
 # Top-level fields from observation JSON
 OBSERVATION_FIELDS = {
     'created_at': 'xap:CreateDate',  # Different format
-    'description': 'dcterms:description',
+    'description': 'dwc:occurrenceRemarks',
     'id': 'dwc:catalogNumber',
     'license_code': 'dcterms:license',
     'observed_on': 'dwc:verbatimEventDate',  # Original timestamp, unconverted
@@ -292,24 +292,36 @@ def format_time(dt: datetime):
     return dt.strftime("%H:%M%z")
 
 
-# WIP
 def dwc_record_to_observation(dwc_record: Dict) -> Dict:
     """Translate a DwC record to a dict formatted like an observation API response"""
-    lookup = _get_dwc_term_lookup()
+    lookup = get_dwc_lookup()
 
     json_record = {json_key: dwc_record.get(dwc_key) for dwc_key, json_key in lookup.items()}
     json_record['location'] = (dwc_record['decimalLatitude'], dwc_record['decimalLongitude'])
+    json_record['geoprivacy'] = _format_dwc_geoprivacy(dwc_record)
     return json_record
 
 
-def _get_dwc_term_lookup() -> Dict:
-    """Get a lookup table of DwC terms to JSON keys"""
+def _format_dwc_geoprivacy(dwc_record: Dict) -> str:
+    if 'Coordinate uncertainty increased' in dwc_record['informationWithheld']:
+        return 'obscured'
+    elif 'Coordinates hidden' in dwc_record['informationWithheld']:
+        return 'private'
+    else:
+        return 'open'
+
+
+def get_dwc_lookup() -> Dict:
+    """Get a lookup table of DwC terms to standard field names"""
     lookup = {}
     for k, v in OBSERVATION_FIELDS.items():
         if isinstance(v, list):
             lookup.update({subval: k for subval in v})
         else:
             lookup[v] = k
-    # lookup['decimalLatitude'] = 'latitude'
-    # lookup['decimalLongitude'] = 'longitude'
+    lookup['captive'] = 'captive'
+    lookup['decimalLatitude'] = 'latitude'
+    lookup['decimalLongitude'] = 'longitude'
+    lookup['informationWithheld'] = 'geoprivacy'
+    lookup['eventDate'] = 'observed_on'
     return {k.split(':')[-1]: v for k, v in lookup.items()}
