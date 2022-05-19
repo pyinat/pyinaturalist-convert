@@ -181,7 +181,7 @@ class DbTaxon:
         )
 
 
-# TODO: Combine observation_id/uuid into one column?
+# TODO: Combine observation_id/uuid into one column? Or two separate foreign keys?
 @Base.mapped
 @dataclass
 class DbPhoto:
@@ -234,19 +234,19 @@ def create_table(model, db_path: PathOrStr = DB_PATH):
         logger.info(f'Table {table} created')
 
 
-def create_tables(db_path: PathOrStr):
-    """Example of creating all tables in a SQLite database"""
+def create_tables(db_path: PathOrStr = DB_PATH):
+    """Create all tables in a SQLite database"""
     engine = _get_engine(db_path)
     Base.metadata.create_all(engine)
-
-
-def _get_engine(db_path):
-    return create_engine(f'sqlite:///{db_path}')
 
 
 def get_session(db_path: PathOrStr = DB_PATH) -> Session:
     """Get a SQLAlchemy session for a SQLite database"""
     return Session(_get_engine(db_path), future=True)
+
+
+def _get_engine(db_path):
+    return create_engine(f'sqlite:///{db_path}')
 
 
 def get_db_observations(
@@ -294,11 +294,10 @@ def save_observations(observations: Iterable[Observation], db_path: PathOrStr = 
             for photo in observation.photos:
                 session.merge(
                     DbPhoto.from_model(
-                        photo,
-                        observation_id=observation.id,
-                        user_id=observation.user.id,
+                        photo, observation_id=observation.id, user_id=observation.user.id
                     )
                 )
+
         session.commit()
 
 

@@ -15,7 +15,7 @@ import pandas as pd
 from pandas import DataFrame
 from pyinaturalist import enable_logging
 
-from pyinaturalist_convert.db import DbTaxon, create_table, create_tables
+from pyinaturalist_convert.db import create_tables
 from pyinaturalist_convert.dwc import get_dwc_lookup
 
 from .constants import (
@@ -36,7 +36,7 @@ from .download import (
     get_progress_spinner,
     unzip_progress,
 )
-from .sqlite import load_table
+from .sqlite import load_table, vacuum_analyze
 
 OBS_COLUMNS = [
     'catalogNumber',
@@ -47,6 +47,7 @@ OBS_COLUMNS = [
     'eventDate',
     'inaturalistLogin',
     'informationWithheld',
+    'modified',
     'occurrenceRemarks',
     'taxonID',
 ]
@@ -71,8 +72,9 @@ def load_dwca_tables(db_path: PathOrStr = DB_PATH):
     download_dwca_taxa()
     download_dwca_observations()
     with CSVProgress(OBS_CSV, TAXON_CSV) as progress:
-        load_taxon_table(db_path=db_path, progress=progress)
-        load_observation_table(db_path=db_path, progress=progress)
+        load_dwca_taxa(db_path=db_path, progress=progress)
+        load_dwca_observations(db_path=db_path, progress=progress)
+    vacuum_analyze(['observation', 'taxon'], db_path)
 
 
 def download_dwca_observations(dest_dir: PathOrStr = DATA_DIR):
@@ -102,7 +104,7 @@ def download_dwca_taxa(dest_dir: PathOrStr = DATA_DIR):
     _download_archive(DWCA_TAXA_URL, dest_dir)
 
 
-def load_observation_table(
+def load_dwca_observations(
     csv_path: PathOrStr = OBS_CSV,
     db_path: PathOrStr = DB_PATH,
     progress: CSVProgress = None,
@@ -111,17 +113,17 @@ def load_observation_table(
     relevant subset of columns available in the archive, in a format consistent with API results and
     other sources.
 
-    To load everything as-is, see :py:func:`.load_full_observation_table`.
+    To load everything as-is, see :py:func:`.load_full_dwca_observations`.
     """
     create_tables(db_path)
     column_map = _get_obs_column_map(OBS_COLUMNS)
-    progress = progress or CSVProgress(Path(csv_path))
+    progress = progress or CSVProgress(csv_path)
     with progress:
         load_table(csv_path, db_path, 'observation', column_map, progress=progress)
     _cleanup_observations(db_path)
 
 
-def load_full_observation_table(
+def load_full_dwca_observations(
     csv_path: PathOrStr = OBS_CSV,
     db_path: PathOrStr = DB_PATH,
 ):
@@ -135,13 +137,14 @@ def load_full_observation_table(
     subprocess.run(f'sqlite3 -csv {db_path} ".import {csv_path} observation"', shell=True)
 
 
-def load_taxon_table(
+def load_dwca_taxa(
     csv_path: PathOrStr = TAXON_CSV,
     db_path: PathOrStr = DB_PATH,
     column_map: Dict = TAXON_COLUMN_MAP,
     progress: CSVProgress = None,
 ):
     """Create a taxonomy SQLite table from the GBIF DwC-A archive"""
+    create_tables(db_path)
 
     def get_parent_id(row: Dict):
         """Get parent taxon ID from URL"""
@@ -151,9 +154,7 @@ def load_taxon_table(
             row['parentNameUsageID'] = None
         return row
 
-    create_table(DbTaxon, db_path)
-
-    progress = progress or CSVProgress(Path(csv_path))
+    progress = progress or CSVProgress(csv_path)
     with progress:
         load_table(
             csv_path, db_path, 'taxon', column_map, transform=get_parent_id, progress=progress
@@ -299,11 +300,6 @@ def _cleanup_observations(db_path: PathOrStr = DB_PATH):
         logger.info('Formatting captive/wild status')
         conn.execute("UPDATE observation SET captive=FALSE WHERE captive='wild'")
         conn.execute("UPDATE observation SET captive=TRUE WHERE captive IS NOT FALSE")
-
-        logger.info('Final cleanup')
-        conn.commit()
-        conn.execute('VACUUM')
-        conn.execute('ANALYZE observation')
 
 
 def _get_taxon_df(db_path: PathOrStr = DB_PATH) -> DataFrame:

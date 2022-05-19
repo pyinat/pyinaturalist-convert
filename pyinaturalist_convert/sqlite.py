@@ -7,8 +7,8 @@ from pathlib import Path
 from time import time
 from typing import Callable, Dict, List
 
-from .constants import PathOrStr
-from .download import MultiProgress
+from .constants import DB_PATH, PathOrStr
+from .download import MultiProgress, get_progress_spinner
 
 logger = getLogger(__name__)
 
@@ -27,6 +27,7 @@ class ChunkReader:
 
         # Determine which fields to include (by index)
         field_names = next(self.reader)
+        logger.warning(field_names)
         self._include_idx = [field_names.index(k) for k in fields] if fields else None
 
     def __iter__(self):
@@ -78,6 +79,12 @@ class XFormChunkReader(ChunkReader):
         return [row[f] for f in self.include_fields] if self.include_fields else row
 
 
+def get_fields(csv_path: PathOrStr, delimiter: str = ',') -> list[str]:
+    with open(csv_path) as f:
+        reader = csv_reader(f, delimiter=delimiter)
+        return next(reader)
+
+
 # TODO: Load all columns with original names if a column map isn't provided
 def load_table(
     csv_path: PathOrStr,
@@ -86,6 +93,7 @@ def load_table(
     column_map: Dict = None,
     pk: str = 'id',
     progress: MultiProgress = None,
+    delimiter: str = ',',
     transform: Callable = None,
 ):
     """Load a CSV file into a sqlite3 table.
@@ -126,9 +134,9 @@ def load_table(
         stmt = f'INSERT OR REPLACE INTO {table_name} ({columns_str}) VALUES ({placeholders})'
 
         if not transform:
-            reader = ChunkReader(f, fields=csv_cols)
+            reader = ChunkReader(f, fields=csv_cols, delimiter=delimiter)
         else:
-            reader = XFormChunkReader(f, fields=csv_cols, transform=transform)
+            reader = XFormChunkReader(f, fields=csv_cols, delimiter=delimiter, transform=transform)
 
         for chunk in reader:
             conn.executemany(stmt, chunk)
@@ -137,6 +145,14 @@ def load_table(
         conn.commit()
 
     logger.info(f'Completed in {time() - start:.2f}s')
+
+
+def vacuum_analyze(table_names: List[str], db_path: PathOrStr = DB_PATH):
+    spinner = get_progress_spinner('Final cleanup')
+    with spinner, sqlite3.connect(db_path) as conn:
+        conn.execute('VACUUM')
+        for table_name in table_names:
+            conn.execute(f'ANALYZE {table_name}')
 
 
 def _create_table(conn, table_name, non_pk_cols, pk):

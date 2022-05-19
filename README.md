@@ -89,14 +89,20 @@ df.to_parquet('my_observations.parquet')
 ```
 
 ## Download
-Download the complete research-greade observations dataset:
+Download the complete research-grade observations dataset:
 ```python
 download_dwca_observations()
 ```
 
-Or the complete taxonomy dataset:
+And load it into a SQLite database:
+```python
+load_dwca_observations()
+```
+
+And do the same with the complete taxonomy dataset:
 ```python
 download_dwca_taxa()
+load_dwca_taxa()
 ```
 
 Load taxonomy and common name data into a full text search database:

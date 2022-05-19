@@ -1,7 +1,7 @@
 from logging import getLogger
 from time import time
 
-from pyinaturalist_convert.fts import TaxonAutocompleter, load_taxon_fts_table
+from pyinaturalist_convert.fts import TaxonAutocompleter, load_fts_taxa
 from test.conftest import SAMPLE_DATA_DIR
 
 CSV_DIR = SAMPLE_DATA_DIR / 'inaturalist-taxonomy.dwca'
@@ -11,7 +11,7 @@ logger = getLogger(__name__)
 
 def test_text_search(tmp_path):
     db_path = tmp_path / 'taxa.db'
-    load_taxon_fts_table(csv_dir=CSV_DIR, db_path=db_path)
+    load_fts_taxa(csv_dir=CSV_DIR, db_path=db_path)
     ta = TaxonAutocompleter(db_path=db_path)
 
     results = ta.search('ave')

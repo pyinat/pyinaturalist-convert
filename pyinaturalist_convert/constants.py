@@ -14,6 +14,7 @@ DWCA_TAXA_URL = 'https://www.inaturalist.org/taxa/inaturalist-taxonomy.dwca.zip'
 ODP_ARCHIVE_NAME = 'inaturalist-open-data-latest.tar.gz'
 ODP_BUCKET_NAME = 'inaturalist-open-data'
 ODP_METADATA_KEY = f'metadata/{ODP_ARCHIVE_NAME}'
+ODP_CSV_DIR = DATA_DIR / ODP_BUCKET_NAME
 PHOTO_BASE_URL = 'https://inaturalist-open-data.s3.amazonaws.com/photos/'
 
 TAXON_CSV_DIR = DATA_DIR / 'inaturalist-taxonomy.dwca'

@@ -9,8 +9,8 @@ from pyinaturalist_convert.dwca import (
     aggregate_taxon_counts,
     download_dwca_observations,
     download_dwca_taxa,
-    load_observation_table,
-    load_taxon_table,
+    load_dwca_observations,
+    load_dwca_taxa,
 )
 from pyinaturalist_convert.sqlite import load_table
 from test.conftest import SAMPLE_DATA_DIR
@@ -23,7 +23,7 @@ logger = getLogger(__name__)
 def test_load_observation_table(tmp_path):
     csv_path = SAMPLE_DATA_DIR / 'observations_dwca.csv'
     db_path = tmp_path / 'observations.db'
-    load_observation_table(csv_path, db_path)
+    load_dwca_observations(csv_path, db_path)
     with sqlite3.connect(db_path) as conn:
         conn.row_factory = sqlite3.Row
         rows = conn.execute('SELECT * FROM observation ORDER BY id').fetchall()
@@ -43,7 +43,7 @@ def test_aggregate_taxon_counts(tmp_path):
     with open(csv_path) as f:
         expected_counts = {int(row['id']): int(row['expected']) for row in DictReader(f)}
 
-    load_taxon_table(
+    load_dwca_taxa(
         csv_path=csv_path,
         db_path=db_path,
         column_map={'id': 'id', 'parent_id': 'parent_id', 'name': 'name', 'count': 'count'},

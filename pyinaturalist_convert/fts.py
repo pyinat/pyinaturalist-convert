@@ -7,7 +7,7 @@ copy of it somewhere instead. Meanwhile, to build everything::
     >>>
     >>> load_dwca_tables()
     >>> aggregate_taxon_counts()
-    >>> load_taxon_fts_table()
+    >>> load_fts_taxa()
 
 Note: This process will take several hours.
 """
@@ -24,7 +24,7 @@ from pyinaturalist.models import Taxon
 
 from .constants import DB_PATH, TAXON_COUNTS, TAXON_CSV_DIR, PathOrStr
 from .download import CSVProgress, get_progress_spinner
-from .sqlite import load_table
+from .sqlite import load_table, vacuum_analyze
 
 # Add extra text search prefix indexes to speed up searches for these prefix lengths
 PREFIX_INDEXES = [2, 3, 4]
@@ -119,13 +119,13 @@ class TaxonAutocompleter:
             ]
 
 
-def load_taxon_fts_table(
+def load_fts_taxa(
     csv_dir: PathOrStr = TAXON_CSV_DIR,
     db_path: PathOrStr = DB_PATH,
     counts_path: PathOrStr = TAXON_COUNTS,
     languages: Iterable[str] = ('english',),
 ):
-    """Create full text search tables for taxon names.
+    """Create full text search tables for taxonomic names.
     Requires SQLite FTS5 extension and the iNat taxonomy DwC-A archive.
 
     Args:
@@ -143,7 +143,7 @@ def load_taxon_fts_table(
     taxon_counts = normalize_taxon_counts(counts_path)
     transform = partial(add_taxon_counts, taxon_counts=taxon_counts)
 
-    def load_fts5_table(csv_path, column_map):
+    def load_fts_table(csv_path, column_map):
         load_table(
             csv_path,
             db_path,
@@ -162,8 +162,8 @@ def load_taxon_fts_table(
 
         for lang, csv_file in common_name_csvs.items():
             lang = lang.lower().replace('-', '_')
-            load_fts5_table(csv_file, COMMON_TAXON_NAME_MAP)
-        load_fts5_table(main_csv, TAXON_NAME_MAP)
+            load_fts_table(csv_file, COMMON_TAXON_NAME_MAP)
+        load_fts_table(main_csv, TAXON_NAME_MAP)
 
     optimize_fts_table(db_path)
 
@@ -201,8 +201,7 @@ def optimize_fts_table(db_path: PathOrStr = DB_PATH):
         _load_taxon_ranks(conn)
         conn.execute(f"INSERT INTO {TAXON_FTS_TABLE}({TAXON_FTS_TABLE}) VALUES('optimize')")
         conn.commit()
-        conn.execute('VACUUM')
-        conn.execute(f'ANALYZE {TAXON_FTS_TABLE}')
+    vacuum_analyze([TAXON_FTS_TABLE], db_path)
 
 
 def _load_taxon_ranks(conn):
