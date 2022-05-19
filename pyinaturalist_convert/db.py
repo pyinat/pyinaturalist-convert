@@ -4,6 +4,8 @@ suitable for combining data from API results, CSV export, DwC-A, and/or inatural
 Needs for a relational database are highly variable, so this won't suit all use cases, but this at
 least provides a starting point.
 
+**Extra dependencies:** ``sqlalchemy``
+
 Example::
 
     from pyinaturalist import iNatClient
@@ -22,7 +24,6 @@ Example::
 """
 from dataclasses import dataclass, field
 
-# TODO: Hide ImportErrors if sqlalchemy isn't installed
 # TODO: Abstraction for converting between DB models and attrs models
 # TODO: Annotations and observation field values
 from datetime import datetime

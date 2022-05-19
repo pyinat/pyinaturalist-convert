@@ -1,5 +1,10 @@
 """Base utilities for converting observation data to common formats
 
+**Extra dependencies by format:**
+    * Excel: ``openpyxl``
+    * Feather, Parquet: ``pyarrow``
+    * HDF: ``tables``
+
 .. automodsumm:: pyinaturalist_convert.converters
    :functions-only:
    :nosignatures:

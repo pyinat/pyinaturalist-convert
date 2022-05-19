@@ -1,4 +1,7 @@
-"""Utilities for working with the iNat GBIF DwC archive"""
+"""Utilities for working with the iNat GBIF DwC archive.
+
+**Extra dependencies:** ``sqlalchemy``
+"""
 # TODO: Lookup and replace user_login with user_id
 import sqlite3
 import subprocess
@@ -65,16 +68,16 @@ logger = getLogger(__name__)
 
 def load_dwca_tables(db_path: PathOrStr = DB_PATH):
     """Download observation and taxonomy archives and load into a SQLite database"""
-    download_dwca()
     download_dwca_taxa()
+    download_dwca_observations()
     with CSVProgress(OBS_CSV, TAXON_CSV) as progress:
         load_taxon_table(db_path=db_path, progress=progress)
         load_observation_table(db_path=db_path, progress=progress)
 
 
-def download_dwca(dest_dir: PathOrStr = DATA_DIR):
-    """Download and extract the GBIF DwC-A export. Reuses local data if it already exists and is
-    up to date.
+def download_dwca_observations(dest_dir: PathOrStr = DATA_DIR):
+    """Download and extract the DwC-A research-grade observations dataset. Reuses local data if it
+    already exists and is up to date.
 
     Example to load into a SQLite database (using the `sqlite3` shell, from bash):
 
@@ -90,8 +93,8 @@ def download_dwca(dest_dir: PathOrStr = DATA_DIR):
 
 
 def download_dwca_taxa(dest_dir: PathOrStr = DATA_DIR):
-    """Download and extract the DwC-A taxonomy export. Reuses local data if it already exists and is
-    up to date.
+    """Download and extract the DwC-A taxonomy dataset. Reuses local data if it already exists and
+    is up to date.
 
     Args:
         dest_dir: Alternative download directory
@@ -110,9 +113,7 @@ def load_observation_table(
 
     To load everything as-is, see :py:func:`.load_full_observation_table`.
     """
-    logger.info(f'Loading {csv_path} into {db_path}')
     create_tables(db_path)
-
     column_map = _get_obs_column_map(OBS_COLUMNS)
     progress = progress or CSVProgress(Path(csv_path))
     with progress:

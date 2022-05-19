@@ -1,4 +1,7 @@
-"""Utilities for working with iNaturalist Open Data"""
+"""Utilities for working with the iNaturalist dataset hosted by Amazon Open Data Program.
+
+**Extra dependencies:** ``boto3``
+"""
 from pathlib import Path
 
 from .constants import DATA_DIR, ODP_ARCHIVE_NAME, ODP_BUCKET_NAME, ODP_METADATA_KEY, PathOrStr

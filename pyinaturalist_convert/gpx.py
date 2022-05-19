@@ -1,3 +1,7 @@
+"""Utilities for converting observations to GPX.
+
+**Extra dependencies:** ``gpxpy``
+"""
 from logging import getLogger
 
 from pyinaturalist import Observation

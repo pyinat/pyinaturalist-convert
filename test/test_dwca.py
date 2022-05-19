@@ -7,7 +7,7 @@ from pathlib import Path
 
 from pyinaturalist_convert.dwca import (
     aggregate_taxon_counts,
-    download_dwca,
+    download_dwca_observations,
     download_dwca_taxa,
     load_observation_table,
     load_taxon_table,

@@ -6,9 +6,9 @@
 [![Conda](https://img.shields.io/conda/vn/conda-forge/pyinaturalist-convert?color=blue)](https://anaconda.org/conda-forge/pyinaturalist-convert)
 [![PyPI - Python Versions](https://img.shields.io/pypi/pyversions/pyinaturalist-convert)](https://pypi.org/project/pyinaturalist-convert)
 
-This package provides tools to convert iNaturalist observation data to and from a wide variety of useful formats.
-This is mainly intended for use with the iNaturalist API
-(via [pyinaturalist](https://github.com/niconoe/pyinaturalist)), but also works with other data sources.
+This package provides tools to convert iNaturalist observation data to and from a wide variety of
+useful formats. This is mainly intended for use with the iNaturalist API
+via [pyinaturalist](https://github.com/niconoe/pyinaturalist), but also works with other data sources.
 
 Complete project documentation can be found at [pyinaturalist-convert.readthedocs.io](https://pyinaturalist-convert.readthedocs.io).
 
@@ -28,8 +28,11 @@ Import formats with partial support:
 Export formats currently supported:
 * CSV, Excel, and anything else supported by [tablib](https://tablib.readthedocs.io/en/stable/formats/)
 * Feather, Parquet, and anything else supported by [pandas](https://pandas.pydata.org/pandas-docs/stable/user_guide/io.html)
-* GeoJSON and GPX
 * Darwin Core
+* GeoJSON
+* GPX
+* SQLite
+* SQLite full text search (for taxonomy)
 
 # Installation
 Install with pip:
@@ -42,12 +45,12 @@ Or with conda:
 conda install -c conda-forge pyinaturalist-convert
 ```
 
-To keep things modular, many format-specific dependencies are not installed by default, so you may need to install some
-more packages depending on which formats you want. See
-[pyproject.toml]([pyproject.toml](https://github.com/pyinat/pyinaturalist-convert/blob/7098c05a513ddfbc254a446aeec1dfcfa83e92ff/pyproject.toml#L44-L50))
-for the full list (TODO: docs on optional dependencies).
+To keep things modular, many format-specific dependencies are not installed by default, so you may
+need to install some more packages depending on which features you want. See
+[pyproject.toml]([pyproject.toml](https://github.com/pyinat/pyinaturalist-convert/blob/main/pyproject.toml#L27))
+for the full list.
 
-To install all of the things:
+For getting started, it's recommended to install all optional dependencies:
 ```bash
 pip install pyinaturalist-convert[all]
 ```
@@ -88,7 +91,7 @@ df.to_parquet('my_observations.parquet')
 ## Download
 Download the complete research-greade observations dataset:
 ```python
-download_dwca()
+download_dwca_observations()
 ```
 
 Or the complete taxonomy dataset:

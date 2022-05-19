@@ -1,5 +1,7 @@
 """Utilities for converting observations to Darwin Core
 
+**Extra dependencies:** ``xmltodict``
+
 Usage example::
 
     from pyinaturalist import get_observations
