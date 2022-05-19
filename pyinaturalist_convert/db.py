@@ -66,9 +66,9 @@ class DbObservation:
     __sa_dataclass_metadata_key__ = 'sa'
 
     id: int = sa_field(Integer, primary_key=True)
-    captive: bool = sa_field(Boolean, default=None)
+    captive: bool = sa_field(Boolean, default=None, index=True)
     description: str = sa_field(String, default=None)
-    geoprivacy: str = sa_field(String, default=None)
+    geoprivacy: str = sa_field(String, default=None, index=True)
     latitude: float = sa_field(Float, default=None)
     longitude: float = sa_field(Float, default=None)
     observed_on: datetime = sa_field(DateTime, default=None, index=True)
@@ -78,6 +78,7 @@ class DbObservation:
     quality_grade: str = sa_field(String, default=None, index=True)
     taxon_id: int = sa_field(ForeignKey('taxon.id'), default=None, index=True)
     user_id: int = sa_field(Integer, default=None)
+    user_login: int = sa_field(Integer, default=None)
     uuid: str = sa_field(String, default=None, index=True)
 
     photos = relationship('DbPhoto', back_populates='observation')  # type: ignore

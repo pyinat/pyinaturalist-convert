@@ -3,9 +3,10 @@
 Currently, the process for building the database is a bit cumbersome, and I may end up hosting a
 copy of it somewhere instead. Meanwhile, to build everything::
 
-    >>> from pyinaturalist_convert import load_dwca_tables, load_taxon_fts_table
+    >>> from pyinaturalist_convert import aggregate_taxon_counts. load_dwca_tables, load_taxon_fts_table
     >>>
     >>> load_dwca_tables()
+    >>> aggregate_taxon_counts()
     >>> load_taxon_fts_table()
 
 Note: This process will take several hours.
@@ -27,7 +28,7 @@ from .sqlite import load_table
 # Add extra text search prefix indexes to speed up searches for these prefix lengths
 PREFIX_INDEXES = [2, 3, 4]
 
-# Columns to use for text search table, and which should be indexes
+# Columns to use for text search table, and which should be indexed
 TAXON_FTS_TABLE = 'taxon_fts'
 TAXON_FTS_COLUMNS = {
     'name': True,

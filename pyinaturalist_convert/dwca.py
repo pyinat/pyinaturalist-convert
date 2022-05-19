@@ -1,6 +1,5 @@
 """Utilities for working with the iNat GBIF DwC archive"""
-# TODO: Faster way to load observation table without subprocess
-# TODO: Rename columns in observations CSV, only use subset of columns; not possible with .import?
+# TODO: Lookup and replace user_login with user_id
 import sqlite3
 import subprocess
 from logging import getLogger
@@ -13,7 +12,8 @@ import pandas as pd
 from pandas import DataFrame
 from pyinaturalist import enable_logging
 
-from pyinaturalist_convert.db import DbTaxon, create_table  # , create_tables
+from pyinaturalist_convert.db import DbTaxon, create_table, create_tables
+from pyinaturalist_convert.dwc import get_dwc_lookup
 
 from .constants import (
     DATA_DIR,
@@ -25,33 +25,51 @@ from .constants import (
     TAXON_CSV,
     PathOrStr,
 )
-from .download import CSVProgress, check_download, download_file, get_progress, unzip_progress
+from .download import (
+    CSVProgress,
+    check_download,
+    download_file,
+    get_progress,
+    get_progress_spinner,
+    unzip_progress,
+)
 from .sqlite import load_table
 
+OBS_COLUMNS = [
+    'catalogNumber',
+    'captive',
+    'coordinateUncertaintyInMeters',
+    'decimalLatitude',
+    'decimalLongitude',
+    'eventDate',
+    'inaturalistLogin',
+    'informationWithheld',
+    'occurrenceRemarks',
+    'taxonID',
+]
 TAXON_COLUMN_MAP = {
     'id': 'id',
     'parentNameUsageID': 'parent_id',
     'scientificName': 'name',
     'taxonRank': 'rank',
 }
-# Other available fields:
-# 'kingdom',
-# 'phylum',
-# 'class',
-# 'order',
-# 'family',
-# 'genus',
-# 'specificEpithet'
-# 'infraspecificEpithet'
-# 'modified',
-# 'references',
-
+TAXON_TABLE = 'taxon'
+OBS_TABLE = 'observation'
 
 # debug
 enable_logging()
 getLogger('pyinaturalist_convert').setLevel('DEBUG')
 
 logger = getLogger(__name__)
+
+
+def load_dwca_tables(db_path: PathOrStr = DB_PATH):
+    """Download observation and taxonomy archives and load into a SQLite database"""
+    download_dwca()
+    download_dwca_taxa()
+    with CSVProgress(OBS_CSV, TAXON_CSV) as progress:
+        load_taxon_table(db_path=db_path, progress=progress)
+        load_observation_table(db_path=db_path, progress=progress)
 
 
 def download_dwca(dest_dir: PathOrStr = DATA_DIR):
@@ -81,53 +99,46 @@ def download_dwca_taxa(dest_dir: PathOrStr = DATA_DIR):
     _download_archive(DWCA_TAXA_URL, dest_dir)
 
 
-def _download_archive(url: str, dest_dir: PathOrStr = DATA_DIR):
-    dest_dir = Path(dest_dir).expanduser()
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    dest_file = dest_dir / basename(url)
-
-    # Skip download if we're already up to date
-    if check_download(dest_file, url=url, release_interval=7):
-        return
-
-    # Otherwise, download and extract files
-    download_file(url, dest_file)
-    unzip_progress(dest_file, dest_dir / splitext(basename(url))[0])
-
-
-def load_dwca_tables():
-    """Download observation and taxonomy archives and load into SQLite tables"""
-    download_dwca()
-    download_dwca_taxa()
-    load_observation_table()
-    load_taxon_table()
-    aggregate_taxon_counts()
-
-
 def load_observation_table(
     csv_path: PathOrStr = OBS_CSV,
     db_path: PathOrStr = DB_PATH,
+    progress: CSVProgress = None,
 ):
-    """Create an observations SQLite table from the GBIF DwC-A archive.
+    """Create an observations SQLite table from the GBIF DwC-A archive. This keeps only the most
+    relevant subset of columns available in the archive, in a format consistent with API results and
+    other sources.
 
-    Currently this requires the ``sqlite3`` executable to be installed on the system, since its
-    ``.import`` command is many times faster than doing the equivalent with the python ``sqlite3``
-    module.
+    To load everything as-is, see :py:func:`.load_full_observation_table`.
     """
     logger.info(f'Loading {csv_path} into {db_path}')
-    # create_tables(db_path)
-    subprocess.run(f'sqlite3 -csv {db_path} ".import {csv_path} observation"', shell=True)
+    create_tables(db_path)
 
-    # Super slow alternative:
-    # column_map ={'id': 'id', 'taxonID': 'taxon_id'}  # etc.
-    # with CSVProgress(csv_path) as progress:
-    #     load_table(csv_path, db_path, 'observation', column_map, progress=progress)
+    column_map = _get_obs_column_map(OBS_COLUMNS)
+    progress = progress or CSVProgress(Path(csv_path))
+    with progress:
+        load_table(csv_path, db_path, 'observation', column_map, progress=progress)
+    _cleanup_observations(db_path)
+
+
+def load_full_observation_table(
+    csv_path: PathOrStr = OBS_CSV,
+    db_path: PathOrStr = DB_PATH,
+):
+    """Create an observations SQLite table from the GBIF DwC-A archive, using all columns exactly
+    as they appear in the archive.
+
+    This requires the ``sqlite3`` executable to be installed on the system, since its ``.import``
+    command is by far the fastest way to load this.
+    """
+    logger.info(f'Loading {csv_path} into {db_path}')
+    subprocess.run(f'sqlite3 -csv {db_path} ".import {csv_path} observation"', shell=True)
 
 
 def load_taxon_table(
     csv_path: PathOrStr = TAXON_CSV,
     db_path: PathOrStr = DB_PATH,
     column_map: Dict = TAXON_COLUMN_MAP,
+    progress: CSVProgress = None,
 ):
     """Create a taxonomy SQLite table from the GBIF DwC-A archive"""
 
@@ -141,7 +152,8 @@ def load_taxon_table(
 
     create_table(DbTaxon, db_path)
 
-    with CSVProgress(Path(csv_path)) as progress:
+    progress = progress or CSVProgress(Path(csv_path))
+    with progress:
         load_table(
             csv_path, db_path, 'taxon', column_map, transform=get_parent_id, progress=progress
         )
@@ -155,18 +167,16 @@ def get_observation_taxon_counts(db_path: PathOrStr = DB_PATH) -> Dict[int, int]
         logger.warning(f'Observation database {db_path} not found')
         return {}
 
-    logger.info(f'Getting taxon counts from {db_path}')
+    logger.info(f'Getting base taxon counts from {db_path}')
     with sqlite3.connect(db_path) as conn:
-        conn.execute("CREATE INDEX IF NOT EXISTS taxon_id_idx ON observation(taxonID)")
-        conn.execute("DELETE FROM observation WHERE taxonID IS NULL or taxonID = ''")
-
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
-            "SELECT taxonID, COUNT(*) AS count FROM observation GROUP BY taxonID;"
+            'SELECT taxon_id, COUNT(*) AS count FROM observation '
+            'WHERE taxon_id IS NOT NULL GROUP BY taxon_id;'
         ).fetchall()
 
         return {
-            int(row['taxonID']): int(row['count'])
+            int(row['taxon_id']): int(row['count'])
             for row in sorted(rows, key=lambda r: r['count'], reverse=True)
         }
 
@@ -248,6 +258,53 @@ def update_taxon_counts(
     return df
 
 
+def _download_archive(url: str, dest_dir: PathOrStr = DATA_DIR):
+    dest_dir = Path(dest_dir).expanduser()
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest_file = dest_dir / basename(url)
+
+    # Skip download if we're already up to date
+    if check_download(dest_file, url=url, release_interval=7):
+        return
+
+    # Otherwise, download and extract files
+    download_file(url, dest_file)
+    unzip_progress(dest_file, dest_dir / splitext(basename(url))[0])
+
+
+def _cleanup_observations(db_path: PathOrStr = DB_PATH):
+    """Run the following post-processing steps after loading observations:
+    * Translate dwc:informationWithheld into standard geoprivacy values
+    * Translate captive values into True/False
+    * Vacuum/analyze
+    """
+    spinner = get_progress_spinner('Post-processing')
+    with spinner, sqlite3.connect(db_path) as conn:
+        logger.info('Finding observations with open geoprivacy')
+        conn.execute("UPDATE observation SET geoprivacy='open' " "WHERE geoprivacy IS NULL")
+
+        logger.info('Finding observations with obscured geoprivacy')
+        conn.execute(
+            "UPDATE observation SET geoprivacy='obscured' "
+            "WHERE geoprivacy LIKE 'Coordinate uncertainty increased%'"
+        )
+
+        logger.info('Finding observations with private geoprivacy')
+        conn.execute(
+            "UPDATE observation SET geoprivacy='private' "
+            "WHERE geoprivacy LIKE 'Coordinates hidden%'"
+        )
+
+        logger.info('Formatting captive/wild status')
+        conn.execute("UPDATE observation SET captive=FALSE WHERE captive='wild'")
+        conn.execute("UPDATE observation SET captive=TRUE WHERE captive IS NOT FALSE")
+
+        logger.info('Final cleanup')
+        conn.commit()
+        conn.execute('VACUUM')
+        conn.execute('ANALYZE observation')
+
+
 def _get_taxon_df(db_path: PathOrStr = DB_PATH) -> DataFrame:
     """Load taxon table into a dataframe"""
     logger.info(f'Loading taxa from {db_path}')
@@ -303,30 +360,56 @@ def _get_next_level(df, level_ids, processed_ids, skipped_ids) -> Tuple[set, set
     return level_ids, processed_ids
 
 
-# TODO: Translate subset of DwC terms to API-compatible field names
-# Observation columns:
-# id
-# modified
-# informationWithheld
-# catalogNumber
-# occurrenceRemarks
-# recordedBy  # username
-# inaturalistLogin  # user real name
-# license
-# captive
-# eventDate
-# decimalLatitude
-# decimalLongitude
-# coordinateUncertaintyInMeters
-# geodeticDatum
-# taxonID
-# scientificName
-# taxonRank
-# kingdom
-# phylum
-# class
-# order
-# family
-# genus
-# sex
-# lifeStage
+def _get_obs_column_map(fields: List[str]) -> Dict[str, str]:
+    """Translate subset of DwC terms to API-compatible field names"""
+    lookup = {k: v.replace('.', '_') for k, v in get_dwc_lookup().items()}
+    return {field: lookup[field] for field in fields}
+
+
+# For reference: other columns available that aren't loaded by default
+UNUSED_OBS_COLUMNS = [
+    'basisOfRecord',
+    'collectionCode',
+    'countryCode',
+    'datasetName',
+    'eventTime',
+    'geodeticDatum',
+    'id',
+    'identificationID',
+    'identificationRemarks',
+    'identifiedBy',
+    'identifiedByID',
+    'institutionCode',
+    'license',
+    'occurrenceID',
+    'modified',
+    'publishingCountry',
+    'recordedBy',
+    'reproductiveCondition',
+    'recordedByID',
+    'references',
+    'rightsHolder',
+    'scientificName',
+    'stateProvince',
+    'verbatimEventDate',
+    'verbatimLocality',
+    'taxonRank',
+    'kingdom',
+    'phylum',
+    'class',
+    'order',
+    'family',
+    'genus',
+    'sex',
+    'lifeStage',  # TODO: Translate to annotation?
+]
+UNUSED_TAXON_COLUMNS = [
+    'kingdom',
+    'phylum',
+    'class',
+    'order',
+    'family',
+    'genus',
+    'specificEpithet' 'infraspecificEpithet' 'modified',
+    'references',
+]

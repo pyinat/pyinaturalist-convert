@@ -45,7 +45,7 @@ class ChunkReader:
 
     def _next_row(self):
         row = next(self.reader)
-        return [row[i] for i in self._include_idx] if self._include_idx else row
+        return [row[i] or None for i in self._include_idx] if self._include_idx else row
 
 
 class XFormChunkReader(ChunkReader):
