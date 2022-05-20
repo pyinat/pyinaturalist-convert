@@ -1,4 +1,6 @@
-"""Utilities for working with the iNat GBIF DwC archive.
+"""Download and convert the
+`iNaturalist GBIF and taxonomy datasets <https://www.inaturalist.org/pages/developers>`_
+from DwC-A to SQLite.
 
 **Extra dependencies**: ``sqlalchemy``
 
@@ -24,7 +26,7 @@ from pandas import DataFrame
 from pyinaturalist import enable_logging
 
 from pyinaturalist_convert.db import create_tables
-from pyinaturalist_convert.dwc import get_dwc_lookup
+from pyinaturalist_convert.dwc import _get_dwc_lookup
 
 from .constants import (
     DATA_DIR,
@@ -367,7 +369,7 @@ def _get_next_level(df, level_ids, processed_ids, skipped_ids) -> Tuple[set, set
 
 def _get_obs_column_map(fields: List[str]) -> Dict[str, str]:
     """Translate subset of DwC terms to API-compatible field names"""
-    lookup = {k: v.replace('.', '_') for k, v in get_dwc_lookup().items()}
+    lookup = {k: v.replace('.', '_') for k, v in _get_dwc_lookup().items()}
     return {field: lookup[field] for field in fields}
 
 

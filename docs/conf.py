@@ -4,7 +4,6 @@ from pathlib import Path
 
 PACKAGE_DIR = Path(__file__).parent.parent / 'pyinaturalist_convert'
 DOCS_DIR = Path(__file__).parent
-TEMPLATE_DIR = DOCS_DIR / '_templates'
 
 # General information about the project.
 copyright = '2022, Jordan Cook'
@@ -13,7 +12,6 @@ master_doc = 'index'
 needs_sphinx = '4.0'
 project = 'pyinaturalist-convert'
 source_suffix = ['.rst', '.md']
-templates_path = ['_templates']
 version = release = pkg_version('pyinaturalist-convert')
 
 # Sphinx extensions
@@ -28,7 +26,6 @@ extensions = [
     'sphinx_copybutton',
     'sphinx_inline_tabs',
     'sphinx_panels',
-    'sphinxcontrib.apidoc',
     'myst_parser',
 ]
 myst_enable_extensions = ['colon_fence']
@@ -53,18 +50,6 @@ copybutton_prompt_is_regexp = True
 
 # Disable autodoc's built-in type hints, and use sphinx_autodoc_typehints extension instead
 autodoc_typehints = 'none'
-
-# apidoc settings
-apidoc_module_dir = str(PACKAGE_DIR)
-apidoc_output_dir = 'modules'
-apidoc_extra_args = [f'--templatedir={TEMPLATE_DIR}']  # Note: Must be an absolute path
-apidoc_module_first = True
-apidoc_separate_modules = True
-apidoc_toc_file = False
-exclude_patterns = [
-    'modules/pyinaturalist_convert.rst',
-    'modules/pyinaturalist_convert.constants.rst',
-]
 
 
 # HTML general settings

@@ -1,6 +1,5 @@
-"""Utilities for importing CSV observation data from the
-`iNaturalist bulk export tool <https://www.inaturalist.org/observations/export>`_ and processing it
-into a format that can be combined with JSON observation data from the iNaturalist API.
+"""Import CSV observation data from the
+`iNaturalist bulk export tool <https://www.inaturalist.org/observations/export>`_.
 
 Example::
 

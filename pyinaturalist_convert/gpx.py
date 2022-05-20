@@ -1,4 +1,5 @@
-"""Utilities for converting observations to GPX.
+"""Convert observations to
+`GPX tracks or waypoints <https://hikingguy.com/how-to-hike/what-is-a-gpx-file>`_.
 
 **Extra dependencies:** ``gpxpy``
 """
@@ -14,7 +15,7 @@ logger = getLogger(__name__)
 
 
 def to_gpx(observations: AnyObservations, filename: str = None, track: bool = True) -> str:
-    """Convert a list of observations to a set of GPX waypoints or a GPX track
+    """Convert a list of observations to a GPX track (default) or a set of GPX waypoints.
 
     Example:
 

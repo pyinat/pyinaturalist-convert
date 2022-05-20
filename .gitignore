@@ -49,7 +49,7 @@ docs/_build/
 docs/docs/
 docs/examples
 docs/sample_data
-docs/modules/
+# docs/modules/
 
 # Mac OS X
 .DS_Store

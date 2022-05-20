@@ -1,16 +1,51 @@
-"""Tools to build and search a taxon full text search database.
+"""Build and search a taxonomy full text search database using
+`FTS5 <https://www.sqlite.org/fts5.html>`_. This functions similarly to the API endpoint
+:py:func:`~pyinaturalist.v1.taxa.get_taxa_autocomplete`, which powers the taxon autocomplete feature
+on inaturalist.org:
+
+.. image::
+    ../images/inat-taxon-autocomplete.png
 
 **Extra dependencies**: ``sqlalchemy`` (for inital load only, not searching)
 
 **Example**::
 
-    >>> from pyinaturalist_convert import aggregate_taxon_counts, load_dwca_tables, load_taxon_fts_table
-    >>>
+    >>> from pyinaturalist_convert import (
+    ...     aggregate_taxon_counts, load_dwca_tables, load_taxon_fts_table
+    ... )
+
     >>> load_dwca_tables()
     >>> aggregate_taxon_counts()  # Optional, but recommended
-    >>> load_fts_taxa()
+    >>> load_fts_taxa(language='all')  # Defaults to English names only
 
-Note: This process will take several hours.
+.. note::
+    The process to build the database (mainly :py:func:`.aggregate_taxon_counts`) will take several
+    hours.
+
+**Search example**::
+
+    >>> from pyinaturalist_convert import TaxonAutocompleter
+
+    >>> ta = TaxonAutocompleter()
+
+    >>> # Search by scientific name
+    >>> ta.search('aves')
+    [
+        Taxon(id=3, name='Aves'),
+        Taxon(id=1043988, name='Avesicaria'),
+        ...,
+    ]
+
+    >>> # Or by common name
+    >>> ta.search('frill')
+    [
+        Taxon(id=56447, name='Acid Frillwort'),
+        Taxon(id=614339, name='Antilles Frillfin'),
+        ...,
+    ]
+
+    >>> # Or by common name in a specific language
+    >>> ta.search('flughund', language='german')
 
 .. automodsumm:: pyinaturalist_convert.fts
    :classes-only:
@@ -76,23 +111,6 @@ logger = getLogger(__name__)
 # TODO: Deduplicate results (if both common and scientific names are present)
 class TaxonAutocompleter:
     """Taxon autocomplete search.
-
-    Example:
-        >>> from pyinaturalist_convert import TaxonAutocompleter
-        >>>
-        >>> ta = TaxonAutocompleter()
-        >>> ta.search('aves')
-        [
-            Taxon(id=3, name='Aves'),
-            Taxon(id=1043988, name='Avesicaria'),
-            ...,
-        ]
-        >>> ta.search('frill')
-        [
-            Taxon(id=56447, name='Acid Frillwort'),
-            Taxon(id=614339, name='Antilles Frillfin'),
-            ...,
-        ]
 
     Args:
         db_path: Path to SQLite database
