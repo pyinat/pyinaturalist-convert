@@ -1,4 +1,9 @@
-"""Functions for downloading and extracting archives, with progress bars"""
+"""Helper functions for downloading and extracting archives, with progress bars
+
+.. automodsumm:: pyinaturalist_convert.download
+   :functions-only:
+   :nosignatures:
+"""
 # TODO: Make progress bar optional
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
@@ -248,6 +253,7 @@ def get_progress_dl(**kwargs) -> Progress:
 
 
 def get_progress_spinner(description: str = 'Loading') -> Progress:
+    """Get a spinner-type progress bar (for tasks that can't be estimated)"""
     progress = Progress('[progress.description]{task.description}', SpinnerColumn(style='green'))
     _get_task(progress, total=None, description=description)
     return progress

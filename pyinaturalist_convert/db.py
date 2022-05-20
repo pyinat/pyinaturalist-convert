@@ -1,12 +1,12 @@
 """ORM data models. These contain a relevant subset of columns common to most iNat data sources,
 suitable for combining data from API results, CSV export, DwC-A, and/or inaturalist-open-data.
 
-Needs for a relational database are highly variable, so this won't suit all use cases, but this at
-least provides a starting point.
+Requirements for a relational database are highly variable, so this won't suit all use cases, but
+this at least provides a starting point.
 
-**Extra dependencies:** ``sqlalchemy``
+**Extra dependencies**: ``sqlalchemy``
 
-Example::
+**Example**::
 
     from pyinaturalist import iNatClient
     from pyinaturalist_convert import create_tables, read_observations, save_observations
@@ -22,6 +22,14 @@ Example::
     # Read them back from the database
     for observation in get_db_observations('observations.db'):
         print(observation)
+
+.. automodsumm:: pyinaturalist_convert.db
+   :classes-only:
+   :nosignatures:
+
+.. automodsumm:: pyinaturalist_convert.db
+   :functions-only:
+   :nosignatures:
 """
 # TODO: Abstraction for converting between DB models and attrs models
 # TODO: Annotations and observation field values

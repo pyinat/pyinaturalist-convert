@@ -1,6 +1,10 @@
 """Utilities for importing CSV observation data from the
 `iNaturalist bulk export tool <https://www.inaturalist.org/observations/export>`_ and processing it
 into a format that can be combined with JSON observation data from the iNaturalist API.
+
+Example::
+
+    >>> load_csv_exports('~/Downloads/my_observations.csv')
 """
 import re
 from csv import DictReader
@@ -91,14 +95,14 @@ def load_csv_exports(*file_paths: PathOrStr) -> DataFrame:
     Args:
         file_paths: One or more file paths or glob patterns to load
     """
-    resolved_paths = resolve_file_paths(*file_paths)
+    resolved_paths = _resolve_file_paths(*file_paths)
     logger.info(
         f'Reading {len(resolved_paths)} exports:\n'
         + '\n'.join([f'\t{basename(f)}' for f in resolved_paths])
     )
 
     df = pd.concat((pd.read_csv(f) for f in resolved_paths), ignore_index=True)
-    return format_export(df)
+    return _format_export(df)
 
 
 def is_csv_export(file_path: PathOrStr) -> bool:
@@ -112,7 +116,7 @@ def is_csv_export(file_path: PathOrStr) -> bool:
     return 'captive_cultivated' in fields
 
 
-def resolve_file_paths(*file_paths: PathOrStr) -> List[Path]:
+def _resolve_file_paths(*file_paths: PathOrStr) -> List[Path]:
     """Given file paths and/or glob patterns, return a list of resolved file paths"""
     file_path_strs = [str(p) for p in file_paths]
     resolved_paths = [p for p in file_path_strs if '*' not in p]
@@ -121,7 +125,7 @@ def resolve_file_paths(*file_paths: PathOrStr) -> List[Path]:
     return [Path(p).expanduser() for p in resolved_paths]
 
 
-def format_columns(df: DataFrame) -> DataFrame:
+def _format_columns(df: DataFrame) -> DataFrame:
     """Some datatype conversions that apply to both CSV exports and API response data"""
     # Convert to expected datatypes
     for col, dtype in DTYPES.items():
@@ -133,22 +137,22 @@ def format_columns(df: DataFrame) -> DataFrame:
     return df.fillna('')
 
 
-def format_response(response: JsonResponse) -> DataFrame:
+def _format_response(response: JsonResponse) -> DataFrame:
     """Convert and format API response data into a dataframe"""
     df = to_dataframe(response['results'])
     df['photo.url'] = df['photos'].apply(lambda x: x[0]['url'])
     df['photo.id'] = df['photos'].apply(lambda x: x[0]['id'])
-    df = format_columns(df)
+    df = _format_columns(df)
     return df
 
 
-def format_export(df: DataFrame) -> DataFrame:
+def _format_export(df: DataFrame) -> DataFrame:
     """Format an exported CSV file to be more consistent with API response format"""
     logger.info(f'Formatting {len(df)} observation records')
 
     # Rename, convert, and drop selected columns
     df = df.rename(columns={col: _rename_column(col) for col in sorted(df.columns)})
-    df = format_columns(df)
+    df = _format_columns(df)
 
     # Convert datetimes
     df['observed_on'] = df['observed_on_string'].apply(lambda x: try_datetime(x) or x)
@@ -168,14 +172,6 @@ def format_export(df: DataFrame) -> DataFrame:
 
     # Drop unused columns
     df = df.drop(columns=[k for k in DROP_COLUMNS if k in df])
-    return df
-
-
-def _fixna(df):
-    """Fix null values of the wrong type"""
-    for col, dtype in DTYPES.items():
-        if col in df:
-            df[col] = df[col].apply(lambda x: x or dtype())
     return df
 
 

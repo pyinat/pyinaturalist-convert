@@ -1,15 +1,24 @@
 """Tools to build and search a taxon full text search database.
 
-Currently, the process for building the database is a bit cumbersome, and I may end up hosting a
-copy of it somewhere instead. Meanwhile, to build everything::
+**Extra dependencies**: ``sqlalchemy`` (for inital load only, not searching)
 
-    >>> from pyinaturalist_convert import aggregate_taxon_counts. load_dwca_tables, load_taxon_fts_table
+**Example**::
+
+    >>> from pyinaturalist_convert import aggregate_taxon_counts, load_dwca_tables, load_taxon_fts_table
     >>>
     >>> load_dwca_tables()
-    >>> aggregate_taxon_counts()
+    >>> aggregate_taxon_counts()  # Optional, but recommended
     >>> load_fts_taxa()
 
 Note: This process will take several hours.
+
+.. automodsumm:: pyinaturalist_convert.fts
+   :classes-only:
+   :nosignatures:
+
+.. automodsumm:: pyinaturalist_convert.fts
+   :functions-only:
+   :nosignatures:
 """
 # TODO: Add scientific names to common name records (unindexed, just for display purposes)
 import sqlite3
