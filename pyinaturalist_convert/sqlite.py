@@ -117,11 +117,17 @@ def load_table(
     db_path.parent.mkdir(parents=True, exist_ok=True)
     logger.info(f'Loading {csv_path} into {db_path}')
 
+    # Use mapping from CSV to SQLite column names, if provided; otherwise use CSV names as-is
+    if not column_map:
+        csv_cols = db_cols = get_fields(csv_path, delimiter)
+    else:
+        csv_cols = list(column_map.keys())
+        db_cols = list(column_map.values())
+
     table_name = table_name or db_path.stem
-    non_pk_cols = [k for k in column_map.values() if k != pk]
-    columns_str = ', '.join(column_map.values())
-    csv_cols = list(column_map.keys())
-    placeholders = ','.join(['?'] * len(column_map))
+    non_pk_cols = [k for k in db_cols if k != pk]
+    columns_str = ', '.join(db_cols)
+    placeholders = ','.join(['?'] * len(csv_cols))
     start = time()
 
     if progress:

@@ -21,11 +21,11 @@ from pyinaturalist_convert.dwc import get_dwc_lookup
 from .constants import (
     DATA_DIR,
     DB_PATH,
+    DWCA_OBS_CSV,
     DWCA_TAXA_URL,
+    DWCA_TAXON_CSV,
     DWCA_URL,
-    OBS_CSV,
     TAXON_COUNTS,
-    TAXON_CSV,
     PathOrStr,
 )
 from .download import (
@@ -71,7 +71,7 @@ def load_dwca_tables(db_path: PathOrStr = DB_PATH):
     """Download observation and taxonomy archives and load into a SQLite database"""
     download_dwca_taxa()
     download_dwca_observations()
-    with CSVProgress(OBS_CSV, TAXON_CSV) as progress:
+    with CSVProgress(DWCA_OBS_CSV, DWCA_TAXON_CSV) as progress:
         load_dwca_taxa(db_path=db_path, progress=progress)
         load_dwca_observations(db_path=db_path, progress=progress)
     vacuum_analyze(['observation', 'taxon'], db_path)
@@ -105,7 +105,7 @@ def download_dwca_taxa(dest_dir: PathOrStr = DATA_DIR):
 
 
 def load_dwca_observations(
-    csv_path: PathOrStr = OBS_CSV,
+    csv_path: PathOrStr = DWCA_OBS_CSV,
     db_path: PathOrStr = DB_PATH,
     progress: CSVProgress = None,
 ):
@@ -124,7 +124,7 @@ def load_dwca_observations(
 
 
 def load_full_dwca_observations(
-    csv_path: PathOrStr = OBS_CSV,
+    csv_path: PathOrStr = DWCA_OBS_CSV,
     db_path: PathOrStr = DB_PATH,
 ):
     """Create an observations SQLite table from the GBIF DwC-A archive, using all columns exactly
@@ -138,7 +138,7 @@ def load_full_dwca_observations(
 
 
 def load_dwca_taxa(
-    csv_path: PathOrStr = TAXON_CSV,
+    csv_path: PathOrStr = DWCA_TAXON_CSV,
     db_path: PathOrStr = DB_PATH,
     column_map: Dict = TAXON_COLUMN_MAP,
     progress: CSVProgress = None,
