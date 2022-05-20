@@ -6,15 +6,17 @@
 from pathlib import Path
 
 from pyinaturalist_convert.db import create_tables
-from pyinaturalist_convert.sqlite import load_table
+from pyinaturalist_convert.sqlite import load_table, vacuum_analyze
 
 from .constants import (
     DATA_DIR,
     DB_PATH,
     ODP_ARCHIVE_NAME,
     ODP_BUCKET_NAME,
-    ODP_CSV_DIR,
     ODP_METADATA_KEY,
+    ODP_OBS_CSV,
+    ODP_PHOTO_CSV,
+    ODP_TAXON_CSV,
     PathOrStr,
 )
 from .download import CSVProgress, check_download, download_s3_file, untar_progress
@@ -29,6 +31,18 @@ OBS_COLUMN_MAP = {
     'quality_grade': 'quality_grade',
     'taxon_id': 'taxon_id',
 }
+
+
+def load_odp_tables(dest_dir: PathOrStr = DATA_DIR, db_path: PathOrStr = DB_PATH):
+    """Download iNat Open Data metadata and load into a SQLite database"""
+    download_odp_metadata(dest_dir)
+    csv_dir = Path(dest_dir) / 'inaturalist-open-data'
+    progress = CSVProgress(ODP_OBS_CSV, ODP_TAXON_CSV, ODP_PHOTO_CSV)
+    with progress:
+        load_odp_taxa(csv_dir / 'taxa.csv', db_path, progress)
+        load_odp_observations(csv_dir / 'observations.csv', db_path, progress)
+        load_odp_photos(csv_dir / 'photos.csv', db_path, progress)
+    vacuum_analyze()
 
 
 def download_odp_metadata(dest_dir: PathOrStr = DATA_DIR):
@@ -52,11 +66,34 @@ def download_odp_metadata(dest_dir: PathOrStr = DATA_DIR):
 
 
 def load_odp_observations(
-    csv_path: PathOrStr = ODP_CSV_DIR / 'observations.csv',
+    csv_path: PathOrStr = ODP_OBS_CSV,
     db_path: PathOrStr = DB_PATH,
+    progress: CSVProgress = None,
 ):
     create_tables(db_path)
     column_map = OBS_COLUMN_MAP
-    progress = CSVProgress(csv_path)
+    progress = progress or CSVProgress(csv_path)
     with progress:
         load_table(csv_path, db_path, 'observation', column_map, delimiter='\t', progress=progress)
+
+
+def load_odp_taxa(
+    csv_path: PathOrStr = ODP_TAXON_CSV,
+    db_path: PathOrStr = DB_PATH,
+    progress: CSVProgress = None,
+):
+    create_tables(db_path)
+    progress = progress or CSVProgress(csv_path)
+    with progress:
+        load_table(csv_path, db_path, 'taxon', delimiter='\t', progress=progress)
+
+
+def load_odp_photos(
+    csv_path: PathOrStr = ODP_PHOTO_CSV,
+    db_path: PathOrStr = DB_PATH,
+    progress: CSVProgress = None,
+):
+    create_tables(db_path)
+    progress = progress or CSVProgress(csv_path)
+    with progress:
+        load_table(csv_path, db_path, 'photo', delimiter='\t', progress=progress)

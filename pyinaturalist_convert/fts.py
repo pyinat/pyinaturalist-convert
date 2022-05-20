@@ -22,7 +22,7 @@ import numpy as np
 import pandas as pd
 from pyinaturalist.models import Taxon
 
-from .constants import DB_PATH, TAXON_COUNTS, TAXON_CSV_DIR, PathOrStr
+from .constants import DB_PATH, DWCA_TAXON_CSV_DIR, TAXON_COUNTS, PathOrStr
 from .download import CSVProgress, get_progress_spinner
 from .sqlite import load_table, vacuum_analyze
 
@@ -120,7 +120,7 @@ class TaxonAutocompleter:
 
 
 def load_fts_taxa(
-    csv_dir: PathOrStr = TAXON_CSV_DIR,
+    csv_dir: PathOrStr = DWCA_TAXON_CSV_DIR,
     db_path: PathOrStr = DB_PATH,
     counts_path: PathOrStr = TAXON_COUNTS,
     languages: Iterable[str] = ('english',),
