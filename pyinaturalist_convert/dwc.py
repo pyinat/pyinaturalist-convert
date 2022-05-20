@@ -1,14 +1,18 @@
-"""Utilities for converting observations to Darwin Core
+"""Convert observations to `Darwin Core <https://www.tdwg.org/standards/dwc>`_.
 
-**Extra dependencies:** ``xmltodict``
+**Extra dependencies**: ``xmltodict``
 
-Usage example::
+**Example**::
 
     from pyinaturalist import get_observations
     from pyinaturalist_convert import to_dwc
 
     observations = get_observations(user_id='my_username')
     to_dwc(observations, 'my_observations.dwc')
+
+.. automodsumm:: pyinaturalist_convert.dwca
+   :functions-only:
+   :nosignatures:
 """
 # TODO: For sound recordings: eol:dataObject.dcterms:type and any other fields?
 from datetime import datetime
@@ -163,11 +167,11 @@ def get_dwc_record_set(records: List[Dict]) -> str:
 def observation_to_dwc_record(observation: Dict) -> Dict:
     """Translate a flattened JSON observation from API results to a DwC record"""
     dwc_record = {}
-    observation = add_taxon_ancestors(observation)
+    observation = _add_taxon_ancestors(observation)
 
     # Add main observation + taxon fields
     for inat_field, dwc_fields in OBSERVATION_FIELDS.items():
-        for dwc_field in ensure_str_list(dwc_fields):
+        for dwc_field in _ensure_str_list(dwc_fields):
             dwc_record[dwc_field] = observation.get(inat_field)
 
     # Add identification fields
@@ -178,7 +182,7 @@ def observation_to_dwc_record(observation: Dict) -> Dict:
 
     # Add photos
     dwc_record['eol:dataObject'] = [
-        photo_to_data_object(observation, photo) for photo in observation['photos']
+        _photo_to_data_object(observation, photo) for photo in observation['photos']
     ]
 
     # Add constants
@@ -187,13 +191,13 @@ def observation_to_dwc_record(observation: Dict) -> Dict:
 
     # Add fields that require some formatting
     dwc_record.update(format_location(observation['location']))
-    dwc_record['inat:captive'] = format_captive(observation['captive'])
-    dwc_record['dwc:establishmentMeans'] = format_captive(observation['captive'])
-    dwc_record['dwc:datasetName'] = format_dataset_name(observation['quality_grade'])
-    dwc_record['dwc:eventDate'] = format_datetime(observation['observed_on'])
-    dwc_record['dwc:eventTime'] = format_time(observation['observed_on'])
+    dwc_record['inat:captive'] = _format_captive(observation['captive'])
+    dwc_record['dwc:establishmentMeans'] = _format_captive(observation['captive'])
+    dwc_record['dwc:datasetName'] = _format_dataset_name(observation['quality_grade'])
+    dwc_record['dwc:eventDate'] = _format_datetime(observation['observed_on'])
+    dwc_record['dwc:eventTime'] = _format_time(observation['observed_on'])
     dwc_record['dwc:informationWithheld'] = format_geoprivacy(observation)
-    dwc_record['dcterms:license'] = format_license(observation['license_code'])
+    dwc_record['dcterms:license'] = _format_license(observation['license_code'])
 
     return dwc_record
 
@@ -223,13 +227,13 @@ def format_geoprivacy(observation: Dict) -> Optional[str]:
         return None
 
 
-def photo_to_data_object(observation: Dict, photo: Dict) -> Dict:
+def _photo_to_data_object(observation: Dict, photo: Dict) -> Dict:
     """Translate observation photo fields to eol:dataObject fields"""
     dwc_photo = {}
     for inat_field, dwc_field in PHOTO_FIELDS.items():
         dwc_photo[dwc_field] = photo[inat_field]
     for inat_field, dwc_fields in PHOTO_OBS_FIELDS.items():
-        for dwc_field in ensure_str_list(dwc_fields):
+        for dwc_field in _ensure_str_list(dwc_fields):
             dwc_photo[dwc_field] = observation.get(inat_field)
     for dwc_field, value in PHOTO_CONSTANTS.items():
         dwc_photo[dwc_field] = value
@@ -239,11 +243,11 @@ def photo_to_data_object(observation: Dict, photo: Dict) -> Dict:
     dwc_photo['ac:furtherInformationURL'] = photo_obj.info_url
     dwc_photo['dcterms:format'] = photo_obj.mimetype
     dwc_photo['media:thumbnailURL'] = photo_obj.thumbnail_url
-    dwc_photo['xap:UsageTerms'] = format_license(photo_obj.license_code)
+    dwc_photo['xap:UsageTerms'] = _format_license(photo_obj.license_code)
     return dwc_photo
 
 
-def add_taxon_ancestors(observation):
+def _add_taxon_ancestors(observation):
     """observation['taxon'] doesn't have full ancestry, so we'll need to get that from the
     /taxa endpoint
     """
@@ -257,23 +261,23 @@ def add_taxon_ancestors(observation):
     return observation
 
 
-def ensure_str_list(value):
+def _ensure_str_list(value):
     return value if isinstance(value, list) else [value]
 
 
-def format_captive(captive: bool) -> str:
+def _format_captive(captive: bool) -> str:
     return 'cultivated' if captive else 'wild'
 
 
-def format_dataset_name(quality_grade: str) -> str:
+def _format_dataset_name(quality_grade: str) -> str:
     return f'iNaturalist {DATASET_TITLES.get(quality_grade, "")} observations'
 
 
-def format_datetime(dt: datetime) -> str:
+def _format_datetime(dt: datetime) -> str:
     return dt.replace(microsecond=0).isoformat()
 
 
-def format_license(license_code: str) -> str:
+def _format_license(license_code: str) -> str:
     """Format a Creative Commons license code into a URL with its license information.
     Example: ``CC-BY-NC --> https://creativecommons.org/licenses/by-nc/4.0/``
     """
@@ -285,18 +289,13 @@ def format_location(location: List[float]) -> Dict[str, float]:
     return {'dwc:decimalLatitude': location[0], 'dwc:decimalLongitude': location[1]}
 
 
-def format_mimetype(url: str) -> str:
-    ext = url.lower().split('.')[-1].replace('jpg', 'jpeg')
-    return f'image/{ext}'
-
-
-def format_time(dt: datetime):
+def _format_time(dt: datetime):
     return dt.strftime("%H:%M%z")
 
 
 def dwc_record_to_observation(dwc_record: Dict) -> Dict:
     """Translate a DwC record to a dict formatted like an observation API response"""
-    lookup = get_dwc_lookup()
+    lookup = _get_dwc_lookup()
 
     json_record = {json_key: dwc_record.get(dwc_key) for dwc_key, json_key in lookup.items()}
     json_record['location'] = (dwc_record['decimalLatitude'], dwc_record['decimalLongitude'])
@@ -313,7 +312,7 @@ def _format_dwc_geoprivacy(dwc_record: Dict) -> str:
         return 'open'
 
 
-def get_dwc_lookup() -> Dict:
+def _get_dwc_lookup() -> Dict:
     """Get a lookup table of DwC terms to standard field names"""
     lookup = {}
     for k, v in OBSERVATION_FIELDS.items():

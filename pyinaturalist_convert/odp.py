@@ -1,5 +1,4 @@
-"""Utilities for working with the iNaturalist dataset hosted by the Open Data Sponsorship Program.
-This loads metadata only, not image files. For more details, see
+"""Download and convert observation, taxon, photo, and user metadata from
 `inaturalist-open-data <https://github.com/inaturalist/inaturalist-open-data>`_.
 
 **Extra dependencies**: ``boto3``

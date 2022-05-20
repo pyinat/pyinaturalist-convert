@@ -50,7 +50,6 @@ sphinx-automodapi           = {optional=true, version="^0.14"}
 sphinx-copybutton           = {optional=true, version=">=0.5"}
 sphinx-inline-tabs          = {optional=true, version="^2022.1.2b11"}
 sphinx-panels               = {optional=true, version="^0.6.0"}
-sphinxcontrib-apidoc        = {optional=true, version="^0.3"}
 
 [tool.poetry.extras]
 db         = ["sqlalchemy"]
@@ -65,7 +64,7 @@ xlsx       = ["openpyxl"]
 
 all = ["boto3", "gpxpy", "openpyxl", "pyarrow", "sqlalchemy", "tables", "tablib[all]", "xmltodict"]
 docs = ["furo", "myst-parser", "sphinx", "sphinx-autodoc-typehints", "sphinx-automodapi",
-        "sphinx-copybutton", "sphinx-inline-tabs", "sphinx-panels", "sphinxcontrib-apidoc"]
+        "sphinx-copybutton", "sphinx-inline-tabs", "sphinx-panels"]
 
 [tool.poetry.dev-dependencies]
 coverage = ">=6.3"

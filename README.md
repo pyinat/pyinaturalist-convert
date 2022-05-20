@@ -13,26 +13,26 @@ via [pyinaturalist](https://github.com/niconoe/pyinaturalist), but also works wi
 Complete project documentation can be found at [pyinaturalist-convert.readthedocs.io](https://pyinaturalist-convert.readthedocs.io).
 
 # Formats
-Import formats currently supported:
+## Import
 * CSV (From either [API results](https://www.inaturalist.org/pages/api+reference#get-observations)
  or the [iNaturalist export tool](https://www.inaturalist.org/observations/export))
 * JSON (from API results)
 * [`pyinaturalist.Observation`](https://pyinaturalist.readthedocs.io/en/stable/modules/pyinaturalist.models.Observation.html) objects
+* Dataframes, Feather, Parquet, and anything else supported by [pandas](https://pandas.pydata.org/pandas-docs/stable/user_guide/io.html)
 * [iNaturalist GBIF Archive](https://www.inaturalist.org/pages/developers)
 * [iNaturalist Taxonomy Archive](https://www.inaturalist.org/pages/developers)
 * [iNaturalist Open Data on Amazon](https://github.com/inaturalist/inaturalist-open-data)
-* Dataframes, Feather, Parquet, and anything else supported by [pandas](https://pandas.pydata.org/pandas-docs/stable/user_guide/io.html)
+* Note: see [API Recommended Practices](https://www.inaturalist.org/pages/api+recommended+practices)
+  for details on which data sources are best suited to different use cases
 
-Import formats with partial support:
-
-Export formats currently supported:
+## Export
 * CSV, Excel, and anything else supported by [tablib](https://tablib.readthedocs.io/en/stable/formats/)
 * Dataframes, Feather, Parquet, and anything else supported by [pandas](https://pandas.pydata.org/pandas-docs/stable/user_guide/io.html)
 * Darwin Core
 * GeoJSON
 * GPX
 * SQLite
-* SQLite FTS5 text search (for taxonomy)
+* SQLite + FTS5 text search for taxonomy
 
 # Installation
 Install with pip:
@@ -46,9 +46,9 @@ conda install -c conda-forge pyinaturalist-convert
 ```
 
 To keep things modular, many format-specific dependencies are not installed by default, so you may
-need to install some more packages depending on which features you want. See
-[pyproject.toml]([pyproject.toml](https://github.com/pyinat/pyinaturalist-convert/blob/main/pyproject.toml#L27))
-for the full list.
+need to install some more packages depending on which features you want. Each module's docs lists
+any extra dependencies needed, and a full list can be found in
+[pyproject.toml](https://github.com/pyinat/pyinaturalist-convert/blob/main/pyproject.toml#L27).
 
 For getting started, it's recommended to install all optional dependencies:
 ```bash
@@ -105,7 +105,7 @@ download_dwca_taxa()
 load_dwca_taxa()
 ```
 
-Load taxonomy and common name data into a full text search database:
+Load taxonomy data into a full text search database:
 ```python
 load_taxon_fts_table(languages=['english', 'german'])
 ```
@@ -116,10 +116,3 @@ ta = TaxonAutocompleter()
 ta.search('aves')
 ta.search('flughund', language='german')
 ```
-
-# Planned and Possible Features
-* Convert to an HTML report
-* Convert to print-friendly format
-* Export to any [SQLAlchemy-compatible database engine](https://docs.sqlalchemy.org/en/14/core/engines.html#supported-databases)
-* Note: see [API Recommended Practices](https://www.inaturalist.org/pages/api+recommended+practices)
-  for details on which data sources are best suited to different use cases

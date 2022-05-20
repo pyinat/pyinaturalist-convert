@@ -1,4 +1,8 @@
-"""Helper functions for downloading and extracting archives, with progress bars
+"""Helper utilities for downloading and extracting files, with progress bars.
+
+.. automodsumm:: pyinaturalist_convert.download
+   :classes-only:
+   :nosignatures:
 
 .. automodsumm:: pyinaturalist_convert.download
    :functions-only:

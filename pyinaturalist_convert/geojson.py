@@ -1,3 +1,6 @@
+"""Convert observations to
+`GeoJSON FeatureCollections <https://tools.ietf.org/html/rfc7946#section-3.3>`_.
+"""
 from typing import List
 
 from geojson import Feature, FeatureCollection, Point
@@ -23,7 +26,7 @@ DEFAULT_OBSERVATION_ATTRS = [
 def to_geojson(
     observations: AnyObservations, properties: List[str] = DEFAULT_OBSERVATION_ATTRS
 ) -> FeatureCollection:
-    """Convert observations into a `GeoJSON FeatureCollection <https://tools.ietf.org/html/rfc7946#section-3.3>`_.
+    """Convert observations to a GeoJSON FeatureCollection.
 
     By default this includes some basic observation attributes as GeoJSON ``Feature`` properties.
     The ``properties`` argument can be used to override these defaults. Nested values can be accessed

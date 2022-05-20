@@ -67,14 +67,14 @@ lxml = ["lxml"]
 
 [[package]]
 name = "boto3"
-version = "1.23.3"
+version = "1.23.4"
 description = "The AWS SDK for Python"
 category = "main"
 optional = true
 python-versions = ">= 3.6"
 
 [package.dependencies]
-botocore = ">=1.26.3,<1.27.0"
+botocore = ">=1.26.4,<1.27.0"
 jmespath = ">=0.7.1,<2.0.0"
 s3transfer = ">=0.5.0,<0.6.0"
 
@@ -83,7 +83,7 @@ crt = ["botocore[crt] (>=1.21.0,<2.0a0)"]
 
 [[package]]
 name = "botocore"
-version = "1.26.3"
+version = "1.26.4"
 description = "Low-level, data-driven core of boto 3."
 category = "main"
 optional = true
@@ -111,11 +111,11 @@ exceptiongroup = {version = "*", markers = "python_version <= \"3.10\""}
 
 [[package]]
 name = "certifi"
-version = "2022.5.18"
+version = "2022.5.18.1"
 description = "Python package for providing Mozilla's CA Bundle."
 category = "main"
 optional = false
-python-versions = ">=3.5"
+python-versions = ">=3.6"
 
 [[package]]
 name = "cffi"
@@ -324,7 +324,7 @@ docs = ["sphinx"]
 
 [[package]]
 name = "identify"
-version = "2.5.0"
+version = "2.5.1"
 description = "File identification library for Python"
 category = "dev"
 optional = false
@@ -562,7 +562,7 @@ python-versions = ">=3.8"
 
 [[package]]
 name = "openpyxl"
-version = "3.0.9"
+version = "3.0.10"
 description = "A Python library to read/write Excel 2010 xlsx/xlsm files"
 category = "main"
 optional = true
@@ -602,14 +602,6 @@ pytz = ">=2020.1"
 
 [package.extras]
 test = ["hypothesis (>=5.5.3)", "pytest (>=6.0)", "pytest-xdist (>=1.31)"]
-
-[[package]]
-name = "pbr"
-version = "5.9.0"
-description = "Python Build Reasonableness"
-category = "main"
-optional = true
-python-versions = ">=2.6"
 
 [[package]]
 name = "platformdirs"
@@ -1082,18 +1074,6 @@ testing = ["pytest (>=6.0.1,<6.1.0)", "pytest-regressions (>=2.0.1,<2.1.0)"]
 themes = ["sphinx-rtd-theme", "pydata-sphinx-theme (>=0.4.0,<0.5.0)", "sphinx-book-theme (>=0.0.36,<0.1.0)", "myst-parser (>=0.12.9,<0.13.0)"]
 
 [[package]]
-name = "sphinxcontrib-apidoc"
-version = "0.3.0"
-description = "A Sphinx extension for running 'sphinx-apidoc' on each build"
-category = "main"
-optional = true
-python-versions = "*"
-
-[package.dependencies]
-pbr = "*"
-Sphinx = ">=1.6.0"
-
-[[package]]
 name = "sphinxcontrib-applehelp"
 version = "1.0.2"
 description = "sphinxcontrib-applehelp is a sphinx extension which outputs Apple help books"
@@ -1338,7 +1318,7 @@ testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-
 [extras]
 all = ["boto3", "gpxpy", "openpyxl", "pyarrow", "sqlalchemy", "tables", "xmltodict"]
 db = ["sqlalchemy"]
-docs = ["furo", "myst-parser", "sphinx", "sphinx-autodoc-typehints", "sphinx-automodapi", "sphinx-copybutton", "sphinx-inline-tabs", "sphinx-panels", "sphinxcontrib-apidoc"]
+docs = ["furo", "myst-parser", "sphinx", "sphinx-autodoc-typehints", "sphinx-automodapi", "sphinx-copybutton", "sphinx-inline-tabs", "sphinx-panels"]
 dwc = ["xmltodict"]
 feather = ["pyarrow"]
 gpx = ["gpxpy"]
@@ -1351,7 +1331,7 @@ xlsx = ["openpyxl"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "0dccdeb205cdd9752bcbb8b65863c65fb32af99bdf1ba3087a6031bb04e14e14"
+content-hash = "d09947c572bb1c6e88828782ca9dd3eb393d472fd69288bd95d6f98f6fed6b9f"
 
 [metadata.files]
 alabaster = [
@@ -1379,20 +1359,20 @@ beautifulsoup4 = [
     {file = "beautifulsoup4-4.11.1.tar.gz", hash = "sha256:ad9aa55b65ef2808eb405f46cf74df7fcb7044d5cbc26487f96eb2ef2e436693"},
 ]
 boto3 = [
-    {file = "boto3-1.23.3-py3-none-any.whl", hash = "sha256:5f27eec9b0a43edbfb3ed5e748837b10219a972f0728fecd78f84ec3629f2092"},
-    {file = "boto3-1.23.3.tar.gz", hash = "sha256:9d5ce5ae3ddd4429cf752efe7c9f39691db6c85b6b5f1cfc8861b8f23b72b67a"},
+    {file = "boto3-1.23.4-py3-none-any.whl", hash = "sha256:cef1730f607939da45b9c3c413f8b93f7c445bd74e24be7cbcdd817ebbf58fbc"},
+    {file = "boto3-1.23.4.tar.gz", hash = "sha256:29ced93acdc0e624fb7b1c235aad2e1dd3cae7aafdf90b9009b4c5274775248a"},
 ]
 botocore = [
-    {file = "botocore-1.26.3-py3-none-any.whl", hash = "sha256:869308e29c1e8a9baa3e2fc336a1293e098855e34ea77c035dc4194a96316688"},
-    {file = "botocore-1.26.3.tar.gz", hash = "sha256:f83c5cd7b3e1889aabf2fcf7926ddafc41f249a29f76f37cdb9e8680ac9b5af4"},
+    {file = "botocore-1.26.4-py3-none-any.whl", hash = "sha256:bd436455310f8876dfab1a27760afffa5e34dced24b4ea6a9f6b20fec082e47e"},
+    {file = "botocore-1.26.4.tar.gz", hash = "sha256:b818986c2dde395f117829d7206f775f5bfb37ef84eb05c94d3952f8e3d7fe8d"},
 ]
 cattrs = [
     {file = "cattrs-22.1.0-py3-none-any.whl", hash = "sha256:d55c477b4672f93606e992049f15d526dc7867e6c756cd6256d4af92e2b1e364"},
     {file = "cattrs-22.1.0.tar.gz", hash = "sha256:94b67b64cf92c994f8784c40c082177dc916e0489a73a9a36b24eb18a9db40c6"},
 ]
 certifi = [
-    {file = "certifi-2022.5.18-py3-none-any.whl", hash = "sha256:8d15a5a7fde18536a249c49e07e8e462b8fc13de21b3c80e8a68315dfa227c99"},
-    {file = "certifi-2022.5.18.tar.gz", hash = "sha256:6ae10321df3e464305a46e997da41ea56c1d311fb9ff1dd4e04d6f14653ec63a"},
+    {file = "certifi-2022.5.18.1-py3-none-any.whl", hash = "sha256:f1d53542ee8cbedbe2118b5686372fb33c297fcd6379b050cca0ef13a597382a"},
+    {file = "certifi-2022.5.18.1.tar.gz", hash = "sha256:9c5705e395cd70084351dd8ad5c41e65655e08ce46f2ec9cf6c2c08390f71eb7"},
 ]
 cffi = [
     {file = "cffi-1.15.0-cp27-cp27m-macosx_10_9_x86_64.whl", hash = "sha256:c2502a1a03b6312837279c8c1bd3ebedf6c12c4228ddbad40912d671ccc8a962"},
@@ -1630,8 +1610,8 @@ greenlet = [
     {file = "greenlet-1.1.2.tar.gz", hash = "sha256:e30f5ea4ae2346e62cedde8794a56858a67b878dd79f7df76a0767e356b1744a"},
 ]
 identify = [
-    {file = "identify-2.5.0-py2.py3-none-any.whl", hash = "sha256:3acfe15a96e4272b4ec5662ee3e231ceba976ef63fd9980ed2ce9cc415df393f"},
-    {file = "identify-2.5.0.tar.gz", hash = "sha256:c83af514ea50bf2be2c4a3f2fb349442b59dc87284558ae9ff54191bff3541d2"},
+    {file = "identify-2.5.1-py2.py3-none-any.whl", hash = "sha256:0dca2ea3e4381c435ef9c33ba100a78a9b40c0bab11189c7cf121f75815efeaa"},
+    {file = "identify-2.5.1.tar.gz", hash = "sha256:3d11b16f3fe19f52039fb7e39c9c884b21cb1b586988114fbe42671f03de3e82"},
 ]
 idna = [
     {file = "idna-3.3-py3-none-any.whl", hash = "sha256:84d9dd047ffa80596e0f246e2eab0b391788b0503584e8945f2368256d2735ff"},
@@ -1786,8 +1766,8 @@ numpy = [
     {file = "numpy-1.22.3.zip", hash = "sha256:dbc7601a3b7472d559dc7b933b18b4b66f9aa7452c120e87dfb33d02008c8a18"},
 ]
 openpyxl = [
-    {file = "openpyxl-3.0.9-py2.py3-none-any.whl", hash = "sha256:8f3b11bd896a95468a4ab162fc4fcd260d46157155d1f8bfaabb99d88cfcf79f"},
-    {file = "openpyxl-3.0.9.tar.gz", hash = "sha256:40f568b9829bf9e446acfffce30250ac1fa39035124d55fc024025c41481c90f"},
+    {file = "openpyxl-3.0.10-py2.py3-none-any.whl", hash = "sha256:0ab6d25d01799f97a9464630abacbb34aafecdcaa0ef3cba6d6b3499867d0355"},
+    {file = "openpyxl-3.0.10.tar.gz", hash = "sha256:e47805627aebcf860edb4edf7987b1309c1b3632f3750538ed962bbcc3bd7449"},
 ]
 packaging = [
     {file = "packaging-21.3-py3-none-any.whl", hash = "sha256:ef103e05f519cdc783ae24ea4e2e0f508a9c99b2d4969652eed6a2e1ea5bd522"},
@@ -1815,10 +1795,6 @@ pandas = [
     {file = "pandas-1.4.2-cp39-cp39-win32.whl", hash = "sha256:d0d4f13e4be7ce89d7057a786023c461dd9370040bdb5efa0a7fe76b556867a0"},
     {file = "pandas-1.4.2-cp39-cp39-win_amd64.whl", hash = "sha256:09d8be7dd9e1c4c98224c4dfe8abd60d145d934e9fc1f5f411266308ae683e6a"},
     {file = "pandas-1.4.2.tar.gz", hash = "sha256:92bc1fc585f1463ca827b45535957815b7deb218c549b7c18402c322c7549a12"},
-]
-pbr = [
-    {file = "pbr-5.9.0-py2.py3-none-any.whl", hash = "sha256:e547125940bcc052856ded43be8e101f63828c2d94239ffbe2b327ba3d5ccf0a"},
-    {file = "pbr-5.9.0.tar.gz", hash = "sha256:e8dca2f4b43560edef58813969f52a56cef023146cbb8931626db80e6c1c4308"},
 ]
 platformdirs = [
     {file = "platformdirs-2.5.2-py3-none-any.whl", hash = "sha256:027d8e83a2d7de06bbac4e5ef7e023c02b863d7ea5d079477e722bb41ab25788"},
@@ -2012,10 +1988,6 @@ sphinx-inline-tabs = [
 sphinx-panels = [
     {file = "sphinx-panels-0.6.0.tar.gz", hash = "sha256:d36dcd26358117e11888f7143db4ac2301ebe90873ac00627bf1fe526bf0f058"},
     {file = "sphinx_panels-0.6.0-py3-none-any.whl", hash = "sha256:bd64afaf85c07f8096d21c8247fc6fd757e339d1be97832c8832d6ae5ed2e61d"},
-]
-sphinxcontrib-apidoc = [
-    {file = "sphinxcontrib-apidoc-0.3.0.tar.gz", hash = "sha256:729bf592cf7b7dd57c4c05794f732dc026127275d785c2a5494521fdde773fb9"},
-    {file = "sphinxcontrib_apidoc-0.3.0-py2.py3-none-any.whl", hash = "sha256:6671a46b2c6c5b0dca3d8a147849d159065e50443df79614f921b42fbd15cb09"},
 ]
 sphinxcontrib-applehelp = [
     {file = "sphinxcontrib-applehelp-1.0.2.tar.gz", hash = "sha256:a072735ec80e7675e3f432fcae8610ecf509c5f1869d17e2eecff44389cdbc58"},

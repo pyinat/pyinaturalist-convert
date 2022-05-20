@@ -12,12 +12,7 @@ from nox_poetry import session
 nox.options.reuse_existing_virtualenvs = True
 nox.options.sessions = ['lint', 'cov']
 
-CLEAN_DIRS = [
-    'dist',
-    'build',
-    join('docs', '_build'),
-    join('docs', 'modules'),
-]
+CLEAN_DIRS = ['dist', 'build', join('docs', '_build')]
 DEFAULT_COVERAGE_FORMATS = ['html', 'term']
 
 
