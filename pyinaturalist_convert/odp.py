@@ -55,7 +55,8 @@ def load_odp_tables(dest_dir: PathOrStr = DATA_DIR, db_path: PathOrStr = DB_PATH
     """Download iNaturalist Open Data metadata and load into a SQLite database"""
     # download_odp_metadata(dest_dir)
     csv_dir = Path(dest_dir) / 'inaturalist-open-data'
-    progress = CSVProgress(ODP_OBS_CSV, ODP_TAXON_CSV, ODP_PHOTO_CSV, ODP_USER_CSV)
+    csv_files = [csv_dir / f'{f}.csv' for f in ['observations', 'photos', 'taxa', 'observers']]
+    progress = CSVProgress(*csv_files)
     with progress:
         load_odp_observations(csv_dir / 'observations.csv', db_path, progress)
         load_odp_photos(csv_dir / 'photos.csv', db_path, progress)

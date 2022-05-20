@@ -83,12 +83,12 @@ class XFormChunkReader(ChunkReader):
     def __iter__(self):
         return self
 
-    def _next_row(self) -> list:
+    def _next_row(self) -> List:
         row = self.transform(next(self.reader))
         return [row[f] for f in self.include_fields] if self.include_fields else row
 
 
-def get_fields(csv_path: PathOrStr, delimiter: str = ',') -> list[str]:
+def get_fields(csv_path: PathOrStr, delimiter: str = ',') -> List[str]:
     with open(csv_path) as f:
         reader = csv_reader(f, delimiter=delimiter)
         return next(reader)
