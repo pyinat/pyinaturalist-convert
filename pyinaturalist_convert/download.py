@@ -1,4 +1,9 @@
-"""Functions for downloading and extracting archives, with progress bars"""
+"""Helper functions for downloading and extracting archives, with progress bars
+
+.. automodsumm:: pyinaturalist_convert.download
+   :functions-only:
+   :nosignatures:
+"""
 # TODO: Make progress bar optional
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
@@ -116,7 +121,7 @@ class MultiProgress:
 class CSVProgress(MultiProgress):
     """Track progress of processing CSV files"""
 
-    def __init__(self, *filenames: Path, **kwargs):
+    def __init__(self, *filenames: PathOrStr, **kwargs):
         super().__init__(totals=_get_csv_totals(filenames), **kwargs)
 
 
@@ -248,6 +253,7 @@ def get_progress_dl(**kwargs) -> Progress:
 
 
 def get_progress_spinner(description: str = 'Loading') -> Progress:
+    """Get a spinner-type progress bar (for tasks that can't be estimated)"""
     progress = Progress('[progress.description]{task.description}', SpinnerColumn(style='green'))
     _get_task(progress, total=None, description=description)
     return progress
@@ -266,8 +272,8 @@ def _count_lines(filename: PathOrStr) -> int:
         return sum(chunk.count(b'\n') for chunk in iter_chunks(f.raw.read))
 
 
-def _fname(name: Path):
-    return name.stem.split('-', 1)[-1]
+def _fname(name: PathOrStr):
+    return Path(name).stem.split('-', 1)[-1]
 
 
 def _get_file_mtime(file: Path) -> datetime:
@@ -293,7 +299,7 @@ def _get_url_mtime(url: str) -> Optional[datetime]:
     return remote_last_modified
 
 
-def _get_csv_totals(filenames: Iterable[Path]):
+def _get_csv_totals(filenames: Iterable[PathOrStr]):
     print('[cyan]Estimating processing time...')
     return {_fname(f): _count_lines(f) - 1 for f in filenames}
 

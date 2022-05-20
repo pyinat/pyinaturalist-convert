@@ -18,21 +18,21 @@ Import formats currently supported:
  or the [iNaturalist export tool](https://www.inaturalist.org/observations/export))
 * JSON (from API results)
 * [`pyinaturalist.Observation`](https://pyinaturalist.readthedocs.io/en/stable/modules/pyinaturalist.models.Observation.html) objects
-* Parquet
-
-Import formats with partial support:
-* [iNaturalist open data on Amazon](https://github.com/inaturalist/inaturalist-open-data)
 * [iNaturalist GBIF Archive](https://www.inaturalist.org/pages/developers)
 * [iNaturalist Taxonomy Archive](https://www.inaturalist.org/pages/developers)
+* [iNaturalist Open Data on Amazon](https://github.com/inaturalist/inaturalist-open-data)
+* Dataframes, Feather, Parquet, and anything else supported by [pandas](https://pandas.pydata.org/pandas-docs/stable/user_guide/io.html)
+
+Import formats with partial support:
 
 Export formats currently supported:
 * CSV, Excel, and anything else supported by [tablib](https://tablib.readthedocs.io/en/stable/formats/)
-* Feather, Parquet, and anything else supported by [pandas](https://pandas.pydata.org/pandas-docs/stable/user_guide/io.html)
+* Dataframes, Feather, Parquet, and anything else supported by [pandas](https://pandas.pydata.org/pandas-docs/stable/user_guide/io.html)
 * Darwin Core
 * GeoJSON
 * GPX
 * SQLite
-* SQLite full text search (for taxonomy)
+* SQLite FTS5 text search (for taxonomy)
 
 # Installation
 Install with pip:
@@ -89,14 +89,20 @@ df.to_parquet('my_observations.parquet')
 ```
 
 ## Download
-Download the complete research-greade observations dataset:
+Download the complete research-grade observations dataset:
 ```python
 download_dwca_observations()
 ```
 
-Or the complete taxonomy dataset:
+And load it into a SQLite database:
+```python
+load_dwca_observations()
+```
+
+And do the same with the complete taxonomy dataset:
 ```python
 download_dwca_taxa()
+load_dwca_taxa()
 ```
 
 Load taxonomy and common name data into a full text search database:
