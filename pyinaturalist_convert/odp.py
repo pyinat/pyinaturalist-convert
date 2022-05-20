@@ -17,6 +17,7 @@ from .constants import (
     ODP_OBS_CSV,
     ODP_PHOTO_CSV,
     ODP_TAXON_CSV,
+    ODP_USER_CSV,
     PathOrStr,
 )
 from .download import CSVProgress, check_download, download_s3_file, untar_progress
@@ -31,18 +32,27 @@ OBS_COLUMN_MAP = {
     'quality_grade': 'quality_grade',
     'taxon_id': 'taxon_id',
 }
+TAXON_COLUMN_MAP = {'taxon_id': 'id', 'ancestry': 'ancestor_ids', 'rank': 'rank', 'name': 'name'}
+PHOTO_COLUMN_MAP = {
+    'photo_id': 'id',
+    'observation_uuid': 'observation_uuid',
+    'observer_id': 'user_id',
+    'license': 'license',
+}
+USER_COLUMN_MAP = {'observer_id': 'id', 'login': 'login', 'name': 'name'}
 
 
 def load_odp_tables(dest_dir: PathOrStr = DATA_DIR, db_path: PathOrStr = DB_PATH):
     """Download iNat Open Data metadata and load into a SQLite database"""
-    download_odp_metadata(dest_dir)
+    # download_odp_metadata(dest_dir)
     csv_dir = Path(dest_dir) / 'inaturalist-open-data'
-    progress = CSVProgress(ODP_OBS_CSV, ODP_TAXON_CSV, ODP_PHOTO_CSV)
+    progress = CSVProgress(ODP_OBS_CSV, ODP_TAXON_CSV, ODP_PHOTO_CSV, ODP_USER_CSV)
     with progress:
-        load_odp_taxa(csv_dir / 'taxa.csv', db_path, progress)
         load_odp_observations(csv_dir / 'observations.csv', db_path, progress)
         load_odp_photos(csv_dir / 'photos.csv', db_path, progress)
-    vacuum_analyze()
+        load_odp_taxa(csv_dir / 'taxa.csv', db_path, progress)
+        load_odp_users(csv_dir / 'observers.csv', db_path, progress)
+    vacuum_analyze(['observation', 'photo', 'taxon', 'user'], db_path)
 
 
 def download_odp_metadata(dest_dir: PathOrStr = DATA_DIR):
@@ -71,21 +81,11 @@ def load_odp_observations(
     progress: CSVProgress = None,
 ):
     create_tables(db_path)
-    column_map = OBS_COLUMN_MAP
     progress = progress or CSVProgress(csv_path)
     with progress:
-        load_table(csv_path, db_path, 'observation', column_map, delimiter='\t', progress=progress)
-
-
-def load_odp_taxa(
-    csv_path: PathOrStr = ODP_TAXON_CSV,
-    db_path: PathOrStr = DB_PATH,
-    progress: CSVProgress = None,
-):
-    create_tables(db_path)
-    progress = progress or CSVProgress(csv_path)
-    with progress:
-        load_table(csv_path, db_path, 'taxon', delimiter='\t', progress=progress)
+        load_table(
+            csv_path, db_path, 'observation', OBS_COLUMN_MAP, delimiter='\t', progress=progress
+        )
 
 
 def load_odp_photos(
@@ -96,4 +96,26 @@ def load_odp_photos(
     create_tables(db_path)
     progress = progress or CSVProgress(csv_path)
     with progress:
-        load_table(csv_path, db_path, 'photo', delimiter='\t', progress=progress)
+        load_table(csv_path, db_path, 'photo', PHOTO_COLUMN_MAP, delimiter='\t', progress=progress)
+
+
+def load_odp_taxa(
+    csv_path: PathOrStr = ODP_TAXON_CSV,
+    db_path: PathOrStr = DB_PATH,
+    progress: CSVProgress = None,
+):
+    create_tables(db_path)
+    progress = progress or CSVProgress(csv_path)
+    with progress:
+        load_table(csv_path, db_path, 'taxon', TAXON_COLUMN_MAP, delimiter='\t', progress=progress)
+
+
+def load_odp_users(
+    csv_path: PathOrStr = ODP_USER_CSV,
+    db_path: PathOrStr = DB_PATH,
+    progress: CSVProgress = None,
+):
+    create_tables(db_path)
+    progress = progress or CSVProgress(csv_path)
+    with progress:
+        load_table(csv_path, db_path, 'user', USER_COLUMN_MAP, delimiter='\t', progress=progress)

@@ -82,12 +82,12 @@ class DbObservation:
     quality_grade: str = sa_field(String, default=None, index=True)
     taxon_id: int = sa_field(ForeignKey('taxon.id'), default=None, index=True)
     updated_at: datetime = sa_field(String, default=None, index=True)
-    user_id: int = sa_field(Integer, default=None)
+    user_id: int = sa_field(ForeignKey('user.id'), default=None)
     user_login: int = sa_field(Integer, default=None)
     uuid: str = sa_field(String, default=None, index=True)
 
-    photos = relationship('DbPhoto', back_populates='observation')  # type: ignore
-    taxon = relationship('DbTaxon', back_populates='observations')  # type: ignore
+    taxon = relationship('DbTaxon', backref='observations')  # type: ignore
+    user = relationship('DbUser', backref='observations')  # type: ignore
 
     # Column aliases for inaturalist-open-data
     # observation_uuid: str = synonym('uuid')  # type: ignore
@@ -148,9 +148,6 @@ class DbTaxon:
     rank: str = sa_field(String, default=None)
     default_photo_url: str = sa_field(String, default=None)
 
-    # ancestry: str = synonym('ancestor_ids')  # type: ignore
-
-    observations = relationship('DbObservation', back_populates='taxon')  # type: ignore
     children = relationship('DbTaxon', backref=backref('parent', remote_side='DbTaxon.id'))  # type: ignore
 
     @classmethod
@@ -195,13 +192,15 @@ class DbPhoto:
     height: int = sa_field(Integer, default=None)
     license: str = sa_field(String, default=None)
     observation_id: int = sa_field(ForeignKey('observation.id'), default=None, index=True)
-    # observation_uuid: Optional[str] = Field(default=None, foreign_key='observation.uuid')
+    observation_uuid: str = sa_field(ForeignKey('observation.uuid'), default=None, index=True)
     url: str = sa_field(String, default=None)
-    user_id: int = sa_field(Integer, default=None)
+    user_id: int = sa_field(ForeignKey('user.id'), default=None)
     width: int = sa_field(Integer, default=None)
     # uuid: str = sa_field(String, default=None)
 
-    observation = relationship('DbObservation', back_populates='photos')  # type: ignore
+    observation = relationship(
+        'DbObservation', backref='photos', foreign_keys='DbPhoto.observation_id'
+    )  # type: ignore
 
     @classmethod
     def from_model(cls, photo: Photo, **kwargs) -> 'DbPhoto':
@@ -221,6 +220,26 @@ class DbPhoto:
             # user_id=self.user_id,
             # uuid=self.uuid,
         )
+
+
+@Base.mapped
+@dataclass
+class DbUser:
+    """Intermediate data model for persisting User data to a relational database"""
+
+    __tablename__ = 'user'
+    __sa_dataclass_metadata_key__ = 'sa'
+
+    id: int = sa_field(Integer, primary_key=True)
+    login: str = sa_field(String, default=None)
+    name: str = sa_field(String, default=None)
+
+    @classmethod
+    def from_model(cls, user: User, **kwargs) -> 'DbUser':
+        return cls(id=user.id, login=user.login, name=user.name)
+
+    def to_model(self) -> User:
+        return User(id=self.id, login=self.login, name=self.name)
 
 
 def create_table(model, db_path: PathOrStr = DB_PATH):
@@ -257,8 +276,9 @@ def get_db_observations(
     """Example query to get observation records (and associated taxa and photos) from SQLite"""
     stmt = (
         select(DbObservation)
+        .join(DbObservation.photos, isouter=True)  # type: ignore  # created by SQLAlchemy
         .join(DbObservation.taxon, isouter=True)
-        .join(DbObservation.photos, isouter=True)
+        .join(DbObservation.user, isouter=True)
     )
     if ids:
         stmt = stmt.where(DbObservation.id.in_(ids))  # type: ignore
@@ -291,6 +311,7 @@ def save_observations(observations: Iterable[Observation], db_path: PathOrStr = 
         for observation in observations:
             session.merge(DbObservation.from_model(observation))
             session.merge(DbTaxon.from_model(observation.taxon))
+            session.merge(DbUser.from_model(observation.user))
             for photo in observation.photos:
                 session.merge(
                     DbPhoto.from_model(
