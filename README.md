@@ -72,15 +72,14 @@ Or any other supported format:
 to_dwc(observations, 'my_observations.dwc')
 to_excel(observations, 'my_observations.xlsx')
 to_feather(observations, 'my_observations.feather')
+to_geojson(observations, 'my_observations.geojson')
 to_gpx(observations, 'my_observations.gpx')
 to_hdf(observations, 'my_observations.hdf')
 to_parquet(observations, 'my_observations.parquet')
 df = to_dataframe(observations)
-geo_obs = to_geojson(observations)
 ```
 
 ## Import
-<!-- TODO: more details -->
 Load your observations from the iNat Export tool, convert to be consistent with
 API results, and save to Parquet:
 ```python

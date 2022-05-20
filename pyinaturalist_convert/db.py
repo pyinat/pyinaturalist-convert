@@ -10,20 +10,20 @@ at least provides a starting point.
 
 **Example**::
 
-    from pyinaturalist import iNatClient
-    from pyinaturalist_convert import create_tables, read_observations, save_observations
+    >>> from pyinaturalist import iNatClient
+    >>> from pyinaturalist_convert import create_tables, read_observations, save_observations
 
-    # Fetch all of your own observations
-    client = iNatClient()
-    observations = client.observations.search(user_id='my_username').all()
+    >>> # Fetch all of your own observations
+    >>> client = iNatClient()
+    >>> observations = client.observations.search(user_id='my_username').all()
 
-    # Save to a SQLite database
-    create_tables('observations.db')
-    save_observations(observations, 'observations.db')
+    >>> # Save to a SQLite database
+    >>> create_tables('observations.db')
+    >>> save_observations(observations, 'observations.db')
 
-    # Read them back from the database
-    for observation in get_db_observations('observations.db'):
-        print(observation)
+    >>> # Read them back from the database
+    >>> for observation in get_db_observations('observations.db'):
+    ...    print(observation)
 
 .. automodsumm:: pyinaturalist_convert.db
    :classes-only:
@@ -55,7 +55,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Session, backref, registry, relationship
 
-from pyinaturalist_convert.constants import DB_PATH, PathOrStr
+from .constants import DB_PATH, PathOrStr
 
 Base = registry()
 logger = getLogger(__name__)

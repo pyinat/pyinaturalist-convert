@@ -4,11 +4,11 @@
 
 **Example**::
 
-    from pyinaturalist import get_observations
-    from pyinaturalist_convert import to_dwc
+    >>> from pyinaturalist import get_observations
+    >>> from pyinaturalist_convert import to_dwc
 
-    observations = get_observations(user_id='my_username')
-    to_dwc(observations, 'my_observations.dwc')
+    >>> observations = get_observations(user_id='my_username')
+    >>> to_dwc(observations, 'my_observations.dwc')
 
 .. automodsumm:: pyinaturalist_convert.dwca
    :functions-only:
@@ -140,7 +140,7 @@ def to_dwc(
         taxa: Convert taxon records instead of observations
 
     Returns:
-        If no filename is provided, records will be returned as a list of dictionaries.
+        A list of observation dictionaries (if no filename is provided)
     """
     if observations:
         records = [observation_to_dwc_record(obs) for obs in flatten_observations(observations)]
