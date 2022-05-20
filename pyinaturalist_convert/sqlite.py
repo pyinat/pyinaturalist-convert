@@ -27,7 +27,6 @@ class ChunkReader:
 
         # Determine which fields to include (by index)
         field_names = next(self.reader)
-        logger.warning(field_names)
         self._include_idx = [field_names.index(k) for k in fields] if fields else None
 
     def __iter__(self):
@@ -109,9 +108,6 @@ def load_table(
         progress: Progress bar, if tracking loading from multiple files
         transform: Callback to transform a row before inserting into the database
     """
-    if column_map is None:
-        raise NotImplementedError
-
     csv_path = Path(csv_path).expanduser()
     db_path = Path(db_path).expanduser()
     db_path.parent.mkdir(parents=True, exist_ok=True)
