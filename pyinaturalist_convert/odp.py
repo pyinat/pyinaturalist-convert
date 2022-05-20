@@ -1,8 +1,17 @@
-"""Utilities for working with the iNaturalist dataset hosted by Amazon Open Data Program.
+"""Utilities for working with the iNaturalist dataset hosted by the Open Data Sponsorship Program.
+This loads metadata only, not image files. For more details, see
+`inaturalist-open-data <https://github.com/inaturalist/inaturalist-open-data>`_.
 
-**Extra dependencies:** ``boto3``
+**Extra dependencies**: ``boto3``
+
+**Example**: Download everything and load into a SQLite database::
+
+    >>> load_odp_tables()
+
+.. automodsumm:: pyinaturalist_convert.odp
+   :functions-only:
+   :nosignatures:
 """
-# TODO: Maybe pick another acronym? ODP may not make sense.
 from pathlib import Path
 
 from pyinaturalist_convert.db import create_tables
@@ -43,7 +52,7 @@ USER_COLUMN_MAP = {'observer_id': 'id', 'login': 'login', 'name': 'name'}
 
 
 def load_odp_tables(dest_dir: PathOrStr = DATA_DIR, db_path: PathOrStr = DB_PATH):
-    """Download iNat Open Data metadata and load into a SQLite database"""
+    """Download iNaturalist Open Data metadata and load into a SQLite database"""
     # download_odp_metadata(dest_dir)
     csv_dir = Path(dest_dir) / 'inaturalist-open-data'
     progress = CSVProgress(ODP_OBS_CSV, ODP_TAXON_CSV, ODP_PHOTO_CSV, ODP_USER_CSV)
@@ -56,8 +65,8 @@ def load_odp_tables(dest_dir: PathOrStr = DATA_DIR, db_path: PathOrStr = DB_PATH
 
 
 def download_odp_metadata(dest_dir: PathOrStr = DATA_DIR):
-    """Download and extract the iNat Open Data metadata archive. Reuses local data if it already
-    exists and is up to date.
+    """Download and extract the iNaturalist Open Data metadata archive. Reuses local data if it
+    already exists and is up to date.
 
     Args:
         dest_dir: Optional directory to download to
@@ -80,6 +89,7 @@ def load_odp_observations(
     db_path: PathOrStr = DB_PATH,
     progress: CSVProgress = None,
 ):
+    """Create or update an observation SQLite table from the Open Data archive"""
     create_tables(db_path)
     progress = progress or CSVProgress(csv_path)
     with progress:
@@ -93,6 +103,7 @@ def load_odp_photos(
     db_path: PathOrStr = DB_PATH,
     progress: CSVProgress = None,
 ):
+    """Create or update a photo SQLite table from the Open Data archive"""
     create_tables(db_path)
     progress = progress or CSVProgress(csv_path)
     with progress:
@@ -104,6 +115,7 @@ def load_odp_taxa(
     db_path: PathOrStr = DB_PATH,
     progress: CSVProgress = None,
 ):
+    """Create or update a taxonomy SQLite table from the Open Data archive"""
     create_tables(db_path)
     progress = progress or CSVProgress(csv_path)
     with progress:
@@ -115,6 +127,7 @@ def load_odp_users(
     db_path: PathOrStr = DB_PATH,
     progress: CSVProgress = None,
 ):
+    """Create or update a user SQLite table from the Open Data archive"""
     create_tables(db_path)
     progress = progress or CSVProgress(csv_path)
     with progress:

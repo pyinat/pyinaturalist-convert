@@ -1,6 +1,14 @@
 """Utilities for working with the iNat GBIF DwC archive.
 
-**Extra dependencies:** ``sqlalchemy``
+**Extra dependencies**: ``sqlalchemy``
+
+**Example**: Download everything and load into a SQLite database::
+
+    >>> load_dwca_tables()
+
+.. automodsumm:: pyinaturalist_convert.dwca
+   :functions-only:
+   :nosignatures:
 """
 # TODO: Lookup and replace user_login with user_id
 import sqlite3
@@ -109,7 +117,7 @@ def load_dwca_observations(
     db_path: PathOrStr = DB_PATH,
     progress: CSVProgress = None,
 ):
-    """Create an observations SQLite table from the GBIF DwC-A archive. This keeps only the most
+    """Create or update an observations SQLite table from the GBIF DwC-A archive. This keeps only the most
     relevant subset of columns available in the archive, in a format consistent with API results and
     other sources.
 
@@ -143,7 +151,7 @@ def load_dwca_taxa(
     column_map: Dict = TAXON_COLUMN_MAP,
     progress: CSVProgress = None,
 ):
-    """Create a taxonomy SQLite table from the GBIF DwC-A archive"""
+    """Create or update a taxonomy SQLite table from the GBIF DwC-A archive"""
     create_tables(db_path)
 
     def get_parent_id(row: Dict):

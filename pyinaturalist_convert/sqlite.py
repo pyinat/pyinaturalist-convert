@@ -1,4 +1,14 @@
-"""Utilities to help load data directly from CSV into a SQLite database"""
+"""Helper classes and functions to load data directly from CSV into a SQLite database
+
+
+.. automodsumm:: pyinaturalist_convert.sqlite
+   :classes-only:
+   :nosignatures:
+
+.. automodsumm:: pyinaturalist_convert.sqlite
+   :functions-only:
+   :nosignatures:
+"""
 import sqlite3
 from csv import DictReader
 from csv import reader as csv_reader
@@ -150,6 +160,9 @@ def load_table(
 
 
 def vacuum_analyze(table_names: List[str], db_path: PathOrStr = DB_PATH):
+    """Vacuum a SQLite database and analzy one or more tables. If loading multiple tables, this
+    should be done once after loading all of them.
+    """
     spinner = get_progress_spinner('Final cleanup')
     with spinner, sqlite3.connect(db_path) as conn:
         conn.execute('VACUUM')
