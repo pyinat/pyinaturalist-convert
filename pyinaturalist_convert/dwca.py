@@ -25,9 +25,6 @@ import pandas as pd
 from pandas import DataFrame
 from pyinaturalist import enable_logging
 
-from pyinaturalist_convert.db import create_tables
-from pyinaturalist_convert.dwc import _get_dwc_lookup
-
 from .constants import (
     DATA_DIR,
     DB_PATH,
@@ -38,6 +35,7 @@ from .constants import (
     TAXON_COUNTS,
     PathOrStr,
 )
+from .db import create_tables
 from .download import (
     CSVProgress,
     check_download,
@@ -46,6 +44,7 @@ from .download import (
     get_progress_spinner,
     unzip_progress,
 )
+from .dwc import _get_dwc_lookup
 from .sqlite import load_table, vacuum_analyze
 
 OBS_COLUMNS = [

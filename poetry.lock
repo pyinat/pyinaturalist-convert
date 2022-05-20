@@ -300,7 +300,7 @@ name = "geojson"
 version = "2.5.0"
 description = "Python bindings and utilities for GeoJSON"
 category = "main"
-optional = false
+optional = true
 python-versions = "*"
 
 [[package]]
@@ -1316,11 +1316,12 @@ docs = ["sphinx", "jaraco.packaging (>=9)", "rst.linker (>=1.9)"]
 testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-cov", "pytest-enabler (>=1.0.1)", "jaraco.itertools", "func-timeout", "pytest-black (>=0.3.7)", "pytest-mypy (>=0.9.1)"]
 
 [extras]
-all = ["boto3", "gpxpy", "openpyxl", "pyarrow", "sqlalchemy", "tables", "xmltodict"]
+all = ["boto3", "geojson", "gpxpy", "openpyxl", "pyarrow", "sqlalchemy", "tables", "xmltodict"]
 db = ["sqlalchemy"]
 docs = ["furo", "myst-parser", "sphinx", "sphinx-autodoc-typehints", "sphinx-automodapi", "sphinx-copybutton", "sphinx-inline-tabs", "sphinx-panels"]
 dwc = ["xmltodict"]
 feather = ["pyarrow"]
+geojson = ["geojson"]
 gpx = ["gpxpy"]
 hdf = ["tables"]
 html = []
@@ -1331,7 +1332,7 @@ xlsx = ["openpyxl"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "d09947c572bb1c6e88828782ca9dd3eb393d472fd69288bd95d6f98f6fed6b9f"
+content-hash = "060e0f1396078407ff722cd711d2f0229b6c47d46b481ce0d706de848ba57f48"
 
 [metadata.files]
 alabaster = [
