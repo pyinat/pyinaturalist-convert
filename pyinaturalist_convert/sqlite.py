@@ -1,4 +1,14 @@
-"""Utilities to help load data directly from CSV into a SQLite database"""
+"""Helper classes and functions to load data directly from CSV into a SQLite database
+
+
+.. automodsumm:: pyinaturalist_convert.sqlite
+   :classes-only:
+   :nosignatures:
+
+.. automodsumm:: pyinaturalist_convert.sqlite
+   :functions-only:
+   :nosignatures:
+"""
 import sqlite3
 from csv import DictReader
 from csv import reader as csv_reader
@@ -7,8 +17,8 @@ from pathlib import Path
 from time import time
 from typing import Callable, Dict, List
 
-from .constants import PathOrStr
-from .download import MultiProgress
+from .constants import DB_PATH, PathOrStr
+from .download import MultiProgress, get_progress_spinner
 
 logger = getLogger(__name__)
 
@@ -73,9 +83,15 @@ class XFormChunkReader(ChunkReader):
     def __iter__(self):
         return self
 
-    def _next_row(self) -> list:
+    def _next_row(self) -> List:
         row = self.transform(next(self.reader))
         return [row[f] for f in self.include_fields] if self.include_fields else row
+
+
+def get_fields(csv_path: PathOrStr, delimiter: str = ',') -> List[str]:
+    with open(csv_path) as f:
+        reader = csv_reader(f, delimiter=delimiter)
+        return next(reader)
 
 
 # TODO: Load all columns with original names if a column map isn't provided
@@ -86,6 +102,7 @@ def load_table(
     column_map: Dict = None,
     pk: str = 'id',
     progress: MultiProgress = None,
+    delimiter: str = ',',
     transform: Callable = None,
 ):
     """Load a CSV file into a sqlite3 table.
@@ -101,19 +118,22 @@ def load_table(
         progress: Progress bar, if tracking loading from multiple files
         transform: Callback to transform a row before inserting into the database
     """
-    if column_map is None:
-        raise NotImplementedError
-
     csv_path = Path(csv_path).expanduser()
     db_path = Path(db_path).expanduser()
     db_path.parent.mkdir(parents=True, exist_ok=True)
     logger.info(f'Loading {csv_path} into {db_path}')
 
+    # Use mapping from CSV to SQLite column names, if provided; otherwise use CSV names as-is
+    if not column_map:
+        csv_cols = db_cols = get_fields(csv_path, delimiter)
+    else:
+        csv_cols = list(column_map.keys())
+        db_cols = list(column_map.values())
+
     table_name = table_name or db_path.stem
-    non_pk_cols = [k for k in column_map.values() if k != pk]
-    columns_str = ', '.join(column_map.values())
-    csv_cols = list(column_map.keys())
-    placeholders = ','.join(['?'] * len(column_map))
+    non_pk_cols = [k for k in db_cols if k != pk]
+    columns_str = ', '.join(db_cols)
+    placeholders = ','.join(['?'] * len(csv_cols))
     start = time()
 
     if progress:
@@ -126,9 +146,9 @@ def load_table(
         stmt = f'INSERT OR REPLACE INTO {table_name} ({columns_str}) VALUES ({placeholders})'
 
         if not transform:
-            reader = ChunkReader(f, fields=csv_cols)
+            reader = ChunkReader(f, fields=csv_cols, delimiter=delimiter)
         else:
-            reader = XFormChunkReader(f, fields=csv_cols, transform=transform)
+            reader = XFormChunkReader(f, fields=csv_cols, delimiter=delimiter, transform=transform)
 
         for chunk in reader:
             conn.executemany(stmt, chunk)
@@ -137,6 +157,17 @@ def load_table(
         conn.commit()
 
     logger.info(f'Completed in {time() - start:.2f}s')
+
+
+def vacuum_analyze(table_names: List[str], db_path: PathOrStr = DB_PATH):
+    """Vacuum a SQLite database and analzy one or more tables. If loading multiple tables, this
+    should be done once after loading all of them.
+    """
+    spinner = get_progress_spinner('Final cleanup')
+    with spinner, sqlite3.connect(db_path) as conn:
+        conn.execute('VACUUM')
+        for table_name in table_names:
+            conn.execute(f'ANALYZE {table_name}')
 
 
 def _create_table(conn, table_name, non_pk_cols, pk):

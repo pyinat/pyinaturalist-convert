@@ -14,13 +14,17 @@ DWCA_TAXA_URL = 'https://www.inaturalist.org/taxa/inaturalist-taxonomy.dwca.zip'
 ODP_ARCHIVE_NAME = 'inaturalist-open-data-latest.tar.gz'
 ODP_BUCKET_NAME = 'inaturalist-open-data'
 ODP_METADATA_KEY = f'metadata/{ODP_ARCHIVE_NAME}'
-PHOTO_BASE_URL = 'https://inaturalist-open-data.s3.amazonaws.com/photos/'
+ODP_CSV_DIR = DATA_DIR / 'inaturalist-open-data'
+ODP_OBS_CSV = ODP_CSV_DIR / 'observations.csv'
+ODP_TAXON_CSV = ODP_CSV_DIR / 'taxa.csv'
+ODP_PHOTO_CSV = ODP_CSV_DIR / 'photos.csv'
+ODP_USER_CSV = ODP_CSV_DIR / 'observers.csv'
 
-TAXON_CSV_DIR = DATA_DIR / 'inaturalist-taxonomy.dwca'
-TAXON_CSV = TAXON_CSV_DIR / 'taxa.csv'
+
+DWCA_TAXON_CSV_DIR = DATA_DIR / 'inaturalist-taxonomy.dwca'
+DWCA_TAXON_CSV = DWCA_TAXON_CSV_DIR / 'taxa.csv'
+DWCA_OBS_CSV_DIR = DATA_DIR / 'gbif-observations-dwca'
+DWCA_OBS_CSV = DWCA_OBS_CSV_DIR / 'observations.csv'
 TAXON_COUNTS = DATA_DIR / 'taxon_counts.parquet'
-
-OBS_CSV_DIR = DATA_DIR / 'gbif-observations-dwca'
-OBS_CSV = OBS_CSV_DIR / 'observations.csv'
 
 PathOrStr = Union[Path, str]
