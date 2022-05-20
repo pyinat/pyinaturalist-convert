@@ -1,3 +1,4 @@
+import geojson
 import pytest
 from geojson import Feature, FeatureCollection
 
@@ -7,11 +8,25 @@ from test.conftest import load_sample_data
 
 def test_to_geojson():
     observations = load_sample_data('observation.json')
-    geojson = to_geojson(observations)
-    feature = geojson['features'][0]
+    obs_geojson = to_geojson(observations)
+    _validate_feature(obs_geojson)
 
-    assert isinstance(geojson, FeatureCollection)
-    assert geojson.is_valid
+
+def test_to_geojson__to_file(tmp_path):
+    observations = load_sample_data('observation.json')
+    file_path = tmp_path / 'observations.geojson'
+    to_geojson(observations, file_path)
+
+    with open(file_path) as f:
+        obs_geojson = geojson.load(f)
+    _validate_feature(obs_geojson)
+
+
+def _validate_feature(obs_geojson: FeatureCollection):
+    assert isinstance(obs_geojson, FeatureCollection)
+
+    feature = obs_geojson['features'][0]
+    assert obs_geojson.is_valid
     assert feature['geometry']['coordinates'] == [4.360086, 50.646894]
     assert feature['properties']['id'] == 16227955
     assert feature['properties']['taxon.id'] == 493595

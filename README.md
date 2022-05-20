@@ -1,6 +1,6 @@
 # pyinaturalist-convert
 [![Build status](https://github.com/pyinat/pyinaturalist-convert/workflows/Build/badge.svg)](https://github.com/pyinat/pyinaturalist-convert/actions)
-[![Codecov](https://codecov.io/gh/pyinat/pyinaturalist-convert/branch/master/graph/badge.svg?token=FnybzVWbt2)](https://codecov.io/gh/pyinat/pyinaturalist-convert)
+[![codecov](https://codecov.io/gh/pyinat/pyinaturalist-convert/branch/main/graph/badge.svg?token=Mt3V5H409C)](https://codecov.io/gh/pyinat/pyinaturalist-convert)
 [![Docs](https://img.shields.io/readthedocs/pyinaturalist-convert/stable)](https://pyinaturalist-convert.readthedocs.io)
 [![PyPI](https://img.shields.io/pypi/v/pyinaturalist-convert?color=blue)](https://pypi.org/project/pyinaturalist-convert)
 [![Conda](https://img.shields.io/conda/vn/conda-forge/pyinaturalist-convert?color=blue)](https://anaconda.org/conda-forge/pyinaturalist-convert)
@@ -72,15 +72,14 @@ Or any other supported format:
 to_dwc(observations, 'my_observations.dwc')
 to_excel(observations, 'my_observations.xlsx')
 to_feather(observations, 'my_observations.feather')
+to_geojson(observations, 'my_observations.geojson')
 to_gpx(observations, 'my_observations.gpx')
 to_hdf(observations, 'my_observations.hdf')
 to_parquet(observations, 'my_observations.parquet')
 df = to_dataframe(observations)
-geo_obs = to_geojson(observations)
 ```
 
 ## Import
-<!-- TODO: more details -->
 Load your observations from the iNat Export tool, convert to be consistent with
 API results, and save to Parquet:
 ```python

@@ -13,9 +13,6 @@
 """
 from pathlib import Path
 
-from pyinaturalist_convert.db import create_tables
-from pyinaturalist_convert.sqlite import load_table, vacuum_analyze
-
 from .constants import (
     DATA_DIR,
     DB_PATH,
@@ -28,7 +25,9 @@ from .constants import (
     ODP_USER_CSV,
     PathOrStr,
 )
+from .db import create_tables
 from .download import CSVProgress, check_download, download_s3_file, untar_progress
+from .sqlite import load_table, vacuum_analyze
 
 OBS_COLUMN_MAP = {
     'latitude': 'latitude',
