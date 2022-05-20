@@ -1,4 +1,4 @@
-"""Base utilities for converting observation data to common formats
+"""Base utilities for converting observation data to common formats.
 
 **Extra dependencies by format:**
     * Excel: ``openpyxl``
@@ -31,19 +31,7 @@ from tablib import Dataset
 # TODO: For large datasets that require more than one conversion step, chained generators would be
 # useful to minimize memory usage from intermediate variables.
 
-TABLIB_FORMATS = [
-    'csv',
-    'html',
-    'jira',
-    'json',
-    'latex',
-    'ods',
-    'rst',
-    'tsv',
-    'xls',
-    'xlsx',
-    'yaml',
-]
+TABLIB_FORMATS = ['csv', 'html', 'json', 'ods', 'rst', 'xlsx', 'yaml']
 PANDAS_FORMATS = ['csv', 'feather', 'hdf', 'parquet', 'xlsx']
 
 CollectionTypes = Union[DataFrame, Dataset, Response, JsonResponse, Iterable[ResponseResult]]

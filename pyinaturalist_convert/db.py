@@ -1,8 +1,10 @@
-"""ORM data models. These contain a relevant subset of columns common to most iNat data sources,
+"""ORM data models, which can be used to create and access tables in
+`any database supported by SQLAlchemy <https://docs.sqlalchemy.org/en/14/dialects/>`_.
+These contain a relevant subset of columns common to most iNat data sources,
 suitable for combining data from API results, CSV export, DwC-A, and/or inaturalist-open-data.
 
 Requirements for a relational database are highly variable, so this won't suit all use cases, but
-this at least provides a starting point.
+at least provides a starting point.
 
 **Extra dependencies**: ``sqlalchemy``
 

@@ -1,5 +1,4 @@
-"""Helper classes and functions to load data directly from CSV into a SQLite database
-
+"""Helper utilities to load data directly from CSV into a SQLite database.
 
 .. automodsumm:: pyinaturalist_convert.sqlite
    :classes-only:
