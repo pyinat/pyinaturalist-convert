@@ -77,7 +77,11 @@ logger = getLogger(__name__)
 
 
 def load_dwca_tables(db_path: PathOrStr = DB_PATH):
-    """Download observation and taxonomy archives and load into a SQLite database"""
+    """Download observation and taxonomy archives and load into a SQLite database.
+
+    As of 2022-05, this will require about 42GB of free disk space while loading, and the final
+    database will be around 8GB.
+    """
     download_dwca_taxa()
     download_dwca_observations()
     with CSVProgress(DWCA_OBS_CSV, DWCA_TAXON_CSV) as progress:
