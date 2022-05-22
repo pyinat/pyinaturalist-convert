@@ -5,7 +5,7 @@ from typing import List
 
 from pyinaturalist import Observation, Photo, Taxon, User
 from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String
-from sqlalchemy.orm import backref, registry, relationship
+from sqlalchemy.orm import registry, relationship
 
 Base = registry()
 logger = getLogger(__name__)
@@ -46,6 +46,9 @@ class DbObservation:
     user_login: int = sa_field(Integer, default=None)
     uuid: str = sa_field(String, default=None, index=True)
 
+    photos = relationship(
+        'DbPhoto', back_populates='observation', foreign_keys='DbPhoto.observation_id'
+    )  # type: ignore
     taxon = relationship('DbTaxon', backref='observations')  # type: ignore
     user = relationship('DbUser', backref='observations')  # type: ignore
 
@@ -92,7 +95,12 @@ class DbObservation:
 @Base.mapped
 @dataclass
 class DbTaxon:
-    """Intermediate data model for persisting Taxon data to a relational database"""
+    """Intermediate data model for persisting Taxon data to a relational database.
+
+    Since different data sources provide different levels of detail, a ``partial`` field is added
+    that indicates that some fields are missing, and can be fetched from the API if needed. As an
+    example, this helps distinguish between taxa with no children and taxa with unlisted children.
+    """
 
     __tablename__ = 'taxon'
     __sa_dataclass_metadata_key__ = 'sa'
@@ -105,11 +113,10 @@ class DbTaxon:
     iconic_taxon_id: int = sa_field(Integer, default=None)
     name: str = sa_field(String, default=None, index=True)
     parent_id: int = sa_field(ForeignKey('taxon.id'), default=None, index=True)
+    partial: int = sa_field(Boolean, default=False)
     preferred_common_name: str = sa_field(String, default=None)
     rank: str = sa_field(String, default=None)
     default_photo_url: str = sa_field(String, default=None)
-
-    children = relationship('DbTaxon', backref=backref('parent', remote_side='DbTaxon.id'))  # type: ignore
 
     @classmethod
     def from_model(cls, taxon: Taxon) -> 'DbTaxon':
@@ -117,9 +124,11 @@ class DbTaxon:
             id=taxon.id,
             active=taxon.is_active,
             ancestor_ids=_join_ids(taxon.ancestor_ids),
+            child_ids=_join_ids(taxon.child_ids),
             iconic_taxon_id=taxon.iconic_taxon_id,
             name=taxon.name,
             parent_id=taxon.parent_id,
+            partial=taxon._partial,
             preferred_common_name=taxon.preferred_common_name,
             rank=taxon.rank,
             default_photo_url=taxon.default_photo.url,
@@ -128,16 +137,20 @@ class DbTaxon:
     def to_model(self) -> Taxon:
         return Taxon(
             id=self.id,
-            ancestor_ids=_split_ids(self.ancestor_ids),
-            children=[Taxon(id=id) for id in _split_ids(self.child_ids)],
+            ancestors=self._get_taxa(self.ancestor_ids),
+            children=self._get_taxa(self.child_ids),
+            default_photo=Photo(url=self.default_photo_url),
             iconic_taxon_id=self.iconic_taxon_id,
             is_active=self.active,
             name=self.name,
             parent_id=self.parent_id,
+            partial=self.partial,
             preferred_common_name=self.preferred_common_name,
             rank=self.rank,
-            default_photo=Photo(url=self.default_photo_url),
         )
+
+    def _get_taxa(self, id_str: str) -> List[Taxon]:
+        return [Taxon(id=id, partial=True) for id in _split_ids(id_str)]
 
 
 # TODO: Combine observation_id/uuid into one column? Or two separate foreign keys?
@@ -161,7 +174,7 @@ class DbPhoto:
     # uuid: str = sa_field(String, default=None)
 
     observation = relationship(
-        'DbObservation', backref='photos', foreign_keys='DbPhoto.observation_id'
+        'DbObservation', back_populates='photos', foreign_keys='DbPhoto.observation_id'
     )  # type: ignore
 
     @classmethod
