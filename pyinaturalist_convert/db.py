@@ -42,6 +42,7 @@ at least provides a starting point.
 # TODO: Annotations and observation field values
 # TODO: Add iconic taxon ID (requires navigating ancestry tree)
 # TODO: If needed, this could be done with just the stdlib sqlite3 and no SQLAlchemy
+from itertools import chain
 from logging import getLogger
 from typing import TYPE_CHECKING, Iterable, Iterator, List
 
@@ -104,7 +105,7 @@ def get_db_observations(
 
     stmt = (
         select(DbObservation)
-        .join(DbObservation.photos, isouter=True)  # type: ignore  # created by SQLAlchemy
+        .join(DbObservation.photos, isouter=True)  # type: ignore  # created at runtime
         .join(DbObservation.taxon, isouter=True)
         .join(DbObservation.user, isouter=True)
     )
@@ -119,20 +120,25 @@ def get_db_observations(
 
 
 def get_db_taxa(
-    db_path: PathOrStr = DB_PATH, ids: List[int] = None, limit: int = 200
-) -> Iterator[Observation]:
+    db_path: PathOrStr = DB_PATH,
+    ids: List[int] = None,
+    accept_partial: bool = True,
+    limit: int = 200,
+) -> Iterator[Taxon]:
     """Example query to get taxon records from SQLite"""
     from sqlalchemy import select
 
     stmt = select(DbTaxon)
     if ids:
         stmt = stmt.where(DbTaxon.id.in_(ids))  # type: ignore
+    if not accept_partial:
+        stmt = stmt.where(DbTaxon.partial == False)
     if limit:
         stmt = stmt.limit(limit)
 
     with get_session(db_path) as session:
-        for obs in session.execute(stmt):
-            yield obs[0].to_model()
+        for taxon in session.execute(stmt):
+            yield taxon[0].to_model()
 
 
 def save_observations(observations: Iterable[Observation], db_path: PathOrStr = DB_PATH):
@@ -153,8 +159,20 @@ def save_observations(observations: Iterable[Observation], db_path: PathOrStr = 
 
 
 def save_taxa(taxa: Iterable[Taxon], db_path: PathOrStr = DB_PATH):
-    """Example of saving Taxon objects to SQLite"""
+    """Save Taxon objects (plus ancestors and children, if available) to the database"""
+    from sqlalchemy import select
+
     with get_session(db_path) as session:
         for taxon in taxa:
             session.merge(DbTaxon.from_model(taxon))
+
+        # Save ancestors and children (partial records), but don't overwrite any existing records
+        taxonomy = {t.id: t for t in chain.from_iterable([t.ancestors + t.children for t in taxa])}
+        unique_taxon_ids = list(taxonomy.keys())
+        stmt = select(DbTaxon).where(DbTaxon.id.in_(unique_taxon_ids))  # type: ignore
+        saved_ids = [t[0].id for t in session.execute(stmt)]
+        for taxon in taxonomy.values():
+            if taxon.id not in saved_ids:
+                session.add(DbTaxon.from_model(taxon))
+
         session.commit()
