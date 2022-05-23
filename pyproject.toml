@@ -10,7 +10,7 @@ repository = "https://github.com/pyinat/pyinaturalist-convert"
 documentation = "https://pyinaturalist-convert.readthedocs.io"
 keywords = ["inaturalist", "biodiversity", "export", "convert", "csv", "darwin-core", "dataframe", "gpx"]
 classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Intended Audience :: Education",
     "Intended Audience :: Science/Research",
@@ -27,7 +27,7 @@ include = [
 [tool.poetry.dependencies]
 python                      = "^3.8"
 pandas                      = ">=1.2"
-pyinaturalist               = ">=0.17.1"
+pyinaturalist               = ">=0.17.2dev0"
 flatten-dict                = "^0.4.0"
 tablib                      = "^3.0"
 
