@@ -120,6 +120,8 @@ class DbTaxon:
 
     @classmethod
     def from_model(cls, taxon: Taxon) -> 'DbTaxon':
+        # Don't save icon placeholder photo URL (if there's no real photo)
+        photo_url = taxon.default_photo.url if taxon.default_photo.url != taxon.icon_url else None
         return cls(
             id=taxon.id,
             active=taxon.is_active,
@@ -131,7 +133,7 @@ class DbTaxon:
             partial=taxon._partial,
             preferred_common_name=taxon.preferred_common_name,
             rank=taxon.rank,
-            default_photo_url=taxon.default_photo.url,
+            default_photo_url=photo_url,
         )
 
     def to_model(self) -> Taxon:
