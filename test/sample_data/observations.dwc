@@ -5,7 +5,7 @@
         <dwc:occurrenceRemarks>x13 seen this morning </dwc:occurrenceRemarks>
         <dwc:catalogNumber>45524803</dwc:catalogNumber>
         <dcterms:license>http://creativecommons.org/licenses/by-nc/4.0</dcterms:license>
-        <dwc:verbatimEventDate>2020-05-09 06:01:00-08:00</dwc:verbatimEventDate>
+        <dwc:verbatimEventDate>2020-05-09 06:01:00-07:00</dwc:verbatimEventDate>
         <dwc:verbatimLocality>San Diego County, CA, USA</dwc:verbatimLocality>
         <dwc:coordinateUncertaintyInMeters>4</dwc:coordinateUncertaintyInMeters>
         <dwc:taxonID>48978</dwc:taxonID>
@@ -35,7 +35,7 @@
             <ac:derivedFrom>https://inaturalist-open-data.s3.amazonaws.com/photos/72181173/square.jpeg</ac:derivedFrom>
             <dcterms:rights>(c) Alex Bairstow, some rights reserved (CC BY-NC)</dcterms:rights>
             <dcterms:description>x13 seen this morning </dcterms:description>
-            <ap:CreateDate>2020-05-09 06:01:00-08:00</ap:CreateDate>
+            <ap:CreateDate>2020-05-09 06:01:00-07:00</ap:CreateDate>
             <dcterms:creator>Alex Bairstow</dcterms:creator>
             <xap:Owner>Alex Bairstow</xap:Owner>
             <dcterms:publisher>iNaturalist</dcterms:publisher>
@@ -51,7 +51,7 @@
             <ac:derivedFrom>https://inaturalist-open-data.s3.amazonaws.com/photos/72180675/square.jpeg</ac:derivedFrom>
             <dcterms:rights>(c) Alex Bairstow, some rights reserved (CC BY-NC)</dcterms:rights>
             <dcterms:description>x13 seen this morning </dcterms:description>
-            <ap:CreateDate>2020-05-09 06:01:00-08:00</ap:CreateDate>
+            <ap:CreateDate>2020-05-09 06:01:00-07:00</ap:CreateDate>
             <dcterms:creator>Alex Bairstow</dcterms:creator>
             <xap:Owner>Alex Bairstow</xap:Owner>
             <dcterms:publisher>iNaturalist</dcterms:publisher>
@@ -71,8 +71,8 @@
         <inat:captive>wild</inat:captive>
         <dwc:establishmentMeans>wild</dwc:establishmentMeans>
         <dwc:datasetName>iNaturalist research-grade observations</dwc:datasetName>
-        <dwc:eventDate>2020-05-09T06:01:00-08:00</dwc:eventDate>
-        <dwc:eventTime>06:01-0800</dwc:eventTime>
+        <dwc:eventDate>2020-05-09 06:01:00-07:00</dwc:eventDate>
+        <dwc:eventTime>06:01-0700</dwc:eventTime>
         <dwc:informationWithheld></dwc:informationWithheld>
     </dwr:SimpleDarwinRecord>
 </dwr:SimpleDarwinRecordSet>

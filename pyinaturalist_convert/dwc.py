@@ -1,36 +1,45 @@
-"""Convert observations to `Darwin Core <https://www.tdwg.org/standards/dwc>`_.
+"""Convert observations to and from `Darwin Core <https://www.tdwg.org/standards/dwc>`_.
 
 **Extra dependencies**: ``xmltodict``
 
 **Example**::
 
-    >>> from pyinaturalist import get_observations
-    >>> from pyinaturalist_convert import to_dwc
+    >>> from pyinaturalist import iNatClient
+    >>> from pyinaturalist_convert import to_dwc, dwc_to_observations
 
-    >>> observations = get_observations(user_id='my_username')
+    >>> # Search observations and convert to Darwin Core:
+    >>> client = iNatClient()
+    >>> observations = client.observations.search(user_id='my_username')
     >>> to_dwc(observations, 'my_observations.dwc')
+
+    >>> # Convert Darwin Core back to Observation objects:
+    >>> observations = dwc_to_observations('my_observations.dwc')
 
 .. automodsumm:: pyinaturalist_convert.dwca
    :functions-only:
    :nosignatures:
 """
+import re
+
 # TODO: For sound recordings: eol:dataObject.dcterms:type and any other fields?
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
-from flatten_dict import flatten
-from pyinaturalist import Photo, get_taxa_by_id
+from dateutil.parser import parse as parse_date
+from flatten_dict import flatten, unflatten
+from pyinaturalist import Coordinates, Observation, Photo, get_taxa_by_id
+from pyinaturalist.converters import try_float_pair, try_int
 
 from .constants import PathOrStr
 from .converters import AnyObservations, AnyTaxa, flatten_observations, to_dicts, write
 
 # Top-level fields from observation JSON
 OBSERVATION_FIELDS = {
-    'created_at': 'xap:CreateDate',  # Different format
+    'created_at': 'xap:CreateDate',
     'description': 'dwc:occurrenceRemarks',
     'id': 'dwc:catalogNumber',
     'license_code': 'dcterms:license',
-    'observed_on': 'dwc:verbatimEventDate',  # Original timestamp, unconverted
+    'observed_on': 'dwc:verbatimEventDate',
     'place_guess': 'dwc:verbatimLocality',
     'positional_accuracy': 'dwc:coordinateUncertaintyInMeters',
     'taxon.id': 'dwc:taxonID',
@@ -87,6 +96,7 @@ PHOTO_CONSTANTS = {
 
 # Other constants needed for converting/formatting
 CC_BASE_URL = 'http://creativecommons.org/licenses'
+CC_URL_PATTERN = re.compile(r'.*\/licenses\/([\w-]+)/.*')
 CC_VERSION = '4.0'
 DATASET_TITLES = {'casual': 'casual', 'needs_id': 'unconfirmed', 'research': 'research-grade'}
 DATETIME_FIELDS = ['observed_on', 'created_at']
@@ -171,7 +181,7 @@ def observation_to_dwc_record(observation: Dict) -> Dict:
 
     # Add main observation + taxon fields
     for inat_field, dwc_fields in OBSERVATION_FIELDS.items():
-        for dwc_field in _ensure_str_list(dwc_fields):
+        for dwc_field in _ensure_list(dwc_fields):
             dwc_record[dwc_field] = observation.get(inat_field)
 
     # Add identification fields
@@ -190,13 +200,13 @@ def observation_to_dwc_record(observation: Dict) -> Dict:
         dwc_record[dwc_field] = value
 
     # Add fields that require some formatting
-    dwc_record.update(format_location(observation['location']))
+    dwc_record.update(_format_location(observation['location']))
     dwc_record['inat:captive'] = _format_captive(observation['captive'])
     dwc_record['dwc:establishmentMeans'] = _format_captive(observation['captive'])
     dwc_record['dwc:datasetName'] = _format_dataset_name(observation['quality_grade'])
     dwc_record['dwc:eventDate'] = _format_datetime(observation['observed_on'])
     dwc_record['dwc:eventTime'] = _format_time(observation['observed_on'])
-    dwc_record['dwc:informationWithheld'] = format_geoprivacy(observation)
+    dwc_record['dwc:informationWithheld'] = _format_geoprivacy(observation)
     dwc_record['dcterms:license'] = _format_license(observation['license_code'])
 
     return dwc_record
@@ -215,25 +225,13 @@ def taxon_to_dwc_record(taxon: Dict) -> Dict:
     }
 
 
-def format_geoprivacy(observation: Dict) -> Optional[str]:
-    if observation['geoprivacy'] == 'obscured':
-        return (
-            f'Coordinate uncertainty increased to {observation["positional_accuracy"]}'
-            'at the request of the observer'
-        )
-    elif observation['geoprivacy'] == 'private':
-        return 'Coordinates removed at the request of the observer'
-    else:
-        return None
-
-
 def _photo_to_data_object(observation: Dict, photo: Dict) -> Dict:
     """Translate observation photo fields to eol:dataObject fields"""
     dwc_photo = {}
     for inat_field, dwc_field in PHOTO_FIELDS.items():
         dwc_photo[dwc_field] = photo[inat_field]
     for inat_field, dwc_fields in PHOTO_OBS_FIELDS.items():
-        for dwc_field in _ensure_str_list(dwc_fields):
+        for dwc_field in _ensure_list(dwc_fields):
             dwc_photo[dwc_field] = observation.get(inat_field)
     for dwc_field, value in PHOTO_CONSTANTS.items():
         dwc_photo[dwc_field] = value
@@ -261,7 +259,7 @@ def _add_taxon_ancestors(observation):
     return observation
 
 
-def _ensure_str_list(value):
+def _ensure_list(value):
     return value if isinstance(value, list) else [value]
 
 
@@ -273,8 +271,22 @@ def _format_dataset_name(quality_grade: str) -> str:
     return f'iNaturalist {DATASET_TITLES.get(quality_grade, "")} observations'
 
 
-def _format_datetime(dt: datetime) -> str:
+def _format_datetime(dt: Union[datetime, str]) -> str:
+    if isinstance(dt, str):
+        return dt
     return dt.replace(microsecond=0).isoformat()
+
+
+def _format_geoprivacy(observation: Dict) -> Optional[str]:
+    if observation['geoprivacy'] == 'obscured':
+        return (
+            f'Coordinate uncertainty increased to {observation["positional_accuracy"]}'
+            'at the request of the observer'
+        )
+    elif observation['geoprivacy'] == 'private':
+        return 'Coordinates removed at the request of the observer'
+    else:
+        return None
 
 
 def _format_license(license_code: str) -> str:
@@ -285,34 +297,46 @@ def _format_license(license_code: str) -> str:
     return f'{CC_BASE_URL}/{url_slug}/{CC_VERSION}'
 
 
-def format_location(location: List[float]) -> Dict[str, float]:
+def _format_location(location: List[float]) -> Dict[str, float]:
     return {'dwc:decimalLatitude': location[0], 'dwc:decimalLongitude': location[1]}
 
 
-def _format_time(dt: datetime):
+def _format_time(dt: Union[datetime, str]) -> str:
+    if isinstance(dt, str):
+        dt = parse_date(dt)
     return dt.strftime("%H:%M%z")
 
 
-def dwc_record_to_observation(dwc_record: Dict) -> Dict:
-    """Translate a DwC record to a dict formatted like an observation API response"""
-    lookup = _get_dwc_lookup()
+def dwc_to_observations(filename: PathOrStr) -> List[Observation]:
+    import xmltodict
+
+    with open(filename) as f:
+        dwc = xmltodict.parse(f.read())
+    records = dwc['dwr:SimpleDarwinRecordSet']['dwr:SimpleDarwinRecord']
+    return [dwc_record_to_observation(record) for record in _ensure_list(records)]
+
+
+# TODO: Translate taxon ancestors, eol:dataObject
+def dwc_record_to_observation(dwc_record: Dict[str, Any]) -> Observation:
+    """Translate a DwC record to an Observation object"""
+    lookup = get_dwc_lookup()
 
     json_record = {json_key: dwc_record.get(dwc_key) for dwc_key, json_key in lookup.items()}
-    json_record['location'] = (dwc_record['decimalLatitude'], dwc_record['decimalLongitude'])
+    json_record['id'] = try_int(json_record.get('id'))
+    json_record['taxon.id'] = try_int(json_record.get('taxon.id'))
+    json_record['captive'] = dwc_record.get('captive') == 'cultivated'
+    json_record['license_code'] = _format_dwc_license(dwc_record)
+    json_record['location'] = _format_dwc_location(dwc_record)
     json_record['geoprivacy'] = _format_dwc_geoprivacy(dwc_record)
-    return json_record
+
+    if isinstance(json_record['user.name'], list):
+        json_record['user.name'] = json_record['user.name'][0]
+    json_record = unflatten(json_record, splitter='dot')
+
+    return Observation.from_json(json_record)
 
 
-def _format_dwc_geoprivacy(dwc_record: Dict) -> str:
-    if 'Coordinate uncertainty increased' in dwc_record['informationWithheld']:
-        return 'obscured'
-    elif 'Coordinates hidden' in dwc_record['informationWithheld']:
-        return 'private'
-    else:
-        return 'open'
-
-
-def _get_dwc_lookup() -> Dict:
+def get_dwc_lookup() -> Dict[str, str]:
     """Get a lookup table of DwC terms to standard field names"""
     lookup = {}
     for k, v in OBSERVATION_FIELDS.items():
@@ -320,9 +344,38 @@ def _get_dwc_lookup() -> Dict:
             lookup.update({subval: k for subval in v})
         else:
             lookup[v] = k
-    lookup['captive'] = 'captive'
-    lookup['decimalLatitude'] = 'latitude'
-    lookup['decimalLongitude'] = 'longitude'
-    lookup['informationWithheld'] = 'geoprivacy'
-    lookup['eventDate'] = 'observed_on'
-    return {k.split(':')[-1]: v for k, v in lookup.items()}
+    lookup['dwc:captive'] = 'captive'
+    lookup['dwc:decimalLatitude'] = 'latitude'
+    lookup['dwc:decimalLongitude'] = 'longitude'
+    lookup['dwc:informationWithheld'] = 'geoprivacy'
+    lookup['dwc:eventDate'] = 'observed_on'
+    return lookup
+
+
+def _format_dwc_geoprivacy(dwc_record: Dict) -> Optional[str]:
+    if not dwc_record.get('informationWithheld'):
+        return None
+    elif 'Coordinate uncertainty increased' in dwc_record['informationWithheld']:
+        return 'obscured'
+    elif 'Coordinates hidden' in dwc_record['informationWithheld']:
+        return 'private'
+    else:
+        return 'open'
+
+
+def _format_dwc_license(dwc_record: Dict) -> Optional[str]:
+    """Format a CC license URL to a license code"""
+    license = dwc_record.get('dcterms:license')
+    if license and isinstance(license, dict):
+        license = list(license.values())[0]
+    if match := CC_URL_PATTERN.match(license):
+        license = f'CC-{match.groups()[0]}'.upper()
+    return license
+
+
+def _format_dwc_location(dwc_record: Dict) -> Optional[Coordinates]:
+    location = try_float_pair(
+        dwc_record.get('dwc:decimalLatitude'),
+        dwc_record.get('dwc:decimalLongitude'),
+    )
+    return list(location) if location else None
