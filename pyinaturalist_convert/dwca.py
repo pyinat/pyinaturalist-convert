@@ -44,7 +44,7 @@ from .download import (
     get_progress_spinner,
     unzip_progress,
 )
-from .dwc import _get_dwc_lookup
+from .dwc import get_dwc_lookup
 from .sqlite import load_table, vacuum_analyze
 
 OBS_COLUMNS = [
@@ -372,7 +372,7 @@ def _get_next_level(df, level_ids, processed_ids, skipped_ids) -> Tuple[set, set
 
 def _get_obs_column_map(fields: List[str]) -> Dict[str, str]:
     """Translate subset of DwC terms to API-compatible field names"""
-    lookup = {k: v.replace('.', '_') for k, v in _get_dwc_lookup().items()}
+    lookup = {k.split(':')[-1]: v.replace('.', '_') for k, v in get_dwc_lookup().items()}
     return {field: lookup[field] for field in fields}
 
 
