@@ -33,6 +33,8 @@ def test_taxon_to_dwc():
             {'rank': 'genus', 'name': 'Philemon'},
             {'rank': '', 'name': ''},
         ],
+        'iconic_taxon_id': 3,
+        'preferred_common_name': 'Helmeted Friarbird',
     }
 
     dwc_record = to_dwc(taxa=[taxon])[0]
@@ -45,7 +47,12 @@ def test_taxon_to_dwc():
         'dwc:class': 'Aves',
         'dwc:order': 'Passeriformes',
         'dwc:family': 'Meliphagidae',
+        'dwc:subfamily': None,
         'dwc:genus': 'Philemon',
+        'dwc:subgenus': None,
+        'dwc:cultivarEpithet': None,
+        'dwc:vernacularName': 'Helmeted Friarbird',
+        'inat:iconic_taxon_id': 3,
     }
 
 
@@ -61,4 +68,9 @@ def test_dwc_record_to_observation():
     assert obs.location == (32.8430971478, -117.2815829044)
     assert obs.observed_on == datetime(2020, 5, 9, 6, 1, tzinfo=tzoffset(None, -25200))
     assert obs.taxon.id == 48978
+    assert obs.taxon.iconic_taxon_id == 47115
     assert obs.taxon.name == 'Dirona picta'
+    assert obs.taxon.preferred_common_name == 'Colorful Dirona'
+    assert len(obs.taxon.ancestors) == 6
+    kingdom = obs.taxon.ancestors[0]
+    assert kingdom.name == 'Animalia' and kingdom.rank == 'kingdom'
