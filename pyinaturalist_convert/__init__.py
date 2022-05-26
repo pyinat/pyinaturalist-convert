@@ -3,7 +3,7 @@ from .constants import *
 from .converters import *
 from .csv import load_csv_exports
 from .db import *
-from .dwc import to_dwc
+from .dwc import *
 from .dwca import *
 from .fts import TaxonAutocompleter, load_fts_taxa
 from .geojson import to_geojson

@@ -18,6 +18,7 @@ jobs:
     strategy:
       matrix:
         python-version: [3.8, 3.9, '3.10']
+      fail-fast: false
 
     steps:
       - uses: actions/checkout@v3
@@ -26,7 +27,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - uses: snok/install-poetry@v1.3
         with:
-          version: 1.2.0a2
+          version: 1.2.0b1
           virtualenvs-in-project: true
 
       # Cache packages per python version, and reuse until lockfile changes

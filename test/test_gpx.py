@@ -37,7 +37,8 @@ def test_to_gpx__to_file(tmp_path):
 
 
 def _validate_point(point: Dict):
-    assert point['@lat'] == '50.646894' and point['@lon'] == '4.360086'
-    assert point['time'] == '2018-09-05T14:06:00+0100'
-    assert 'Lixus bardanae' in point['cmt'] and 'Sep 05, 2018' in point['cmt']
-    assert point['link']['@href'].startswith('https://static.inaturalist.org/photos/')
+    assert point['@lat'] == '32.8430971478' and point['@lon'] == '-117.2815829044'
+    assert point['time'] == '2020-05-09T06:01:00-0700'
+    assert 'Dirona picta' in point['cmt']
+    assert 'May 09, 2020' in point['cmt']
+    assert point['link']['@href'].startswith('https://inaturalist-open-data.s3.amazonaws.com/')
