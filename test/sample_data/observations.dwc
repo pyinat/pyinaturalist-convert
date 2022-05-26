@@ -11,12 +11,17 @@
         <dwc:taxonID>48978</dwc:taxonID>
         <dwc:taxonRank>species</dwc:taxonRank>
         <dwc:scientificName>Dirona picta</dwc:scientificName>
+        <dwc:vernacularName>Colorful Dirona</dwc:vernacularName>
         <dwc:kingdom>Animalia</dwc:kingdom>
         <dwc:phylum>Mollusca</dwc:phylum>
         <dwc:class>Gastropoda</dwc:class>
         <dwc:order>Nudibranchia</dwc:order>
         <dwc:family>Dironidae</dwc:family>
+        <dwc:subfamily></dwc:subfamily>
         <dwc:genus>Dirona</dwc:genus>
+        <dwc:subgenus></dwc:subgenus>
+        <dwc:cultivarEpithet></dwc:cultivarEpithet>
+        <inat:iconic_taxon_id>47115</inat:iconic_taxon_id>
         <dcterms:modified>2020-08-16 18:09:44-07:00</dcterms:modified>
         <dcterms:references>https://www.inaturalist.org/observations/45524803</dcterms:references>
         <dwc:occurrenceDetails>https://www.inaturalist.org/observations/45524803</dwc:occurrenceDetails>
