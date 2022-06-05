@@ -31,7 +31,7 @@ repos:
       - id: xenon
         args: [--max-average=B, --max-modules=C, --max-absolute=C]
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v0.950
+    rev: v0.960
     hooks:
       - id: mypy
         additional_dependencies: [attrs, sqlalchemy2-stubs, types-python-dateutil, types-requests, types-tabulate]
