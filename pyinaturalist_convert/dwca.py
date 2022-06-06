@@ -23,7 +23,6 @@ from typing import Dict, List, Set, Tuple
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
-from pyinaturalist import enable_logging
 
 from .constants import (
     DATA_DIR,
@@ -68,10 +67,6 @@ TAXON_COLUMN_MAP = {
 }
 TAXON_TABLE = 'taxon'
 OBS_TABLE = 'observation'
-
-# debug
-enable_logging()
-getLogger('pyinaturalist_convert').setLevel('DEBUG')
 
 logger = getLogger(__name__)
 
