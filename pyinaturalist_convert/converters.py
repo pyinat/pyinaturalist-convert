@@ -13,12 +13,9 @@ import json
 from copy import deepcopy
 from logging import getLogger
 from pathlib import Path
-from typing import Dict, Iterable, List, Sequence, Type, Union
+from typing import TYPE_CHECKING, Dict, Iterable, List, Sequence, Type, Union
 
-import numpy as np
-import pandas as pd
 from flatten_dict import flatten, unflatten
-from pandas import DataFrame
 from pyinaturalist import BaseModel, JsonResponse, ModelObjects, Observation, ResponseResult, Taxon
 from requests import Response
 from tablib import Dataset
@@ -31,10 +28,17 @@ from tablib import Dataset
 # TODO: For large datasets that require more than one conversion step, chained generators would be
 # useful to minimize memory usage from intermediate variables.
 
+if TYPE_CHECKING:
+    from pandas import DataFrame
+
+    CollectionTypes = Union[DataFrame, Dataset, Response, JsonResponse, Iterable[ResponseResult]]
+else:
+    CollectionTypes = Union[Dataset, Response, JsonResponse, Iterable[ResponseResult]]
+
+
 TABLIB_FORMATS = ['csv', 'html', 'json', 'ods', 'rst', 'xlsx', 'yaml']
 PANDAS_FORMATS = ['csv', 'feather', 'hdf', 'parquet', 'xlsx']
 
-CollectionTypes = Union[DataFrame, Dataset, Response, JsonResponse, Iterable[ResponseResult]]
 InputTypes = Union[CollectionTypes, ModelObjects]
 AnyObservations = Union[CollectionTypes, Observation, Iterable[Observation]]
 AnyTaxa = Union[CollectionTypes, Taxon, Iterable[Taxon]]
@@ -72,6 +76,8 @@ def _to_models(value: InputTypes, model: Type[BaseModel] = Observation) -> Itera
 
 def to_dicts(value: InputTypes) -> Iterable[Dict]:
     """Convert any supported input type into a observation (or other record type) dicts"""
+    from pandas import DataFrame
+
     if not value:
         return []
     if isinstance(value, DataFrame):
@@ -94,14 +100,18 @@ def to_dicts(value: InputTypes) -> Iterable[Dict]:
 
 def to_csv(observations: AnyObservations, filename: str = None):
     """Convert observations to CSV"""
-    df = pd.DataFrame(flatten_observations(observations, tabular=True))
+    from pandas import DataFrame
+
+    df = DataFrame(flatten_observations(observations, tabular=True))
     df.to_csv(filename, index=False)
 
 
 def to_dataframe(observations: AnyObservations):
     """Convert observations into a pandas DataFrame"""
+    from pandas import DataFrame
+
     flat_observations = flatten_observations(observations, semitabular=True)
-    return pd.DataFrame(flat_observations).dropna(axis=1, how='all')
+    return DataFrame(flat_observations).dropna(axis=1, how='all')
 
 
 def to_dataset(observations: AnyObservations) -> Dataset:
@@ -153,6 +163,8 @@ def read(filename: PathOrStr) -> List[Observation]:
 
     Note: For CSV files from the iNat export tool, use :py:func:`.load_csv_exports` instead.
     """
+    import pandas as pd
+
     from .csv import is_csv_export, load_csv_exports
 
     file_path = Path(filename).expanduser()
@@ -210,7 +222,9 @@ def flatten_observations(
 
 def _df_to_dicts(df: 'DataFrame') -> List[JsonResponse]:
     """Convert a pandas DataFrame into nested dicts (similar to API response JSON)"""
-    df = df.replace([np.nan], [None])
+    from numpy import nan
+
+    df = df.replace([nan], [None])
     observations = [unflatten(flat_dict, splitter='dot') for flat_dict in df.to_dict('records')]
     # TODO: Handle array types in Observation.from_json()
     for obs in observations:

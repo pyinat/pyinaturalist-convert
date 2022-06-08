@@ -11,15 +11,16 @@ from glob import glob
 from logging import getLogger
 from os.path import basename
 from pathlib import Path
-from typing import List
+from typing import TYPE_CHECKING, List
 
-import pandas as pd
-from pandas import DataFrame
 from pyinaturalist import JsonResponse
 from pyinaturalist.constants import RANKS
 from pyinaturalist.converters import try_datetime
 
 from .converters import PathOrStr, to_dataframe
+
+if TYPE_CHECKING:
+    from pandas import DataFrame
 
 # Explicit datatypes for columns loaded from CSV
 DTYPES = {
@@ -88,12 +89,14 @@ logger = getLogger(__name__)
 
 
 # TODO: Use pandas if installed, otherwise fallback to tablib?
-def load_csv_exports(*file_paths: PathOrStr) -> DataFrame:
+def load_csv_exports(*file_paths: PathOrStr) -> 'DataFrame':
     """Read one or more CSV files from ithe Nat export tool into a dataframe
 
     Args:
         file_paths: One or more file paths or glob patterns to load
     """
+    import pandas as pd
+
     resolved_paths = _resolve_file_paths(*file_paths)
     logger.info(
         f'Reading {len(resolved_paths)} exports:\n'
@@ -124,7 +127,7 @@ def _resolve_file_paths(*file_paths: PathOrStr) -> List[Path]:
     return [Path(p).expanduser() for p in resolved_paths]
 
 
-def _format_columns(df: DataFrame) -> DataFrame:
+def _format_columns(df: 'DataFrame') -> 'DataFrame':
     """Some datatype conversions that apply to both CSV exports and API response data"""
     # Convert to expected datatypes
     for col, dtype in DTYPES.items():
@@ -136,7 +139,7 @@ def _format_columns(df: DataFrame) -> DataFrame:
     return df.fillna('')
 
 
-def _format_response(response: JsonResponse) -> DataFrame:
+def _format_response(response: JsonResponse) -> 'DataFrame':
     """Convert and format API response data into a dataframe"""
     df = to_dataframe(response['results'])
     df['photo.url'] = df['photos'].apply(lambda x: x[0]['url'])
@@ -145,7 +148,7 @@ def _format_response(response: JsonResponse) -> DataFrame:
     return df
 
 
-def _format_export(df: DataFrame) -> DataFrame:
+def _format_export(df: 'DataFrame') -> 'DataFrame':
     """Format an exported CSV file to be more consistent with API response format"""
     logger.info(f'Formatting {len(df)} observation records')
 
