@@ -1,39 +1,40 @@
 from typing import Dict
 
 import xmltodict
+from pyinaturalist import Observation
 
 from pyinaturalist_convert.gpx import to_gpx
-from test.conftest import load_sample_data
+from test.conftest import SAMPLE_DATA_DIR
 
 
 def test_to_gpx():
-    observations = load_sample_data('observation.json')
-    gpx_xml = to_gpx(observations).to_xml()
+    obs = Observation.from_json_file(SAMPLE_DATA_DIR / 'observation.json')[0]
+    gpx_xml = to_gpx([obs, obs]).to_xml()
     gpx_dict = xmltodict.parse(gpx_xml)
 
-    point = gpx_dict['gpx']['trk']['trkseg']['trkpt']
-    _validate_point(point)
+    points = gpx_dict['gpx']['trk']['trkseg']['trkpt']
+    _validate_point(points[0])
 
 
 def test_to_gpx__waypoints():
-    observations = load_sample_data('observation.json')
-    gpx_xml = to_gpx(observations, waypoints=True).to_xml()
+    obs = Observation.from_json_file(SAMPLE_DATA_DIR / 'observation.json')[0]
+    gpx_xml = to_gpx([obs, obs], waypoints=True).to_xml()
     gpx_dict = xmltodict.parse(gpx_xml)
 
-    point = gpx_dict['gpx']['wpt']
-    _validate_point(point)
+    points = gpx_dict['gpx']['wpt']
+    _validate_point(points[0])
 
 
 def test_to_gpx__to_file(tmp_path):
-    observations = load_sample_data('observation.json')
+    obs = Observation.from_json_file(SAMPLE_DATA_DIR / 'observation.json')[0]
     file_path = tmp_path / 'observations.gpx'
-    to_gpx(observations, file_path)
+    to_gpx([obs, obs], file_path)
 
     with open(file_path) as f:
         gpx_dict = xmltodict.parse(f.read())
 
-    point = gpx_dict['gpx']['trk']['trkseg']['trkpt']
-    _validate_point(point)
+    points = gpx_dict['gpx']['trk']['trkseg']['trkpt']
+    _validate_point(points[0])
 
 
 def _validate_point(point: Dict):
