@@ -67,14 +67,14 @@ lxml = ["lxml"]
 
 [[package]]
 name = "boto3"
-version = "1.24.4"
+version = "1.24.5"
 description = "The AWS SDK for Python"
 category = "main"
 optional = true
 python-versions = ">= 3.7"
 
 [package.dependencies]
-botocore = ">=1.27.4,<1.28.0"
+botocore = ">=1.27.5,<1.28.0"
 jmespath = ">=0.7.1,<2.0.0"
 s3transfer = ">=0.6.0,<0.7.0"
 
@@ -83,7 +83,7 @@ crt = ["botocore[crt] (>=1.21.0,<2.0a0)"]
 
 [[package]]
 name = "botocore"
-version = "1.27.4"
+version = "1.27.5"
 description = "Low-level, data-driven core of boto 3."
 category = "main"
 optional = true
@@ -558,7 +558,7 @@ name = "numpy"
 version = "1.22.4"
 description = "NumPy is the fundamental package for array computing with Python."
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3.8"
 
 [[package]]
@@ -588,7 +588,7 @@ name = "pandas"
 version = "1.4.2"
 description = "Powerful data structures for data analysis, time series, and statistics"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3.8"
 
 [package.dependencies]
@@ -819,7 +819,7 @@ name = "pytz"
 version = "2022.1"
 description = "World timezone definitions, modern and historical"
 category = "main"
-optional = false
+optional = true
 python-versions = "*"
 
 [[package]]
@@ -1331,23 +1331,23 @@ docs = ["sphinx", "jaraco.packaging (>=9)", "rst.linker (>=1.9)"]
 testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-cov", "pytest-enabler (>=1.0.1)", "jaraco.itertools", "func-timeout", "pytest-black (>=0.3.7)", "pytest-mypy (>=0.9.1)"]
 
 [extras]
-all = ["boto3", "geojson", "gpxpy", "openpyxl", "pyarrow", "sqlalchemy", "tables", "xmltodict"]
+all = ["boto3", "geojson", "gpxpy", "openpyxl", "pandas", "pyarrow", "sqlalchemy", "tables", "xmltodict"]
 db = ["sqlalchemy"]
 docs = ["furo", "myst-parser", "sphinx", "sphinx-autodoc-typehints", "sphinx-automodapi", "sphinx-copybutton", "sphinx-inline-tabs", "sphinx-panels"]
 dwc = ["xmltodict"]
-feather = ["pyarrow"]
+feather = ["pandas", "pyarrow"]
 geojson = ["geojson"]
 gpx = ["gpxpy"]
-hdf = ["tables"]
+hdf = ["pandas", "tables"]
 html = []
 odp = ["boto3"]
-parquet = ["pyarrow"]
-xlsx = ["openpyxl"]
+parquet = ["pandas", "pyarrow"]
+xlsx = ["pandas", "openpyxl"]
 
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "d8274707053fbe96bb8f6f2857a315725bfa6cc20963084be8f19c03d88e6427"
+content-hash = "4a1c4c5a9b6447930085d9d9905154dfcf840fcab795fcb46fe9bd9440f4fc7d"
 
 [metadata.files]
 alabaster = [
@@ -1375,12 +1375,12 @@ beautifulsoup4 = [
     {file = "beautifulsoup4-4.11.1.tar.gz", hash = "sha256:ad9aa55b65ef2808eb405f46cf74df7fcb7044d5cbc26487f96eb2ef2e436693"},
 ]
 boto3 = [
-    {file = "boto3-1.24.4-py3-none-any.whl", hash = "sha256:79b7acf5cf83b34d23a975e400374caaf4711c52266c8717b293f40f3041e0aa"},
-    {file = "boto3-1.24.4.tar.gz", hash = "sha256:8bfb695cbe27d2ee9730ea4e1c894ef1fc255219d3fc7bc804171943ae8d7914"},
+    {file = "boto3-1.24.5-py3-none-any.whl", hash = "sha256:c414013899a63a2d1574e6405fbdc2a8379dae71b7d4defdfdc6682ad75df079"},
+    {file = "boto3-1.24.5.tar.gz", hash = "sha256:7d9f636f4a3327968fec2ba1d556c0d4644917a7f041e8ecc1adf299603093f4"},
 ]
 botocore = [
-    {file = "botocore-1.27.4-py3-none-any.whl", hash = "sha256:54ef4b035c51fe8937a61d3017e30e0a47237916143889ecf4eace481220029a"},
-    {file = "botocore-1.27.4.tar.gz", hash = "sha256:866ac4ad7de326cfb6956462cc224eee1ef1c17987c2313c6fecdbe017e753fc"},
+    {file = "botocore-1.27.5-py3-none-any.whl", hash = "sha256:326f3fae882524007edf2c9e352169abe4cb8fb87c148ca559522b99d8dfdc74"},
+    {file = "botocore-1.27.5.tar.gz", hash = "sha256:2cc567c453eca85a7140bd984be4c761fddd938f4fb26e4747655f0849d64f25"},
 ]
 cattrs = [
     {file = "cattrs-22.1.0-py3-none-any.whl", hash = "sha256:d55c477b4672f93606e992049f15d526dc7867e6c756cd6256d4af92e2b1e364"},

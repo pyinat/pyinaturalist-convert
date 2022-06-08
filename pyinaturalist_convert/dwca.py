@@ -13,16 +13,13 @@ from DwC-A to SQLite.
    :nosignatures:
 """
 # TODO: Lookup and replace user_login with user_id
+# TODO: Translate lifeStage and sex to annotations
 import sqlite3
 import subprocess
 from logging import getLogger
 from os.path import basename, splitext
 from pathlib import Path
-from typing import Dict, List, Set, Tuple
-
-import numpy as np
-import pandas as pd
-from pandas import DataFrame
+from typing import TYPE_CHECKING, Dict, List, Set, Tuple
 
 from .constants import (
     DATA_DIR,
@@ -45,6 +42,10 @@ from .download import (
 )
 from .dwc import get_dwc_lookup
 from .sqlite import load_table, vacuum_analyze
+
+if TYPE_CHECKING:
+    from pandas import DataFrame
+
 
 OBS_COLUMNS = [
     'catalogNumber',
@@ -193,7 +194,7 @@ def get_observation_taxon_counts(db_path: PathOrStr = DB_PATH) -> Dict[int, int]
 
 def aggregate_taxon_counts(
     db_path: PathOrStr = DB_PATH, save_counts_only: bool = False
-) -> DataFrame:
+) -> 'DataFrame':
     """Aggregate taxon observation counts up to all ancestors, and save results back to taxonomy
     database.
 
@@ -206,6 +207,8 @@ def aggregate_taxon_counts(
     lend themselves well to recursion. This is good enough for now, but could potentially be much
     faster.
     """
+    from pandas import DataFrame
+
     df = _get_taxon_df(db_path)
 
     # Get taxon counts from observations table
@@ -256,10 +259,11 @@ def aggregate_taxon_counts(
 
 def update_taxon_counts(
     db_path: PathOrStr = DB_PATH, counts_path: PathOrStr = TAXON_COUNTS
-) -> DataFrame:
+) -> 'DataFrame':
     """Load previously saved taxon counts (from :py:func:`.aggregate_taxon_counts` into the local
     taxon database
     """
+    import pandas as pd
 
     taxon_counts = pd.read_parquet(counts_path)
     df = _get_taxon_df(db_path)
@@ -310,15 +314,17 @@ def _cleanup_observations(db_path: PathOrStr = DB_PATH):
         conn.execute("UPDATE observation SET captive=TRUE WHERE captive IS NOT FALSE")
 
 
-def _get_taxon_df(db_path: PathOrStr = DB_PATH) -> DataFrame:
+def _get_taxon_df(db_path: PathOrStr = DB_PATH) -> 'DataFrame':
     """Load taxon table into a dataframe"""
+    import pandas as pd
+
     logger.info(f'Loading taxa from {db_path}')
     df = pd.read_sql_query('SELECT * FROM taxon', sqlite3.connect(db_path), index_col='id')
     df['parent_id'] = df['parent_id'].astype(pd.Int64Dtype())
     return df
 
 
-def _save_taxa_df(df: DataFrame, db_path: PathOrStr = DB_PATH):
+def _save_taxa_df(df: 'DataFrame', db_path: PathOrStr = DB_PATH):
     """Save taxon dataframe back to SQLite; clear and reuse existing table to keep indexes"""
     with sqlite3.connect(db_path) as conn:
         conn.execute('DELETE FROM taxon')
@@ -326,11 +332,13 @@ def _save_taxa_df(df: DataFrame, db_path: PathOrStr = DB_PATH):
         conn.execute('VACUUM')
 
 
-def _join_counts(df: 'DataFrame', taxon_counts: DataFrame) -> DataFrame:
+def _join_counts(df: 'DataFrame', taxon_counts: 'DataFrame') -> 'DataFrame':
     """Join taxon dataframe with updated taxon counts"""
+    from numpy import int64
+
     df = df.drop('count', axis=1)
     df = df.join(taxon_counts)
-    df['count'] = df['count'].fillna(0).astype(np.int64)
+    df['count'] = df['count'].fillna(0).astype(int64)
     return df
 
 
@@ -406,7 +414,7 @@ UNUSED_OBS_COLUMNS = [
     'family',
     'genus',
     'sex',
-    'lifeStage',  # TODO: Translate to annotation?
+    'lifeStage',
 ]
 UNUSED_TAXON_COLUMNS = [
     'kingdom',
