@@ -53,6 +53,7 @@ def to_gpx(
 
     gpx = GPX()
     points = [to_gpx_point(obs, waypoints=waypoints) for obs in to_dicts(observations)]
+    points = [pt for pt in points if pt]
 
     if waypoints:
         gpx.waypoints = points
@@ -70,7 +71,7 @@ def to_gpx(
         return gpx
 
 
-def to_gpx_point(observation: ResponseResult, waypoints: bool = False) -> 'Location':
+def to_gpx_point(observation: ResponseResult, waypoints: bool = False) -> Optional['Location']:
     """Convert a single observation to a GPX point
 
     Args:
@@ -81,10 +82,12 @@ def to_gpx_point(observation: ResponseResult, waypoints: bool = False) -> 'Locat
     """
     from gpxpy.gpx import GPXTrackPoint, GPXWaypoint
 
+    if not observation.get('location'):
+        logger.warning(f'No coordinates for observation {observation["id"]}')
+        return None
+
     logger.debug(f'Processing observation {observation["id"]}')
     observation = convert_observation_timestamps(observation)
-    # GeoJSON coordinates are ordered as `longitude, latitude`
-    long, lat = observation['geojson']['coordinates']
 
     # Get medium-sized photo URL, if available; otherwise just use observation URL
     if observation['photos']:
@@ -94,8 +97,8 @@ def to_gpx_point(observation: ResponseResult, waypoints: bool = False) -> 'Locat
 
     point_cls = GPXWaypoint if waypoints else GPXTrackPoint
     point = point_cls(
-        latitude=lat,
-        longitude=long,
+        latitude=observation['location'][0],
+        longitude=observation['location'][1],
         time=observation['observed_on'],
         comment=str(Observation.from_json(observation)),
     )
