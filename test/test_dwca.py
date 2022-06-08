@@ -1,9 +1,7 @@
-# TODO
 # flake8: noqa: F401
 import sqlite3
 from csv import DictReader
 from logging import getLogger
-from pathlib import Path
 
 from pyinaturalist_convert.dwca import (
     aggregate_taxon_counts,
@@ -36,7 +34,6 @@ def test_load_observation_table(tmp_path):
 
 
 def test_aggregate_taxon_counts(tmp_path):
-    """Make a small"""
     csv_path = SAMPLE_DATA_DIR / 'taxon_counts.csv'
     db_path = tmp_path / 'observations.db'
 

@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from logging import getLogger
 from typing import List
+from urllib.parse import quote_plus, unquote
 
 from pyinaturalist import Observation, Photo, Taxon, User
 from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String
@@ -35,6 +36,7 @@ class DbObservation:
     geoprivacy: str = sa_field(String, default=None, index=True)
     latitude: float = sa_field(Float, default=None)
     longitude: float = sa_field(Float, default=None)
+    license_code: str = sa_field(String, default=None)
     observed_on: datetime = sa_field(String, default=None, index=True)
     place_guess: str = sa_field(String, default=None)
     place_ids: str = sa_field(String, default=None)
@@ -63,6 +65,7 @@ class DbObservation:
             captive=observation.captive,
             latitude=observation.location[0] if observation.location else None,
             longitude=observation.location[1] if observation.location else None,
+            license_code=observation.license_code,
             observed_on=observation.observed_on.isoformat() if observation.observed_on else None,
             place_guess=observation.place_guess,
             place_ids=_join_ids(observation.place_ids),
@@ -79,6 +82,7 @@ class DbObservation:
             id=self.id,
             captive=self.captive,
             location=(self.latitude, self.longitude),
+            license_code=self.license_code,
             observed_on=self.observed_on,
             place_guess=self.place_guess,
             place_ids=_split_ids(self.place_ids),
@@ -114,18 +118,17 @@ class DbTaxon:
     name: str = sa_field(String, default=None, index=True)
     parent_id: int = sa_field(ForeignKey('taxon.id'), default=None, index=True)
     partial: int = sa_field(Boolean, default=False)
+    photo_urls: str = sa_field(String, default=None)
     preferred_common_name: str = sa_field(String, default=None)
     rank: str = sa_field(String, default=None)
-    default_photo_url: str = sa_field(String, default=None)
 
     @classmethod
     def from_model(cls, taxon: Taxon) -> 'DbTaxon':
-        # Don't save icon placeholder photo URL (if there's no real photo)
-        photo_url = taxon.default_photo.url if taxon.default_photo.url != taxon.icon_url else None
         return cls(
             id=taxon.id,
             active=taxon.is_active,
             ancestor_ids=_join_ids(taxon.ancestor_ids),
+            count=taxon.observations_count,
             child_ids=_join_ids(taxon.child_ids),
             iconic_taxon_id=taxon.iconic_taxon_id,
             name=taxon.name,
@@ -133,22 +136,25 @@ class DbTaxon:
             partial=taxon._partial,
             preferred_common_name=taxon.preferred_common_name,
             rank=taxon.rank,
-            default_photo_url=photo_url,
+            photo_urls=_join_photo_urls(taxon.taxon_photos),
         )
 
     def to_model(self) -> Taxon:
+        photos = _split_photo_urls(self.photo_urls)
         return Taxon(
             id=self.id,
             ancestors=self._get_taxa(self.ancestor_ids),
             children=self._get_taxa(self.child_ids),
-            default_photo=Photo(url=self.default_photo_url) if self.default_photo_url else None,
+            default_photo=photos[0] if photos else None,
             iconic_taxon_id=self.iconic_taxon_id,
             is_active=self.active,
             name=self.name,
+            observations_count=self.count,
             parent_id=self.parent_id,
             partial=self.partial,
             preferred_common_name=self.preferred_common_name,
             rank=self.rank,
+            taxon_photos=photos,
         )
 
     def _get_taxa(self, id_str: str) -> List[Taxon]:
@@ -156,6 +162,7 @@ class DbTaxon:
 
 
 # TODO: Combine observation_id/uuid into one column? Or two separate foreign keys?
+# TODO: Should this include taxon photos as well, or just observation photos?
 @Base.mapped
 @dataclass
 class DbPhoto:
@@ -225,3 +232,12 @@ def _split_ids(ids_str: str = None) -> List[int]:
 
 def _join_ids(ids: List[int] = None) -> str:
     return ','.join(map(str, ids)) if ids else ''
+
+
+def _split_photo_urls(urls_str: str) -> List[Photo]:
+    return [Photo(url=unquote(u)) for u in urls_str.split(',')] if urls_str else []
+
+
+def _join_photo_urls(photos: List[Photo]) -> str:
+    # quote URLs first, so when splitting we can be sure ',' is not in any URL
+    return ','.join([quote_plus(p.url) for p in photos])
