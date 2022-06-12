@@ -26,7 +26,7 @@ include = [
 
 [tool.poetry.dependencies]
 python                      = "^3.8"
-pyinaturalist               = ">=0.17.2dev3"
+pyinaturalist               = ">=0.17.2"
 flatten-dict                = "^0.4.0"
 tablib                      = "^3.0"
 
@@ -97,6 +97,7 @@ source = ['pyinaturalist_convert']
 exclude_lines = [
     'pragma: no cover',
     'if TYPE_CHECKING:',
+    'except ImportError:',
 ]
 
 [tool.isort]
