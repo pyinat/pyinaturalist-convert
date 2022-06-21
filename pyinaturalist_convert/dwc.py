@@ -388,7 +388,10 @@ def _format_dwc_geoprivacy(dwc_record: Dict) -> Optional[str]:
 def _format_dwc_license(dwc_record: Dict) -> Optional[str]:
     """Format a CC license URL to a license code"""
     license = dwc_record.get('dcterms:license')
-    if license and isinstance(license, dict):
+    if not license:
+        return None
+
+    if isinstance(license, dict):
         license = list(license.values())[0]
     if match := CC_URL_PATTERN.match(license):
         license = f'CC-{match.groups()[0]}'.upper()
