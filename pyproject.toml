@@ -42,14 +42,12 @@ tables                      = {optional=true, version=">=3.6"}
 xmltodict                   = {optional=true, version=">=0.12"}
 
 # Documentation dependencies
-furo                        = {optional=true, version="^2022.2.14.1"}
-myst-parser                 = {optional=true, version="^0.17.0"}
-sphinx                      = {optional=true, version="^4.2.0"}
+furo                        = {optional=true, version="^2022.6"}
+myst-parser                 = {optional=true, version="^0.18"}
+sphinx                      = {optional=true, version="^4.5"}
 sphinx-autodoc-typehints    = {optional=true, version="^1.17"}
-sphinx-automodapi           = {optional=true, version="^0.14"}
 sphinx-copybutton           = {optional=true, version=">=0.5"}
-sphinx-inline-tabs          = {optional=true, version="^2022.1.2b11"}
-sphinx-panels               = {optional=true, version="^0.6.0"}
+sphinx-design               = {optional=true, version=">=0.2"}
 
 [tool.poetry.extras]
 db         = ["sqlalchemy"]
@@ -64,8 +62,7 @@ parquet    = ["pandas", "pyarrow"]
 xlsx       = ["pandas", "openpyxl"]
 
 all = ["boto3", "geojson", "gpxpy", "openpyxl", "pandas", "pyarrow", "sqlalchemy", "tables", "tablib[all]", "xmltodict"]
-docs = ["furo", "myst-parser", "sphinx", "sphinx-autodoc-typehints", "sphinx-automodapi",
-        "sphinx-copybutton", "sphinx-inline-tabs", "sphinx-panels"]
+docs = ["furo", "myst-parser", "sphinx", "sphinx-autodoc-typehints", "sphinx-copybutton", "sphinx-design"]
 
 [tool.poetry.dev-dependencies]
 coverage = ">=6.3"

@@ -75,16 +75,20 @@ to_feather(observations, 'my_observations.feather')
 to_geojson(observations, 'my_observations.geojson')
 to_gpx(observations, 'my_observations.gpx')
 to_hdf(observations, 'my_observations.hdf')
+to_json(observations, 'my_observations.json')
 to_parquet(observations, 'my_observations.parquet')
 df = to_dataframe(observations)
 ```
 
 ## Import
-Load your observations from the iNat Export tool, convert to be consistent with
-API results, and save to Parquet:
+Most file formats can be loaded via `pyinaturalist_convert.read()`:
 ```python
-df = load_csv_exports('my_observations.csv')
-df.to_parquet('my_observations.parquet')
+observations = read('my_observations.csv')
+observations = read('my_observations.xlsx')
+observations = read('my_observations.feather')
+observations = read('my_observations.hdf')
+observations = read('my_observations.json')
+observations = read('my_observations.parquet')
 ```
 
 ## Download

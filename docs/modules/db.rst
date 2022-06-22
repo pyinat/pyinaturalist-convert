@@ -6,3 +6,8 @@ DB
    :members:
    :undoc-members:
    :show-inheritance:
+
+.. automodule:: pyinaturalist_convert._models
+   :members:
+   :undoc-members:
+   :show-inheritance:

@@ -20,6 +20,7 @@ def test_text_search(tmp_path):
     results = ta.search('franco')
     assert len(results) == 3
     assert results[0].id == 644 and results[0].name == 'Painted Francolin'
+    # assert results[0].id == 649 and results[0].name == 'Black Francolin'
 
     db_path.unlink()
 

@@ -5,11 +5,25 @@
 
 **Example**: Download everything and load into a SQLite database::
 
+    >>> from pyinaturalist_convert import load_odp_tables
     >>> load_odp_tables()
 
-.. automodsumm:: pyinaturalist_convert.odp
-   :functions-only:
-   :nosignatures:
+**Main function:**
+
+.. autosummary::
+    :nosignatures:
+
+    load_odp_tables
+
+**Helper functions:**
+
+.. autosummary::
+    :nosignatures:
+
+    download_odp_metadata
+    load_odp_taxa
+    load_odp_photos
+    load_odp_users
 """
 from pathlib import Path
 
@@ -51,7 +65,7 @@ USER_COLUMN_MAP = {'observer_id': 'id', 'login': 'login', 'name': 'name'}
 
 def load_odp_tables(dest_dir: PathOrStr = DATA_DIR, db_path: PathOrStr = DB_PATH):
     """Download iNaturalist Open Data metadata and load into a SQLite database"""
-    # download_odp_metadata(dest_dir)
+    download_odp_metadata(dest_dir)
     csv_dir = Path(dest_dir) / 'inaturalist-open-data'
     csv_files = [csv_dir / f'{f}.csv' for f in ['observations', 'photos', 'taxa', 'observers']]
     progress = CSVProgress(*csv_files)
@@ -102,7 +116,7 @@ def load_odp_photos(
     db_path: PathOrStr = DB_PATH,
     progress: CSVProgress = None,
 ):
-    """Create or update a photo SQLite table from the Open Data archive"""
+    """Create or update a photo metadata SQLite table from the Open Data archive."""
     create_tables(db_path)
     progress = progress or CSVProgress(csv_path)
     with progress:

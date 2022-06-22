@@ -25,18 +25,28 @@ at least provides a starting point.
     >>> for observation in get_db_observations('observations.db'):
     ...    print(observation)
 
-.. automodsumm:: pyinaturalist_convert._models
-   :classes-only:
-   :nosignatures:
+**Main functions:**
 
-.. automodsumm:: pyinaturalist_convert.db
-   :functions-only:
-   :nosignatures:
+.. autosummary::
+    :nosignatures:
 
-.. automodule:: pyinaturalist_convert._models
-   :members:
-   :undoc-members:
-   :show-inheritance:
+    create_tables
+    get_db_observations
+    get_db_taxa
+    save_observations
+    save_taxa
+
+**Models:**
+
+.. currentmodule:: pyinaturalist_convert._models
+
+.. autosummary::
+    :nosignatures:
+
+    DbObservation
+    DbPhoto
+    DbTaxon
+    DbUser
 """
 # TODO: Abstraction for converting between DB models and attrs models
 # TODO: Annotations and observation field values
@@ -100,7 +110,7 @@ def get_db_observations(
     ids: List[int] = None,
     limit: int = 200,
 ) -> Iterator[Observation]:
-    """Example query to get observation records (and associated taxa and photos) from SQLite"""
+    """Load observation records (and associated taxa and photos) from SQLite"""
     from sqlalchemy import select
 
     stmt = (
@@ -125,7 +135,7 @@ def get_db_taxa(
     accept_partial: bool = True,
     limit: int = 200,
 ) -> Iterator[Taxon]:
-    """Example query to get taxon records from SQLite"""
+    """Load taxon records from SQLite"""
     from sqlalchemy import select
 
     stmt = select(DbTaxon)
@@ -142,7 +152,7 @@ def get_db_taxa(
 
 
 def save_observations(observations: Iterable[Observation], db_path: PathOrStr = DB_PATH):
-    """Example of saving Observation objects (and associated taxa and photos) to SQLite"""
+    """Save Observation objects (and associated taxa and photos) to SQLite"""
     with get_session(db_path) as session:
         for observation in observations:
             session.merge(DbObservation.from_model(observation))
@@ -159,7 +169,7 @@ def save_observations(observations: Iterable[Observation], db_path: PathOrStr = 
 
 
 def save_taxa(taxa: Iterable[Taxon], db_path: PathOrStr = DB_PATH):
-    """Save Taxon objects (plus ancestors and children, if available) to the database"""
+    """Save Taxon objects (plus ancestors and children, if available) to SQLite"""
     from sqlalchemy import select
 
     with get_session(db_path) as session:

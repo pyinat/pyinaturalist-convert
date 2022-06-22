@@ -1,13 +1,61 @@
 """Base utilities for converting observation data to common formats.
 
 **Extra dependencies by format:**
-    * Excel: ``openpyxl``
-    * Feather, Parquet: ``pyarrow``
-    * HDF: ``tables``
+    * Excel: ``pandas, openpyxl``
+    * Feather, Parquet: ``pandas, pyarrow``
+    * HDF5: ``pandas, tables``
 
-.. automodsumm:: pyinaturalist_convert.converters
-   :functions-only:
-   :nosignatures:
+**Examples:**
+
+    Get some observations:
+
+    >>> from pyinaturalist import iNatClient
+    >>> client = iNatClient()
+    >>> observations = client.observations.search(user_id='my_username').all()
+
+    Convert to multiple formats:
+
+    >>> from pyinaturalist_convert import *
+    >>>
+    >>> to_csv(observations, 'my_observations.csv')
+    >>> to_excel(observations, 'my_observations.xlsx')
+    >>> to_feather(observations, 'my_observations.feather')
+    >>> to_hdf(observations, 'my_observations.hdf')
+    >>> to_json(observations, 'my_observations.json')
+    >>> to_parquet(observations, 'my_observations.parquet')
+
+    Load back into Observation objects:
+
+    >>> observations = read('my_observations.csv')
+    >>> observations = read('my_observations.xlsx')
+    >>> observations = read('my_observations.feather')
+    >>> observations = read('my_observations.hdf')
+    >>> observations = read('my_observations.json')
+    >>> observations = read('my_observations.parquet')
+
+**Export functions:**
+
+.. autosummary::
+    :nosignatures:
+
+    to_csv
+    to_excel
+    to_feather
+    to_hdf
+    to_json
+    to_parquet
+
+**Import and helper functions:**
+
+.. autosummary::
+    :nosignatures:
+
+    read
+    to_dataframe
+    to_dataset
+    to_dicts
+    to_observations
+    to_taxa
 """
 import json
 from copy import deepcopy
@@ -20,7 +68,6 @@ from pyinaturalist import BaseModel, JsonResponse, ModelObjects, Observation, Re
 from requests import Response
 from tablib import Dataset
 
-# TODO: Readme examples for read()
 # TODO: Flatten annotations and ofvs into top-level {term_label: value_label} fields
 # TODO: to_csv(): Maybe try to keep simple ID lists and manually parse when reading CSV?
 # TODO: dict lists not returning correctly when reading parquet and feather
@@ -136,7 +183,7 @@ def to_excel(observations: AnyObservations, filename: str):
 
 
 def to_feather(observations: AnyObservations, filename: str):
-    """Convert observations into a feather file"""
+    """Convert observations into a Feather file"""
     df = to_dataframe(observations)
     df.to_feather(filename)
 
@@ -148,20 +195,26 @@ def to_hdf(observations: AnyObservations, filename: str):
 
 
 def to_json(observations: AnyObservations, filename: str):
+    """Convert observations into a JSON file"""
     write(json.dumps(observations, indent=2, default=str), filename)
 
 
 def to_parquet(observations: AnyObservations, filename: str):
-    """Convert observations into a parquet file"""
+    """Convert observations into a Parquet file"""
     df = to_dataframe(observations)
     df.to_parquet(filename)
 
 
 def read(filename: PathOrStr) -> List[Observation]:
-    """Load observations from any supported file format
-    This code also serves as reference for how to load observations from various formats.
+    """Load observations from any of the following file formats:
 
-    Note: For CSV files from the iNat export tool, use :py:func:`.load_csv_exports` instead.
+    * JSON
+    * CSV (exported from pyinaturalist-convert)
+    * CSV (exported from iNaturalist export tool)
+    * Feather
+    * HDF5
+    * Parquet
+    * Excel
     """
     import pandas as pd
 

@@ -6,14 +6,25 @@ from DwC-A to SQLite.
 
 **Example**: Download everything and load into a SQLite database::
 
+    >>> from pyinaturalist_convert import load_dwca_tables
     >>> load_dwca_tables()
 
-.. automodsumm:: pyinaturalist_convert.dwca
-   :functions-only:
-   :nosignatures:
+.. note::
+    By default, data is saved in the recommended platform-specific data directory, for example
+    ``~\\AppData\\Local\\`` on Windows, or ``~/.local/share/`` on Linux. Use the ``db_path``
+    argument to use a different location.
+
+**Main functions:**
+
+.. autosummary::
+    :nosignatures:
+
+    load_dwca_tables
+    load_dwca_observations
+    load_dwca_taxa
 """
 # TODO: Lookup and replace user_login with user_id
-# TODO: Translate lifeStage and sex to annotations
+# TODO: Translate DwC lifeStage and sex to iNat annotations
 import sqlite3
 import subprocess
 from logging import getLogger
@@ -77,6 +88,9 @@ def load_dwca_tables(db_path: PathOrStr = DB_PATH):
 
     As of 2022-05, this will require about 42GB of free disk space while loading, and the final
     database will be around 8GB.
+
+    Args:
+        db_path: Path to SQLite database
     """
     download_dwca_taxa()
     download_dwca_observations()

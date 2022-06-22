@@ -15,9 +15,13 @@
     >>> # Convert Darwin Core back to Observation objects:
     >>> observations = dwc_to_observations('my_observations.dwc')
 
-.. automodsumm:: pyinaturalist_convert.dwca
-   :functions-only:
-   :nosignatures:
+**Main functions:**
+
+.. autosummary::
+    :nosignatures:
+
+    to_dwc
+    dwc_to_observations
 """
 # TODO: For sound recordings: eol:dataObject.dcterms:type and any other fields?
 import re
@@ -317,6 +321,11 @@ def _format_time(dt: Union[datetime, str]) -> str:
 
 
 def dwc_to_observations(filename: PathOrStr) -> List[Observation]:
+    """Load observations from a Darwin Core file
+
+    Args:
+        filename: Path to a DwC file
+    """
     import xmltodict
 
     with open(filename) as f:
@@ -327,7 +336,11 @@ def dwc_to_observations(filename: PathOrStr) -> List[Observation]:
 
 # TODO: Translate eol:dataObject to photos
 def dwc_record_to_observation(dwc_record: Dict[str, Any]) -> Observation:
-    """Translate a DwC record to an Observation object"""
+    """Translate a DwC Record to an Observation object
+
+    Args:
+        dwc_record: A DwC Record as a dictionary
+    """
     lookup = get_dwc_lookup()
 
     json_record = {json_key: dwc_record.get(dwc_key) for dwc_key, json_key in lookup.items()}

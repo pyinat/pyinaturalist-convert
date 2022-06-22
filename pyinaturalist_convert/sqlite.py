@@ -1,13 +1,4 @@
-"""Helper utilities to load data directly from CSV into a SQLite database.
-
-.. automodsumm:: pyinaturalist_convert.sqlite
-   :classes-only:
-   :nosignatures:
-
-.. automodsumm:: pyinaturalist_convert.sqlite
-   :functions-only:
-   :nosignatures:
-"""
+"""Helper utilities to load data directly from CSV into a SQLite database"""
 import sqlite3
 from csv import DictReader
 from csv import reader as csv_reader

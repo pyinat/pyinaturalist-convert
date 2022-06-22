@@ -1,26 +1,29 @@
 """Build and search a taxonomy full text search database using
-`FTS5 <https://www.sqlite.org/fts5.html>`_. This functions similarly to the API endpoint
+`FTS5 <https://www.sqlite.org/fts5.html>`_. This works similarly to the API endpoint
 :py:func:`~pyinaturalist.v1.taxa.get_taxa_autocomplete`, which powers the taxon autocomplete feature
 on inaturalist.org:
 
 .. image::
     ../images/inat-taxon-autocomplete.png
 
-**Extra dependencies**: ``sqlalchemy`` (for inital load only, not searching)
+**Extra dependencies**: ``sqlalchemy`` (only for building the database; not required for searches)
 
-**Example**::
+**Build Example**::
 
     >>> from pyinaturalist_convert import (
-    ...     aggregate_taxon_counts, load_dwca_tables, load_taxon_fts_table
+    ...     aggregate_taxon_counts, load_dwca_tables, load_fts_taxa
     ... )
 
+    >>> # Optional, but recommended:
     >>> load_dwca_tables()
-    >>> aggregate_taxon_counts()  # Optional, but recommended
-    >>> load_fts_taxa(language='all')  # Defaults to English names only
+    >>> aggregate_taxon_counts()
+
+    >>> # Load FTS table for all languages (Defaults to English names only):
+    >>> load_fts_taxa(language='all')
 
 .. note::
-    The process to build the database (mainly :py:func:`.aggregate_taxon_counts`) will take several
-    hours.
+    Running :py:func:`.aggregate_taxon_counts` will result in more accurate search rankings based
+    on taxon counts, but will take several hours to complete.
 
 **Search example**::
 
@@ -47,15 +50,15 @@ on inaturalist.org:
     >>> # Or by common name in a specific language
     >>> ta.search('flughund', language='german')
 
-.. automodsumm:: pyinaturalist_convert.fts
-   :classes-only:
-   :nosignatures:
+**Main classes & functions:**
 
-.. automodsumm:: pyinaturalist_convert.fts
-   :functions-only:
-   :nosignatures:
+.. autosummary::
+    :nosignatures:
+
+    TaxonAutocompleter
+    load_fts_taxa
+
 """
-# TODO: Add scientific names to common name records (unindexed, just for display purposes)
 import sqlite3
 from functools import partial
 from logging import getLogger
@@ -111,7 +114,7 @@ class TaxonAutocompleter:
     """Taxon autocomplete search.
 
     Args:
-        db_path: Path to SQLite database
+        db_path: Path to SQLite database; uses platform-specific data directory by default
         limit: Maximum number of results to return per query
     """
 

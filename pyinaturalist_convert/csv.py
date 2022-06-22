@@ -1,9 +1,23 @@
 """Import CSV observation data from the
 `iNaturalist bulk export tool <https://www.inaturalist.org/observations/export>`_.
 
-Example::
+**Extra dependencies**: ``pandas`` (for fast conversion into API-compatible results)
 
-    >>> load_csv_exports('~/Downloads/my_observations.csv')
+**Example:**
+
+    Load CSV file into a dataframe:
+
+    >>> from pyinaturalist_convert import load_csv_exports
+    >>> df = load_csv_exports('~/Downloads/my_observations.csv')
+
+**Note:** This format can also be loaded by :py:func:`~pyinaturalist_convert.converters.read()`:
+
+**Example:**
+
+    Load CSV file into Observation objects:
+
+    >>> from pyinaturalist_convert import read
+    >>> observations = load_csv_exports('~/Downloads/my_observations.csv')
 """
 import re
 from csv import DictReader
