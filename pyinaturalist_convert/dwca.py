@@ -92,11 +92,11 @@ def load_dwca_tables(db_path: PathOrStr = DB_PATH):
     Args:
         db_path: Path to SQLite database
     """
-    download_dwca_taxa()
     download_dwca_observations()
+    download_dwca_taxa()
     with CSVProgress(DWCA_OBS_CSV, DWCA_TAXON_CSV) as progress:
-        load_dwca_taxa(db_path=db_path, progress=progress)
         load_dwca_observations(db_path=db_path, progress=progress)
+        load_dwca_taxa(db_path=db_path, progress=progress)
     vacuum_analyze(['observation', 'taxon'], db_path)
 
 
