@@ -4,7 +4,7 @@ from logging import getLogger
 from typing import List
 from urllib.parse import quote_plus, unquote
 
-from pyinaturalist import Observation, Photo, Taxon, User
+from pyinaturalist import IconPhoto, Observation, Photo, Taxon, User
 from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import registry, relationship
 
@@ -124,6 +124,7 @@ class DbTaxon:
 
     @classmethod
     def from_model(cls, taxon: Taxon) -> 'DbTaxon':
+        photo_urls = _join_photo_urls(taxon.taxon_photos or [taxon.default_photo])
         return cls(
             id=taxon.id,
             active=taxon.is_active,
@@ -136,7 +137,7 @@ class DbTaxon:
             partial=taxon._partial,
             preferred_common_name=taxon.preferred_common_name,
             rank=taxon.rank,
-            photo_urls=_join_photo_urls(taxon.taxon_photos),
+            photo_urls=photo_urls,
         )
 
     def to_model(self) -> Taxon:
@@ -239,5 +240,6 @@ def _split_photo_urls(urls_str: str) -> List[Photo]:
 
 
 def _join_photo_urls(photos: List[Photo]) -> str:
-    # quote URLs first, so when splitting we can be sure ',' is not in any URL
-    return ','.join([quote_plus(p.url) for p in photos])
+    valid_photos = [p for p in photos if p and not isinstance(p, IconPhoto)]
+    # quote URLs, so when splitting we can be sure ',' is not in any URL
+    return ','.join([quote_plus(p.url) for p in valid_photos])
