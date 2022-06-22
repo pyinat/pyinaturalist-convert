@@ -11,10 +11,11 @@ on inaturalist.org:
 **Build Example**::
 
     >>> from pyinaturalist_convert import (
-    ...     aggregate_taxon_counts, load_dwca_tables, load_fts_taxa
+    ...     aggregate_taxon_counts, enable_logging, load_dwca_tables, load_fts_taxa
     ... )
 
     >>> # Optional, but recommended:
+    >>> enable_logging()
     >>> load_dwca_tables()
     >>> aggregate_taxon_counts()
 

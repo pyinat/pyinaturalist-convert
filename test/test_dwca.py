@@ -36,6 +36,7 @@ def test_load_observation_table(tmp_path):
 def test_aggregate_taxon_counts(tmp_path):
     csv_path = SAMPLE_DATA_DIR / 'taxon_counts.csv'
     db_path = tmp_path / 'observations.db'
+    counts_path = tmp_path / 'taxon_counts.parquet'
 
     with open(csv_path) as f:
         expected_counts = {int(row['id']): int(row['expected']) for row in DictReader(f)}
@@ -55,7 +56,7 @@ def test_aggregate_taxon_counts(tmp_path):
     )
 
     # Aggregate counts
-    aggregate_taxon_counts(db_path)
+    aggregate_taxon_counts(db_path, counts_path=counts_path)
 
     # Get and compare results
     with sqlite3.connect(db_path) as conn:
@@ -64,3 +65,4 @@ def test_aggregate_taxon_counts(tmp_path):
             row['id']: row['count'] for row in conn.execute('SELECT * FROM taxon').fetchall()
         }
     assert actual_counts == expected_counts
+    assert counts_path.is_file()

@@ -207,7 +207,7 @@ def get_observation_taxon_counts(db_path: PathOrStr = DB_PATH) -> Dict[int, int]
 
 
 def aggregate_taxon_counts(
-    db_path: PathOrStr = DB_PATH, save_counts_only: bool = False
+    db_path: PathOrStr = DB_PATH, counts_path: PathOrStr = TAXON_COUNTS
 ) -> 'DataFrame':
     """Aggregate taxon observation counts up to all ancestors, and save results back to taxonomy
     database.
@@ -220,6 +220,10 @@ def aggregate_taxon_counts(
     This would likely be better as a recursive function starting from the root, but dataframes don't
     lend themselves well to recursion. This is good enough for now, but could potentially be much
     faster.
+
+    Args:
+        db_path: Path to SQLite database
+        taxon_counts_path: Save a copy of taxon counts in a separate file (Parquet format)
     """
     from pandas import DataFrame
 
@@ -258,16 +262,17 @@ def aggregate_taxon_counts(
             level_ids, processed_ids = _get_next_level(df, level_ids, processed_ids, skipped_ids)
             level += 1
 
-    # Save a copy of minimal {id: count} mapping, if specified
-    df = df.set_index('id')
-    if save_counts_only:
+    # Save a copy of minimal {id: count} mapping
+    if counts_path:
+        counts_path = Path(counts_path)
+        counts_path.parent.mkdir(parents=True, exist_ok=True)
+        df = df.set_index('id')
         min_df = df[df['count'] > 0][['count']]
         min_df = min_df.sort_values('count', ascending=False)
-        min_df.to_parquet(TAXON_COUNTS)
-    # Otherwise, save back to SQLite
-    else:
-        _save_taxa_df(df, db_path)
+        min_df.to_parquet(counts_path)
 
+    # Merge results into SQLite db
+    _save_taxa_df(df, db_path)
     return df
 
 
@@ -340,6 +345,7 @@ def _get_taxon_df(db_path: PathOrStr = DB_PATH) -> 'DataFrame':
 
 def _save_taxa_df(df: 'DataFrame', db_path: PathOrStr = DB_PATH):
     """Save taxon dataframe back to SQLite; clear and reuse existing table to keep indexes"""
+    logger.info('Saving taxon counts to database')
     with sqlite3.connect(db_path) as conn:
         conn.execute('DELETE FROM taxon')
         df.to_sql('taxon', conn, if_exists='append')
