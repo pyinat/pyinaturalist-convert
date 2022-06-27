@@ -39,6 +39,7 @@ from .constants import (
     DWCA_TAXA_URL,
     DWCA_TAXON_CSV,
     DWCA_URL,
+    ICONIC_TAXA,
     TAXON_COUNTS,
     PathOrStr,
 )
@@ -272,7 +273,52 @@ def aggregate_taxon_counts(
         min_df.to_parquet(counts_path)
 
     # Merge results into SQLite db
-    _save_taxa_df(df, db_path)
+    _save_taxon_df(df, db_path)
+    return df
+
+
+def add_ancestry(db_path: PathOrStr = DB_PATH) -> 'DataFrame':
+    """Navigate the taxonomy tree to add ancestor, child, and iconic taxon IDs, and save back to
+    taxonomy database.
+
+    Args:
+        db_path: Path to SQLite database
+    """
+    df = _get_taxon_df(db_path)
+    df = df.rename_axis('id').reset_index()
+
+    root_id = 48460
+    iconic_taxon_ids = list(ICONIC_TAXA.keys())[::-1]
+    progress = get_progress()
+    task = progress.add_task('[cyan]Processing...', total=len(df))
+
+    def add_ancestry_rec(taxon_id, ancestor_ids: List[int]):
+        child_ids = list(df[df['parent_id'] == taxon_id]['id'])
+        mask = df['id'] == taxon_id
+        df.loc[mask] = df.loc[mask].apply(
+            lambda row: _update_ids(row, ancestor_ids, child_ids), axis=1
+        )
+
+        for child_id in child_ids:
+            add_ancestry_rec(child_id, ancestor_ids + [taxon_id])
+
+    def _update_ids(row, ancestor_ids, child_ids):
+        """Update ancestor, child, and iconic taxon IDs for a single taxon"""
+        iconic_taxon_id = next((i for i in ancestor_ids if i in iconic_taxon_ids), '')
+        row['ancestor_ids'] = _join_ids(ancestor_ids)
+        row['child_ids'] = _join_ids(child_ids)
+        row['iconic_taxon_id'] = str(iconic_taxon_id)
+        progress.advance(task, 1)
+        return row
+
+    def _join_ids(ids: List[int] = None) -> str:
+        return ','.join(map(str, ids)) if ids else ''
+
+    with progress:
+        add_ancestry_rec(root_id, [])
+
+    # Merge results into SQLite db
+    _save_taxon_df(df, db_path)
     return df
 
 
@@ -287,7 +333,7 @@ def update_taxon_counts(
     taxon_counts = pd.read_parquet(counts_path)
     df = _get_taxon_df(db_path)
     df = _join_counts(df, taxon_counts)
-    _save_taxa_df(df, db_path)
+    _save_taxon_df(df, db_path)
     return df
 
 
@@ -343,12 +389,12 @@ def _get_taxon_df(db_path: PathOrStr = DB_PATH) -> 'DataFrame':
     return df
 
 
-def _save_taxa_df(df: 'DataFrame', db_path: PathOrStr = DB_PATH):
+def _save_taxon_df(df: 'DataFrame', db_path: PathOrStr = DB_PATH):
     """Save taxon dataframe back to SQLite; clear and reuse existing table to keep indexes"""
     logger.info('Saving taxon counts to database')
     with sqlite3.connect(db_path) as conn:
         conn.execute('DELETE FROM taxon')
-        df.to_sql('taxon', conn, if_exists='append')
+        df.to_sql('taxon', conn, if_exists='append', index=False)
         conn.execute('VACUUM')
 
 
@@ -360,6 +406,19 @@ def _join_counts(df: 'DataFrame', taxon_counts: 'DataFrame') -> 'DataFrame':
     df = df.join(taxon_counts)
     df['count'] = df['count'].fillna(0).astype(int64)
     return df
+
+
+def _get_descendants(taxon_id: int, db_path: PathOrStr = DB_PATH) -> List[int]:
+    """Recursively get all descendant taxon IDs (down to leaf taxa) for the given taxon"""
+    import pandas as pd
+
+    df = _get_taxon_df(db_path)
+
+    def _get_descendants_rec(parent_id):
+        child_ids = df[df['parent_id'] == parent_id]['id']
+        return pd.concat([child_ids] + [_get_descendants_rec(c) for c in child_ids])
+
+    return list(_get_descendants_rec(taxon_id))
 
 
 def _get_leaf_taxa(db_path: PathOrStr = DB_PATH) -> List[int]:
@@ -397,52 +456,3 @@ def _get_obs_column_map(fields: List[str]) -> Dict[str, str]:
     """Translate subset of DwC terms to API-compatible field names"""
     lookup = {k.split(':')[-1]: v.replace('.', '_') for k, v in get_dwc_lookup().items()}
     return {field: lookup[field] for field in fields}
-
-
-# For reference: other columns available that aren't loaded by default
-UNUSED_OBS_COLUMNS = [
-    'basisOfRecord',
-    'collectionCode',
-    'countryCode',
-    'datasetName',
-    'eventTime',
-    'geodeticDatum',
-    'id',
-    'identificationID',
-    'identificationRemarks',
-    'identifiedBy',
-    'identifiedByID',
-    'institutionCode',
-    'license',
-    'occurrenceID',
-    'modified',
-    'publishingCountry',
-    'recordedBy',
-    'reproductiveCondition',
-    'recordedByID',
-    'references',
-    'rightsHolder',
-    'scientificName',
-    'stateProvince',
-    'verbatimEventDate',
-    'verbatimLocality',
-    'taxonRank',
-    'kingdom',
-    'phylum',
-    'class',
-    'order',
-    'family',
-    'genus',
-    'sex',
-    'lifeStage',
-]
-UNUSED_TAXON_COLUMNS = [
-    'kingdom',
-    'phylum',
-    'class',
-    'order',
-    'family',
-    'genus',
-    'specificEpithet' 'infraspecificEpithet' 'modified',
-    'references',
-]
