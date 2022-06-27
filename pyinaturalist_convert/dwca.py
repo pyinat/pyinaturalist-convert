@@ -267,55 +267,10 @@ def aggregate_taxon_counts(
     if counts_path:
         counts_path = Path(counts_path)
         counts_path.parent.mkdir(parents=True, exist_ok=True)
-        df = df.set_index('id')
-        min_df = df[df['count'] > 0][['count']]
+        min_df = df.set_index('id')
+        min_df = min_df[min_df['count'] > 0][['count']]
         min_df = min_df.sort_values('count', ascending=False)
         min_df.to_parquet(counts_path)
-
-    # Merge results into SQLite db
-    _save_taxon_df(df, db_path)
-    return df
-
-
-def add_ancestry(db_path: PathOrStr = DB_PATH) -> 'DataFrame':
-    """Navigate the taxonomy tree to add ancestor, child, and iconic taxon IDs, and save back to
-    taxonomy database.
-
-    Args:
-        db_path: Path to SQLite database
-    """
-    df = _get_taxon_df(db_path)
-    df = df.rename_axis('id').reset_index()
-
-    root_id = 48460
-    iconic_taxon_ids = list(ICONIC_TAXA.keys())[::-1]
-    progress = get_progress()
-    task = progress.add_task('[cyan]Processing...', total=len(df))
-
-    def add_ancestry_rec(taxon_id, ancestor_ids: List[int]):
-        child_ids = list(df[df['parent_id'] == taxon_id]['id'])
-        mask = df['id'] == taxon_id
-        df.loc[mask] = df.loc[mask].apply(
-            lambda row: _update_ids(row, ancestor_ids, child_ids), axis=1
-        )
-
-        for child_id in child_ids:
-            add_ancestry_rec(child_id, ancestor_ids + [taxon_id])
-
-    def _update_ids(row, ancestor_ids, child_ids):
-        """Update ancestor, child, and iconic taxon IDs for a single taxon"""
-        iconic_taxon_id = next((i for i in ancestor_ids if i in iconic_taxon_ids), '')
-        row['ancestor_ids'] = _join_ids(ancestor_ids)
-        row['child_ids'] = _join_ids(child_ids)
-        row['iconic_taxon_id'] = str(iconic_taxon_id)
-        progress.advance(task, 1)
-        return row
-
-    def _join_ids(ids: List[int] = None) -> str:
-        return ','.join(map(str, ids)) if ids else ''
-
-    with progress:
-        add_ancestry_rec(root_id, [])
 
     # Merge results into SQLite db
     _save_taxon_df(df, db_path)
@@ -384,7 +339,7 @@ def _get_taxon_df(db_path: PathOrStr = DB_PATH) -> 'DataFrame':
     import pandas as pd
 
     logger.info(f'Loading taxa from {db_path}')
-    df = pd.read_sql_query('SELECT * FROM taxon', sqlite3.connect(db_path), index_col='id')
+    df = pd.read_sql_query('SELECT * FROM taxon', sqlite3.connect(db_path))
     df['parent_id'] = df['parent_id'].astype(pd.Int64Dtype())
     return df
 
@@ -406,19 +361,6 @@ def _join_counts(df: 'DataFrame', taxon_counts: 'DataFrame') -> 'DataFrame':
     df = df.join(taxon_counts)
     df['count'] = df['count'].fillna(0).astype(int64)
     return df
-
-
-def _get_descendants(taxon_id: int, db_path: PathOrStr = DB_PATH) -> List[int]:
-    """Recursively get all descendant taxon IDs (down to leaf taxa) for the given taxon"""
-    import pandas as pd
-
-    df = _get_taxon_df(db_path)
-
-    def _get_descendants_rec(parent_id):
-        child_ids = df[df['parent_id'] == parent_id]['id']
-        return pd.concat([child_ids] + [_get_descendants_rec(c) for c in child_ids])
-
-    return list(_get_descendants_rec(taxon_id))
 
 
 def _get_leaf_taxa(db_path: PathOrStr = DB_PATH) -> List[int]:
