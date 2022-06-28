@@ -32,14 +32,14 @@ from os.path import basename, splitext
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Set, Tuple
 
+from pyinaturalist.constants import DATA_DIR, ICONIC_TAXA
+
 from .constants import (
-    DATA_DIR,
     DB_PATH,
     DWCA_OBS_CSV,
     DWCA_TAXA_URL,
     DWCA_TAXON_CSV,
     DWCA_URL,
-    ICONIC_TAXA,
     TAXON_COUNTS,
     PathOrStr,
 )
@@ -233,9 +233,7 @@ def aggregate_taxon_counts(
     # Get taxon counts from observations table
     taxon_counts_dict = get_observation_taxon_counts(db_path)
     taxon_counts = DataFrame(taxon_counts_dict.items(), columns=['id', 'count'])
-    taxon_counts = taxon_counts.set_index('id')
     df = _join_counts(df, taxon_counts)
-    df = df.rename_axis('id').reset_index()
 
     def add_child_counts(row):
         """Add child counts to the given taxon, if all children have been counted"""
@@ -357,10 +355,12 @@ def _join_counts(df: 'DataFrame', taxon_counts: 'DataFrame') -> 'DataFrame':
     """Join taxon dataframe with updated taxon counts"""
     from numpy import int64
 
+    df = df.set_index('id')
     df = df.drop('count', axis=1)
     df = df.join(taxon_counts)
     df['count'] = df['count'].fillna(0).astype(int64)
-    return df
+
+    return df.rename_axis('id').reset_index()
 
 
 def _get_leaf_taxa(db_path: PathOrStr = DB_PATH) -> List[int]:
