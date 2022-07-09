@@ -1,9 +1,8 @@
 from pathlib import Path
 from typing import Union
 
-from platformdirs import user_data_dir
+from pyinaturalist.constants import DATA_DIR
 
-DATA_DIR = Path(user_data_dir()) / 'pyinaturalist'
 DB_PATH = DATA_DIR / 'observations.db'
 DEFAULT_DB_URI = f'sqlite:////{DB_PATH}'
 
@@ -19,7 +18,6 @@ ODP_OBS_CSV = ODP_CSV_DIR / 'observations.csv'
 ODP_TAXON_CSV = ODP_CSV_DIR / 'taxa.csv'
 ODP_PHOTO_CSV = ODP_CSV_DIR / 'photos.csv'
 ODP_USER_CSV = ODP_CSV_DIR / 'observers.csv'
-
 
 DWCA_TAXON_CSV_DIR = DATA_DIR / 'inaturalist-taxonomy.dwca'
 DWCA_TAXON_CSV = DWCA_TAXON_CSV_DIR / 'taxa.csv'
