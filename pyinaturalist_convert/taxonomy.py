@@ -6,13 +6,13 @@ from multiprocessing import Manager, Process
 from pathlib import Path
 from queue import Queue
 from time import sleep, time
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 from pyinaturalist import Taxon
 from pyinaturalist.constants import ICONIC_TAXA, ROOT_TAXON_ID
 
 from .constants import DB_PATH, DWCA_TAXON_CSV_DIR, TAXON_COUNTS, PathOrStr
-from .download import get_progress
+from .download import ParallelMultiProgress
 
 # TODO: Could also add the total number of descendants to the taxon table (useful for display)
 #      Or total leaf taxa
@@ -22,6 +22,9 @@ if TYPE_CHECKING:
 
 # Bacteria, viruses, etc.
 EXCLUDE_IDS = [67333, 131236, 151817, 1228707, 1285874]
+
+# Most populous phylum IDs to start processing first
+LOAD_FIRST_IDS = [47120, 211194, 2]
 
 
 logger = getLogger(__name__)
@@ -47,23 +50,36 @@ def aggregate_taxon_db(
     taxon_counts_dict = get_observation_taxon_counts(db_path)
     taxon_counts = pd.DataFrame(taxon_counts_dict.items(), columns=['id', 'count'])
     df = _join_counts(df, taxon_counts)
+    n_phyla = len(df[(df['rank'] == 'phylum') & ~df['parent_id'].isin(EXCLUDE_IDS)])
 
     # A queue for completed items; a separate process pulls from this to update progress bar
     manager = Manager()
-    q = manager.Queue()
-    progress_proc = Process(target=update_progress, args=(q, len(df)))
+    progress_queue = manager.Queue()
+    task_queue = manager.Queue()
+    progress_total = len(df) + n_phyla + 1
+    progress_proc = Process(
+        target=update_progress, args=(progress_queue, task_queue, progress_total)
+    )
     progress_proc.start()
 
     # Get common names from CSV
-    common_names = _get_common_names(language=language)
+    common_names = _get_common_names(
+        language=language, progress_queue=progress_queue, task_queue=task_queue
+    )
 
     # Parallelize by phylum; split up entire dataframe to minimize memory usage per process
     combined_df = df[(df['id'] == ROOT_TAXON_ID) | (df['rank'] == 'kingdom')]
     phyla = [
-        Taxon.from_json(t)
-        for t in df[df['rank'] == 'phylum'].to_dict(orient='records')
-        if t['parent_id'] not in EXCLUDE_IDS
+        Taxon.from_json(taxon)
+        for taxon in df[df['id'].isin(LOAD_FIRST_IDS)].to_dict(orient='records')
     ]
+    phyla.extend(
+        [
+            Taxon.from_json(taxon)
+            for taxon in df[df['rank'] == 'phylum'].to_dict(orient='records')
+            if taxon['parent_id'] not in (EXCLUDE_IDS + LOAD_FIRST_IDS)
+        ]
+    )
 
     logger.info('Partitioning taxon dataframe by phylum')
     with ProcessPoolExecutor() as executor_1, ProcessPoolExecutor() as executor_2:
@@ -71,8 +87,10 @@ def aggregate_taxon_db(
             executor_1.submit(
                 get_descendant_ids,
                 taxon_id=taxon.id,
+                taxon_name=taxon.name,
                 df=df[['id', 'parent_id']],
-                # q=q,
+                progress_queue=progress_queue,
+                task_queue=task_queue,
             ): taxon
             for taxon in phyla
         }
@@ -93,7 +111,8 @@ def aggregate_taxon_db(
                     taxon_name=taxon.name,
                     ancestor_ids=[ROOT_TAXON_ID, taxon.parent_id],
                     common_names=common_names,
-                    q=q,
+                    progress_queue=progress_queue,
+                    task_queue=task_queue,
                 )
             )
 
@@ -138,14 +157,18 @@ def get_observation_taxon_counts(db_path: PathOrStr = DB_PATH) -> Dict[int, int]
 
 def get_descendant_ids(
     taxon_id: int,
+    taxon_name: str = None,
     db_path: PathOrStr = DB_PATH,
     df: 'DataFrame' = None,
-    q: Queue = None,
+    progress_queue: Queue = None,
+    task_queue: Queue = None,
 ) -> List[int]:
     """Recursively get all descendant taxon IDs (down to leaf taxa) for the given taxon"""
     import pandas as pd
 
-    logger.debug(f'Finding descendants of {taxon_id}')
+    task_name = f'phylum {taxon_name}'
+    if task_queue:
+        task_queue.put((task_name, 'Finding descendants of', 1))
 
     if df is None:
         df = get_taxon_df(db_path)
@@ -153,11 +176,12 @@ def get_descendant_ids(
     def _get_descendants_rec(parent_id):
         child_ids = df[(df['parent_id'] == parent_id)]['id']
         combined = pd.concat([child_ids] + [_get_descendants_rec(c) for c in child_ids])
-        if q:
-            q.put(len(child_ids))
         return combined
 
-    return [taxon_id] + list(_get_descendants_rec(taxon_id))
+    descendant_ids = [taxon_id] + list(_get_descendants_rec(taxon_id))
+    if progress_queue:
+        progress_queue.put((task_name, 1))
+    return descendant_ids
 
 
 def aggregate_branch(
@@ -166,19 +190,23 @@ def aggregate_branch(
     taxon_name: str = None,
     ancestor_ids: List[int] = None,
     common_names: Dict[int, str] = None,
-    q: Queue = None,
+    progress_queue: Queue = None,
+    task_queue: Queue = None,
 ) -> 'DataFrame':
     """Add aggregate values to all descendants of a given taxon"""
     logger.debug(f'Processing phylum {taxon_name} ({len(df)} taxa)')
     common_names = common_names or {}
+    task_name = f'phylum {taxon_name}'
+    if task_queue:
+        task_queue.put((task_name, 'Loading', len(df) - 1))
 
     def aggregate_rec(taxon_id, ancestor_ids: List[int]):
         # Process children first, to update counts
         child_ids = list(df[df['parent_id'] == taxon_id]['id'])
         for child_id in child_ids:
             aggregate_rec(child_id, ancestor_ids + [taxon_id])
-        if q:
-            q.put(len(child_ids))
+        if progress_queue:
+            progress_queue.put((task_name, len(child_ids)))
 
         # Get combined child counts
         children = df[df['parent_id'] == taxon_id]
@@ -266,12 +294,19 @@ def save_taxon_df(df: 'DataFrame', db_path: PathOrStr = DB_PATH):
 
 
 def _get_common_names(
-    csv_dir: PathOrStr = DWCA_TAXON_CSV_DIR, language: str = 'english'
+    csv_dir: PathOrStr = DWCA_TAXON_CSV_DIR,
+    language: str = 'english',
+    progress_queue: Queue = None,
+    task_queue: Queue = None,
 ) -> Dict[int, str]:
     """Get common names for the specified language from DwC-A taxonomy files"""
     import pandas as pd
 
     logger.info(f'Loading {language} common names')
+    # Arbitrary value to advance progress bar
+    if task_queue:
+        task_queue.put(('common names', 'Loading', 1))
+
     csv_path = Path(csv_dir).expanduser() / f'VernacularNames-{language}.csv'
     if not csv_path.is_file():
         logger.warning(f'File not found: {csv_path}; common names will not be loaded')
@@ -282,19 +317,43 @@ def _get_common_names(
     # Get the first match for each taxon ID; appears to be already sorted by relevance
     df = df.groupby('id').take([0])
     df = df.reset_index(['id']).set_index('id')
-    return df['vernacularName'].to_dict()
+    df = df['vernacularName'].to_dict()
+
+    if progress_queue:
+        progress_queue.put(('common names', 1))
+    return df
 
 
-def update_progress(q: Queue, total: int):
+def update_progress(progress_queue: Queue, task_queue: Queue, total: int):
     """Pull from a multiprocessing queue and update progress"""
-    progress = get_progress()
-    task = progress.add_task('[cyan]Processing...', total=total)
+    progress = ParallelMultiProgress(total=total, auto_refresh=False)
+    pending: List[Tuple[str, int]] = []
+    max_new_tasks_per_tick = 10
 
     with progress:
         while True:
-            while not q.empty():
-                n_completed = q.get()
-                progress.advance(task, n_completed)
+            new_tasks = 0
+            # Check for new tasks
+            while not task_queue.empty() and new_tasks < max_new_tasks_per_tick:
+                task_name, task_desc, total = task_queue.get()
+                progress.start_job(task_name, total, task_desc)
+                new_tasks += 1
+
+            # Check for new progress
+            while not progress_queue.empty():
+                pending.append(progress_queue.get())
+
+            # Update progress bars
+            completed = pending.copy()
+            pending = []
+            for (task_name, n_completed) in completed:
+                if task_name in progress.job_names:
+                    progress.advance(task_name, n_completed)
+                # Received progress for a task that hasn't been added yet; check next iteration
+                else:
+                    pending.append((task_name, n_completed))
+
+            progress.refresh()
             sleep(0.1)
 
 
