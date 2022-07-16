@@ -1,3 +1,4 @@
+"""Utilities for working with taxonomy data"""
 import sqlite3
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from logging import getLogger
@@ -18,9 +19,6 @@ from .download import get_progress
 
 if TYPE_CHECKING:
     from pandas import DataFrame
-
-ICONIC_TAXON_IDS = list(ICONIC_TAXA.keys())[::-1]
-ICONIC_TAXON_IDS.remove(0)
 
 # Bacteria, viruses, etc.
 EXCLUDE_IDS = [67333, 131236, 151817, 1228707, 1285874]
@@ -199,7 +197,7 @@ def _update_row(row, ancestor_ids, child_ids, agg_count=0):
     def _join_ids(ids: List[int]) -> Optional[str]:
         return ','.join(map(str, ids)) if ids else None
 
-    iconic_taxon_id = next((i for i in ancestor_ids if i in ICONIC_TAXON_IDS), None)
+    iconic_taxon_id = next((i for i in ancestor_ids if i in ICONIC_TAXA), None)
     row['ancestor_ids'] = _join_ids(ancestor_ids)
     row['child_ids'] = _join_ids(child_ids)
     row['count'] += agg_count
@@ -297,10 +295,3 @@ def _save_taxon_counts(df: 'DataFrame', counts_path: PathOrStr = TAXON_COUNTS):
     min_df = min_df[min_df['count'] > 0][['count']]
     min_df = min_df.sort_values('count', ascending=False)
     min_df.to_parquet(counts_path)
-
-
-if __name__ == "__main__":
-    from pyinaturalist import enable_logging
-
-    enable_logging('DEBUG')
-    df = aggregate_taxon_db()
