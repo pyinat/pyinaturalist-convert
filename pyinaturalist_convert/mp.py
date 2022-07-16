@@ -5,6 +5,7 @@ from queue import Queue
 from time import sleep, time
 from typing import TYPE_CHECKING, List, Optional
 
+from pyinaturalist import Taxon
 from pyinaturalist.constants import ICONIC_TAXA, ROOT_TAXON_ID
 
 from .constants import DB_PATH, PathOrStr
@@ -14,8 +15,6 @@ from .dwca import _get_taxon_df, _save_taxon_df
 # TODO: Combine with aggregate_taxon_counts
 # TODO: Could also add the total number of descendants to the taxon table (useful for display)
 #      Or total leaf taxa
-# TODO: Maybe parallelize by phylum instead?
-# TODO: Handle taxa in between root and iconic taxa
 
 if TYPE_CHECKING:
     from pandas import DataFrame
@@ -23,13 +22,19 @@ if TYPE_CHECKING:
 ICONIC_TAXON_IDS = list(ICONIC_TAXA.keys())[::-1]
 ICONIC_TAXON_IDS.remove(0)
 
+# Bacteria, viruses, etc.
+EXCLUDE_IDS = [67333, 131236, 151817, 1228707, 1285874]
+
+
 logger = getLogger(__name__)
 
 
 def add_ancestry(db_path: PathOrStr = DB_PATH) -> 'DataFrame':
     import pandas as pd
 
+    start = time()
     df = _get_taxon_df(db_path)
+    logger.info('Start')
 
     # A queue for completed items; a separate process pulls from this to update progress bar
     manager = Manager()
@@ -37,48 +42,55 @@ def add_ancestry(db_path: PathOrStr = DB_PATH) -> 'DataFrame':
     progress_proc = Process(target=update_progress, args=(q, len(df)))
     progress_proc.start()
 
-    # Parallelize by iconic taxa; split up entire dataframe to minimize memory usage per process
-    # Note: This excludes bacteria, viruses, and archaea
-    start = time()
-    combined_df = df[df['id'] == ROOT_TAXON_ID]
-    logger.info('Partitioning taxon dataframe')
-    with ProcessPoolExecutor() as executor:
-        futures_to_id = {
-            executor.submit(
-                get_descendants,
-                taxon_id=taxon_id,
+    # Start by processing all kingdoms
+    combined_df = df[df['rank'] == 'kingdom']
+    for taxon_id in combined_df['id']:
+        child_ids = list(df[df['parent_id'] == taxon_id]['id'])
+        mask = df['id'] == taxon_id
+        df.loc[mask] = df.loc[mask].apply(
+            lambda row: _update_ids(row, [ROOT_TAXON_ID], child_ids), axis=1
+        )
+    combined_df = pd.concat([df[df['id'] == ROOT_TAXON_ID], combined_df], ignore_index=True)
+
+    # Parallelize by phylum; split up entire dataframe to minimize memory usage per process
+    phyla = [
+        Taxon.from_json(t)
+        for t in df[df['rank'] == 'phylum'].to_dict(orient='records')
+        if t['parent_id'] not in EXCLUDE_IDS
+    ]
+
+    logger.info('Partitioning taxon dataframe by phylum')
+    with ProcessPoolExecutor() as executor_1, ProcessPoolExecutor() as executor_2:
+        futures_to_taxon = {
+            executor_1.submit(
+                get_descendant_ids,
+                taxon_id=taxon.id,
                 df=df[['id', 'parent_id']],
-                # For Animalia, skip descendants of other iconic taxa
-                exclude_branches=ICONIC_TAXON_IDS if taxon_id == 1 else [],
                 # q=q,
-            ): taxon_id
-            for taxon_id in ICONIC_TAXON_IDS
+            ): taxon
+            for taxon in phyla
         }
 
-        # DEBUG: Test progress bar
-        # def _dummy(branch_id, q):
-        #     for i in range(100):
-        #         q.put(10)
-        #         sleep(0.1)
-        #     return df[df['id'] == branch_id]
-        # futures = [executor.submit(_dummy, df, branch_id, q) for branch_id in ICONIC_TAXON_IDS]
-
-        # Process each iconic taxon branch
+        # Process each phylum subtree
         stage_2_futures = []
-        for future in as_completed(futures_to_id):
-            iconic_taxon_id = futures_to_id[future]
-            descenants = future.result()
+        for future in as_completed(futures_to_taxon):
+            taxon = futures_to_taxon[future]
+            descenant_ids = future.result()
             stage_2_futures.append(
-                executor.submit(
+                executor_2.submit(
                     add_ancestry_branch,
-                    df[df['id'].isin(descenants)].copy(),
-                    iconic_taxon_id,
-                    q,
+                    df[df['id'].isin(descenant_ids)].copy(),
+                    # df[df['id'].isin(descenants)][
+                    #     ['id', 'parent_id', 'ancestor_ids', 'child_ids']
+                    # ].copy(),
+                    taxon_id=taxon.id,
+                    taxon_name=taxon.name,
+                    ancestor_ids=[ROOT_TAXON_ID, taxon.parent_id],
+                    q=q,
                 )
             )
 
-        # As each branch is completed, recombine into a single dataframe
-        logger.info('Adding ancestry')
+        # As each subtree is completed, recombine into a single dataframe
         for future in as_completed(stage_2_futures):
             sub_df = future.result()
             combined_df = pd.concat([combined_df, sub_df], ignore_index=True)
@@ -89,11 +101,39 @@ def add_ancestry(db_path: PathOrStr = DB_PATH) -> 'DataFrame':
     return combined_df
 
 
-def add_ancestry_branch(df: 'DataFrame', iconic_taxon_id: int, q: Queue) -> 'DataFrame':
-    """Add ancestry to all descendants of an iconic taxon"""
-    taxon_name = ICONIC_TAXA.get(iconic_taxon_id)
-    logger.debug(f'Processing {iconic_taxon_id} ({taxon_name})')
-    df['iconic_taxon_id'] = str(iconic_taxon_id)
+def get_descendant_ids(
+    taxon_id: int,
+    db_path: PathOrStr = DB_PATH,
+    df: 'DataFrame' = None,
+    q: Queue = None,
+) -> List[int]:
+    """Recursively get all descendant taxon IDs (down to leaf taxa) for the given taxon"""
+    import pandas as pd
+
+    logger.debug(f'Finding descendants of {taxon_id}')
+
+    if df is None:
+        df = _get_taxon_df(db_path)
+
+    def _get_descendants_rec(parent_id):
+        child_ids = df[(df['parent_id'] == parent_id)]['id']
+        combined = pd.concat([child_ids] + [_get_descendants_rec(c) for c in child_ids])
+        if q:
+            q.put(len(child_ids))
+        return combined
+
+    return [taxon_id] + list(_get_descendants_rec(taxon_id))
+
+
+def add_ancestry_branch(
+    df: 'DataFrame',
+    taxon_id: int,
+    taxon_name: str = None,
+    ancestor_ids: List[int] = None,
+    q: Queue = None,
+) -> 'DataFrame':
+    """Add ancestry to all descendants of a given taxon"""
+    logger.debug(f'Processing phylum {taxon_name} ({len(df)} taxa)')
 
     def add_ancestry_rec(taxon_id, ancestor_ids: List[int]):
         child_ids = list(df[df['parent_id'] == taxon_id]['id'])
@@ -104,10 +144,11 @@ def add_ancestry_branch(df: 'DataFrame', iconic_taxon_id: int, q: Queue) -> 'Dat
 
         for child_id in child_ids:
             add_ancestry_rec(child_id, ancestor_ids + [taxon_id])
-        q.put(len(child_ids))
+        if q:
+            q.put(len(child_ids))
 
-    add_ancestry_rec(iconic_taxon_id, [ROOT_TAXON_ID])
-    logger.debug(f'Completed {iconic_taxon_id} ({taxon_name})')
+    add_ancestry_rec(taxon_id, ancestor_ids or [ROOT_TAXON_ID])
+    logger.debug(f'Completed {taxon_name}')
     return df
 
 
@@ -117,38 +158,11 @@ def _update_ids(row, ancestor_ids, child_ids):
     def _join_ids(ids: List[int]) -> Optional[str]:
         return ','.join(map(str, ids)) if ids else None
 
+    iconic_taxon_id = next((i for i in ancestor_ids if i in ICONIC_TAXON_IDS), None)
     row['ancestor_ids'] = _join_ids(ancestor_ids)
     row['child_ids'] = _join_ids(child_ids)
+    row['iconic_taxon_id'] = str(iconic_taxon_id)
     return row
-
-
-def get_descendants(
-    taxon_id: int,
-    db_path: PathOrStr = DB_PATH,
-    df: 'DataFrame' = None,
-    exclude_branches: List[int] = None,
-    q: Queue = None,
-) -> List[int]:
-    """Recursively get all descendant taxon IDs (down to leaf taxa) for the given taxon"""
-    import pandas as pd
-
-    taxon_name = ICONIC_TAXA.get(taxon_id)
-    logger.debug(f'Finding descendants of {taxon_id} ({taxon_name})')
-
-    if df is None:
-        df = _get_taxon_df(db_path)
-
-    def _get_descendants_rec(parent_id):
-        if exclude_branches:
-            child_ids = df[(df['parent_id'] == parent_id) & ~df['id'].isin(exclude_branches)]['id']
-        else:
-            child_ids = df[(df['parent_id'] == parent_id)]['id']
-        combined = pd.concat([child_ids] + [_get_descendants_rec(c) for c in child_ids])
-        if q:
-            q.put(len(child_ids))
-        return combined
-
-    return [taxon_id] + list(_get_descendants_rec(taxon_id))
 
 
 def update_progress(q: Queue, total: int):
