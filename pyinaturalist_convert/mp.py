@@ -1,18 +1,18 @@
+import sqlite3
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from logging import getLogger
 from multiprocessing import Manager, Process
+from pathlib import Path
 from queue import Queue
 from time import sleep, time
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 from pyinaturalist import Taxon
 from pyinaturalist.constants import ICONIC_TAXA, ROOT_TAXON_ID
 
-from .constants import DB_PATH, PathOrStr
+from .constants import DB_PATH, TAXON_COUNTS, PathOrStr
 from .download import get_progress
-from .dwca import _get_taxon_df, _save_taxon_df
 
-# TODO: Combine with aggregate_taxon_counts
 # TODO: Could also add the total number of descendants to the taxon table (useful for display)
 #      Or total leaf taxa
 
@@ -29,12 +29,24 @@ EXCLUDE_IDS = [67333, 131236, 151817, 1228707, 1285874]
 logger = getLogger(__name__)
 
 
-def add_ancestry(db_path: PathOrStr = DB_PATH) -> 'DataFrame':
+def aggregate_taxon_db(
+    db_path: PathOrStr = DB_PATH, counts_path: PathOrStr = TAXON_COUNTS
+) -> 'DataFrame':
+    """Add aggregate values to the taxon database:
+
+    * Ancestor IDs
+    * Child IDs
+    * Iconic taxon ID
+    * Aggregated observation taxon counts
+    """
     import pandas as pd
 
+    # Get taxon counts from observations table
     start = time()
     df = _get_taxon_df(db_path)
-    logger.info('Start')
+    taxon_counts_dict = get_observation_taxon_counts(db_path)
+    taxon_counts = pd.DataFrame(taxon_counts_dict.items(), columns=['id', 'count'])
+    df = _join_counts(df, taxon_counts)
 
     # A queue for completed items; a separate process pulls from this to update progress bar
     manager = Manager()
@@ -48,7 +60,7 @@ def add_ancestry(db_path: PathOrStr = DB_PATH) -> 'DataFrame':
         child_ids = list(df[df['parent_id'] == taxon_id]['id'])
         mask = df['id'] == taxon_id
         df.loc[mask] = df.loc[mask].apply(
-            lambda row: _update_ids(row, [ROOT_TAXON_ID], child_ids), axis=1
+            lambda row: _update_row(row, [ROOT_TAXON_ID], child_ids), axis=1
         )
     combined_df = pd.concat([df[df['id'] == ROOT_TAXON_ID], combined_df], ignore_index=True)
 
@@ -78,7 +90,7 @@ def add_ancestry(db_path: PathOrStr = DB_PATH) -> 'DataFrame':
             descenant_ids = future.result()
             stage_2_futures.append(
                 executor_2.submit(
-                    add_ancestry_branch,
+                    aggregate_branch,
                     df[df['id'].isin(descenant_ids)].copy(),
                     # df[df['id'].isin(descenants)][
                     #     ['id', 'parent_id', 'ancestor_ids', 'child_ids']
@@ -95,10 +107,36 @@ def add_ancestry(db_path: PathOrStr = DB_PATH) -> 'DataFrame':
             sub_df = future.result()
             combined_df = pd.concat([combined_df, sub_df], ignore_index=True)
 
+    # Save a copy of minimal {id: count} mapping
+    if counts_path:
+        _save_taxon_counts(combined_df, counts_path)
+
     logger.debug(f'Elapsed: {time()-start:.2f}s')
     progress_proc.terminate()
+    # TODO: Save results once WIP changes are done
     # _save_taxon_df(df, db_path)
     return combined_df
+
+
+def get_observation_taxon_counts(db_path: PathOrStr = DB_PATH) -> Dict[int, int]:
+    """Get taxon counts based on GBIF export (exact rank counts only, no aggregage counts)"""
+    if not Path(db_path).is_file():
+        logger.warning(f'Observation database {db_path} not found')
+        return {}
+
+    logger.info(f'Getting base taxon counts from {db_path}')
+    with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            'SELECT taxon_id, COUNT(*) AS count FROM observation '
+            'WHERE taxon_id IS NOT NULL '
+            'GROUP BY taxon_id;'
+        ).fetchall()
+
+        return {
+            int(row['taxon_id']): int(row['count'])
+            for row in sorted(rows, key=lambda r: r['count'], reverse=True)
+        }
 
 
 def get_descendant_ids(
@@ -125,35 +163,38 @@ def get_descendant_ids(
     return [taxon_id] + list(_get_descendants_rec(taxon_id))
 
 
-def add_ancestry_branch(
+def aggregate_branch(
     df: 'DataFrame',
     taxon_id: int,
     taxon_name: str = None,
     ancestor_ids: List[int] = None,
     q: Queue = None,
 ) -> 'DataFrame':
-    """Add ancestry to all descendants of a given taxon"""
+    """Add aggregate values to all descendants of a given taxon"""
     logger.debug(f'Processing phylum {taxon_name} ({len(df)} taxa)')
 
-    def add_ancestry_rec(taxon_id, ancestor_ids: List[int]):
-        child_ids = list(df[df['parent_id'] == taxon_id]['id'])
+    def aggregate_rec(taxon_id, ancestor_ids: List[int]):
+        children = df[df['parent_id'] == taxon_id]
+        child_ids = list(children['id'])
+        agg_count = children['count'].sum()
+
         mask = df['id'] == taxon_id
         df.loc[mask] = df.loc[mask].apply(
-            lambda row: _update_ids(row, ancestor_ids, child_ids), axis=1
+            lambda row: _update_row(row, ancestor_ids, child_ids, agg_count), axis=1
         )
 
         for child_id in child_ids:
-            add_ancestry_rec(child_id, ancestor_ids + [taxon_id])
+            aggregate_rec(child_id, ancestor_ids + [taxon_id])
         if q:
             q.put(len(child_ids))
 
-    add_ancestry_rec(taxon_id, ancestor_ids or [ROOT_TAXON_ID])
+    aggregate_rec(taxon_id, ancestor_ids or [ROOT_TAXON_ID])
     logger.debug(f'Completed {taxon_name}')
     return df
 
 
-def _update_ids(row, ancestor_ids, child_ids):
-    """Update ancestor, child, and iconic taxon IDs for a single taxon"""
+def _update_row(row, ancestor_ids, child_ids, agg_count=0):
+    """Update aggregate values for a single taxon"""
 
     def _join_ids(ids: List[int]) -> Optional[str]:
         return ','.join(map(str, ids)) if ids else None
@@ -161,6 +202,7 @@ def _update_ids(row, ancestor_ids, child_ids):
     iconic_taxon_id = next((i for i in ancestor_ids if i in ICONIC_TAXON_IDS), None)
     row['ancestor_ids'] = _join_ids(ancestor_ids)
     row['child_ids'] = _join_ids(child_ids)
+    row['count'] += agg_count
     row['iconic_taxon_id'] = str(iconic_taxon_id)
     return row
 
@@ -178,8 +220,87 @@ def update_progress(q: Queue, total: int):
             sleep(0.1)
 
 
+def update_taxon_counts(
+    db_path: PathOrStr = DB_PATH, counts_path: PathOrStr = TAXON_COUNTS
+) -> 'DataFrame':
+    """Load previously saved taxon counts (from :py:func:`.aggregate_taxon_counts` into the local
+    taxon database
+    """
+    import pandas as pd
+
+    taxon_counts = pd.read_parquet(counts_path)
+    df = _get_taxon_df(db_path)
+    df = _join_counts(df, taxon_counts)
+    _save_taxon_df(df, db_path)
+    return df
+
+
+def _get_taxon_df(db_path: PathOrStr = DB_PATH) -> 'DataFrame':
+    """Load taxon table into a dataframe"""
+    import pandas as pd
+
+    logger.info(f'Loading taxa from {db_path}')
+    df = pd.read_sql_query('SELECT * FROM taxon', sqlite3.connect(db_path))
+    df['parent_id'] = df['parent_id'].astype(pd.Int64Dtype())
+    return df
+
+
+def _save_taxon_df(df: 'DataFrame', db_path: PathOrStr = DB_PATH):
+    """Save taxon dataframe back to SQLite; clear and reuse existing table to keep indexes"""
+    logger.info('Saving taxon counts to database')
+    with sqlite3.connect(db_path) as conn:
+        conn.execute('DELETE FROM taxon')
+        df.to_sql('taxon', conn, if_exists='append', index=False)
+        conn.execute('VACUUM')
+
+
+def _get_leaf_taxa(db_path: PathOrStr = DB_PATH) -> List[int]:
+    """Get leaf taxa (species, subspecies, and any other taxa with no descendants)"""
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute(
+            'SELECT DISTINCT t1.id FROM taxon t1 '
+            'LEFT JOIN taxon t2 ON t2.parent_id = t1.id '
+            'WHERE t2.id IS NULL'
+        )
+        return [row[0] for row in rows]
+
+
+def _get_leaf_taxa_parents(db_path: PathOrStr = DB_PATH) -> List[int]:
+    """Get taxa with only one level of descendants"""
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute(
+            'SELECT DISTINCT t1.parent_id FROM taxon t1 '
+            'LEFT JOIN taxon t2 ON t2.parent_id = t1.id '
+            'WHERE t2.id IS NULL'
+        )
+        return [row[0] for row in rows]
+
+
+def _join_counts(df: 'DataFrame', taxon_counts: 'DataFrame') -> 'DataFrame':
+    """Join taxon dataframe with updated taxon counts"""
+    from numpy import int64
+
+    df = df.set_index('id')
+    df = df.drop('count', axis=1)
+    taxon_counts = taxon_counts.set_index('id')
+    df = df.join(taxon_counts)
+    df['count'] = df['count'].fillna(0).astype(int64)
+
+    return df.rename_axis('id').reset_index()
+
+
+def _save_taxon_counts(df: 'DataFrame', counts_path: PathOrStr = TAXON_COUNTS):
+    """Save a copy of minimal {id: count} mapping from aggregated taxon counts"""
+    counts_path = Path(counts_path)
+    counts_path.parent.mkdir(parents=True, exist_ok=True)
+    min_df = df.set_index('id')
+    min_df = min_df[min_df['count'] > 0][['count']]
+    min_df = min_df.sort_values('count', ascending=False)
+    min_df.to_parquet(counts_path)
+
+
 if __name__ == "__main__":
     from pyinaturalist import enable_logging
 
     enable_logging('DEBUG')
-    df = add_ancestry()
+    df = aggregate_taxon_db()
