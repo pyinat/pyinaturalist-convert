@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional
 from pyinaturalist import Taxon
 from pyinaturalist.constants import ICONIC_TAXA, ROOT_TAXON_ID
 
-from .constants import DB_PATH, TAXON_COUNTS, PathOrStr
+from .constants import DB_PATH, DWCA_TAXON_CSV_DIR, TAXON_COUNTS, PathOrStr
 from .download import get_progress
 
 # TODO: Could also add the total number of descendants to the taxon table (useful for display)
@@ -28,7 +28,9 @@ logger = getLogger(__name__)
 
 
 def aggregate_taxon_db(
-    db_path: PathOrStr = DB_PATH, counts_path: PathOrStr = TAXON_COUNTS
+    db_path: PathOrStr = DB_PATH,
+    counts_path: PathOrStr = TAXON_COUNTS,
+    language: str = 'english',
 ) -> 'DataFrame':
     """Add aggregate values to the taxon database:
 
@@ -52,8 +54,11 @@ def aggregate_taxon_db(
     progress_proc = Process(target=update_progress, args=(q, len(df)))
     progress_proc.start()
 
+    # Get common names from CSV
+    common_names = _get_common_names(language=language)
+
     # Parallelize by phylum; split up entire dataframe to minimize memory usage per process
-    combined_df = df[df['id'] == ROOT_TAXON_ID | df['rank'] == 'kingdom']
+    combined_df = df[(df['id'] == ROOT_TAXON_ID) | (df['rank'] == 'kingdom')]
     phyla = [
         Taxon.from_json(t)
         for t in df[df['rank'] == 'phylum'].to_dict(orient='records')
@@ -87,6 +92,7 @@ def aggregate_taxon_db(
                     taxon_id=taxon.id,
                     taxon_name=taxon.name,
                     ancestor_ids=[ROOT_TAXON_ID, taxon.parent_id],
+                    common_names=common_names,
                     q=q,
                 )
             )
@@ -97,7 +103,7 @@ def aggregate_taxon_db(
             combined_df = pd.concat([combined_df, sub_df], ignore_index=True)
 
     # Process kingdoms
-    df = _aggregate_kingdoms(combined_df)
+    df = _aggregate_kingdoms(combined_df, common_names)
 
     # Save taxon counts for future use
     if counts_path:
@@ -159,10 +165,12 @@ def aggregate_branch(
     taxon_id: int,
     taxon_name: str = None,
     ancestor_ids: List[int] = None,
+    common_names: Dict[int, str] = None,
     q: Queue = None,
 ) -> 'DataFrame':
     """Add aggregate values to all descendants of a given taxon"""
     logger.debug(f'Processing phylum {taxon_name} ({len(df)} taxa)')
+    common_names = common_names or {}
 
     def aggregate_rec(taxon_id, ancestor_ids: List[int]):
         # Process children first, to update counts
@@ -176,13 +184,16 @@ def aggregate_branch(
         children = df[df['parent_id'] == taxon_id]
         obs_count = children['count'].sum()
         leaf_count = children['leaf_taxon_count'].sum()
+        common_name = common_names.get(taxon_id)  # type: ignore
         if len(children) == 0:  # Current taxon is a leaf
             leaf_count = 1
 
         # Process current taxon
         mask = df['id'] == taxon_id
         df.loc[mask] = df.loc[mask].apply(
-            lambda row: _update_row(row, ancestor_ids, child_ids, obs_count, leaf_count),
+            lambda row: _update_taxon(
+                row, ancestor_ids, child_ids, obs_count, leaf_count, common_name
+            ),
             axis=1,
         )
 
@@ -191,26 +202,34 @@ def aggregate_branch(
     return df
 
 
-def _aggregate_kingdoms(df: 'DataFrame') -> 'DataFrame':
+def _aggregate_kingdoms(df: 'DataFrame', common_names: Dict[int, str] = None) -> 'DataFrame':
     """Process kingdoms (in main thread) after all phyla have been processed"""
+    common_names = common_names or {}
+
     for taxon_id in df[df['rank'] == 'kingdom']['id']:
         children = df[df['parent_id'] == taxon_id]
         mask = df['id'] == taxon_id
         df.loc[mask] = df.loc[mask].apply(
-            lambda row: _update_row(
+            lambda row: _update_taxon(
                 row,
                 [ROOT_TAXON_ID],
                 list(children['id']),
                 children['count'].sum(),
                 children['leaf_taxon_count'].sum(),
+                common_names.get(taxon_id),
             ),
             axis=1,
         )
     return df
 
 
-def _update_row(
-    row, ancestor_ids: List[int], child_ids: List[int], agg_count: int = 0, leaf_count: int = 0
+def _update_taxon(
+    row,
+    ancestor_ids: List[int],
+    child_ids: List[int],
+    agg_count: int = 0,
+    leaf_count: int = 0,
+    common_name: str = None,
 ):
     """Update aggregate values for a single taxon"""
 
@@ -220,9 +239,10 @@ def _update_row(
     iconic_taxon_id = next((i for i in ancestor_ids if i in ICONIC_TAXA), None)
     row['ancestor_ids'] = _join_ids(ancestor_ids)
     row['child_ids'] = _join_ids(child_ids)
-    row['iconic_taxon_id'] = str(iconic_taxon_id)
+    row['iconic_taxon_id'] = iconic_taxon_id
     row['count'] += agg_count
     row['leaf_taxon_count'] += leaf_count
+    row['preferred_common_name'] = common_name
     return row
 
 
@@ -243,6 +263,26 @@ def save_taxon_df(df: 'DataFrame', db_path: PathOrStr = DB_PATH):
         conn.execute('DELETE FROM taxon')
         df.to_sql('taxon', conn, if_exists='append', index=False)
         conn.execute('VACUUM')
+
+
+def _get_common_names(
+    csv_dir: PathOrStr = DWCA_TAXON_CSV_DIR, language: str = 'english'
+) -> Dict[int, str]:
+    """Get common names for the specified language from DwC-A taxonomy files"""
+    import pandas as pd
+
+    logger.info(f'Loading {language} common names')
+    csv_path = Path(csv_dir).expanduser() / f'VernacularNames-{language}.csv'
+    if not csv_path.is_file():
+        logger.warning(f'File not found: {csv_path}; common names will not be loaded')
+        return {}
+
+    df = pd.read_csv(csv_path)
+
+    # Get the first match for each taxon ID; appears to be already sorted by relevance
+    df = df.groupby('id').take([0])
+    df = df.reset_index(['id']).set_index('id')
+    return df['vernacularName'].to_dict()
 
 
 def update_progress(q: Queue, total: int):

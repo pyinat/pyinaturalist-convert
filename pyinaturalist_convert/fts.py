@@ -204,9 +204,7 @@ def get_common_name_csvs(csv_dir: Path, languages: Iterable[str] = None) -> Dict
     """Get common name CSVs, for either all or some languages, with a separate table per language"""
     if languages and languages != 'all':
         common_name_csvs = {lang: csv_dir / f'VernacularNames-{lang}.csv' for lang in languages}
-        return {
-            locale: csv_path for locale, csv_path in common_name_csvs.items() if csv_path.exists()
-        }
+        return {lang: csv_path for lang, csv_path in common_name_csvs.items() if csv_path.exists()}
     else:
         return {
             path.stem.replace('VernacularNames-', ''): path
