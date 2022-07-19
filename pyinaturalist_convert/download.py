@@ -11,6 +11,7 @@ from typing import Callable, Dict, Iterable, Optional, Tuple
 from zipfile import ZipFile
 
 import requests
+from attr import define, field
 from rich import print
 from rich.live import Live
 from rich.progress import (
@@ -68,7 +69,7 @@ class ProgressIO(FileIO):
 
 
 class MultiProgress:
-    """Track progress of multiple processes, plus overall combined progress"""
+    """Track progress of multiple processes run in serial, plus overall combined progress"""
 
     def __init__(
         self,
@@ -111,6 +112,89 @@ class MultiProgress:
     def advance(self, advance: int = 1):
         self.total_progress.advance(self.total_task, advance)
         self.job_progress.advance(self.job_task, advance)
+
+
+@define
+class JobProgress:
+    progress: Progress = field()
+    task: TaskID = field()
+    task_description: str = field(default=None)
+
+    def is_complete(self) -> bool:
+        return self.progress.tasks[0].completed >= self.progress.tasks[0].total
+
+
+class ParallelMultiProgress:
+    """Track progress of multiple processes run in parallel, plus overall combined progress"""
+
+    def __init__(
+        self,
+        total: int = 0,
+        total_progress: Progress = None,
+        auto_refresh: bool = True,
+    ):
+        self.total_progress = total_progress or get_progress()
+        self.total_task = self.total_progress.add_task('[cyan]Total', total=total)
+        self.job_progresses: Dict[str, JobProgress] = {}
+
+        self.table = Table.grid()
+        self.table.add_row(self.total_progress)
+        self.auto_refresh = auto_refresh
+        self.live = Live(self.table, refresh_per_second=10)
+
+    def __enter__(self):
+        self.live.__enter__()
+        return self
+
+    def __exit__(self, *args):
+        self.total_progress.tasks[0].completed = self.total_progress.tasks[0].total
+        for job in self.job_progresses.values():
+            job.progress.tasks[0].completed = job.progress.tasks[0].total
+        self.live.__exit__(*args)
+
+    @property
+    def job_names(self) -> Iterable[str]:
+        return self.job_progresses.keys()
+
+    def advance(self, name: str, advance: int = 1):
+        job = self.job_progresses[name]
+        job.progress.advance(job.task, advance)
+        self.total_progress.advance(self.total_task, advance)
+
+        if job.is_complete():
+            self.stop_job(name)
+
+    def start_job(self, name: str, total: int, task_description: str = 'Loading'):
+        progress = get_progress()
+        task = progress.add_task(f'[cyan]{task_description} [white]{name}[cyan]...')
+        job = JobProgress(progress=progress, task=task, task_description=task_description)
+        self.job_progresses[name] = job
+
+        progress.update(
+            task,
+            completed=0,
+            total=total,
+        )
+        self.log('Started', task_description, name)
+        if self.auto_refresh:
+            self.refresh()
+
+    def stop_job(self, name: str):
+        progress = self.job_progresses.pop(name)
+        self.log('Completed', progress.task_description, name)
+        if self.auto_refresh:
+            self.refresh()
+
+    def refresh(self):
+        """Recreate table with current jobs"""
+        self.table = Table.grid()
+        self.table.add_row(self.total_progress)
+        for job in reversed(self.job_progresses.values()):
+            self.table.add_row(job.progress)
+        self.live.update(self.table)
+
+    def log(self, msg: str, task_description, name: str):
+        self.total_progress.log(f'[cyan]{msg} {task_description} [white]{name}[cyan]')
 
 
 class CSVProgress(MultiProgress):

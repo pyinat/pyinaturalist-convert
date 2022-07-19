@@ -25,4 +25,5 @@ modules/*
 .. autosummary::
     pyinaturalist_convert.download
     pyinaturalist_convert.sqlite
+    pyinaturalist_convert.taxonomy
 ```
