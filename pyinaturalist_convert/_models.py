@@ -113,9 +113,9 @@ class DbTaxon:
     active: bool = sa_field(Boolean, default=None)
     ancestor_ids: str = sa_field(String, default=None)
     child_ids: str = sa_field(String, default=None)
-    count: int = sa_field(Integer, default=0)
     iconic_taxon_id: int = sa_field(Integer, default=0)
-    leaf_taxon_count: int = sa_field(Integer, default=0)
+    leaf_taxa_count: int = sa_field(Integer, default=0)
+    observations_count: int = sa_field(Integer, default=0)
     name: str = sa_field(String, default=None, index=True)
     parent_id: int = sa_field(ForeignKey('taxon.id'), default=None, index=True)
     partial: int = sa_field(Boolean, default=False)
@@ -130,9 +130,10 @@ class DbTaxon:
             id=taxon.id,
             active=taxon.is_active,
             ancestor_ids=_join_ids(taxon.ancestor_ids),
-            count=taxon.observations_count,
             child_ids=_join_ids(taxon.child_ids),
             iconic_taxon_id=taxon.iconic_taxon_id,
+            leaf_taxa_count=taxon.complete_species_count,
+            observations_count=taxon.observations_count,
             name=taxon.name,
             parent_id=taxon.parent_id,
             partial=taxon._partial,
@@ -150,8 +151,9 @@ class DbTaxon:
             default_photo=photos[0] if photos else None,
             iconic_taxon_id=self.iconic_taxon_id,
             is_active=self.active,
+            complete_species_count=self.leaf_taxa_count,
+            observations_count=self.observations_count,
             name=self.name,
-            observations_count=self.count,
             parent_id=self.parent_id,
             partial=self.partial,
             preferred_common_name=self.preferred_common_name,

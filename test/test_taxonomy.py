@@ -35,7 +35,7 @@ def test_aggregate_taxon_db(mock_sleep, tmp_path):
             'parent_id': 'parent_id',
             'name': 'name',
             'rank': 'rank',
-            'count': 'count',
+            'count': 'observations_count',
         },
     )
 
@@ -57,18 +57,19 @@ def test_aggregate_taxon_db(mock_sleep, tmp_path):
     # Get and compare results
     with sqlite3.connect(db_path) as conn:
         conn.row_factory = sqlite3.Row
-        actual_counts = {
-            row['id']: row['count'] for row in conn.execute('SELECT * FROM taxon').fetchall()
+        actual_observation_counts = {
+            row['id']: row['observations_count']
+            for row in conn.execute('SELECT * FROM taxon').fetchall()
         }
-        actual_leaf_taxa = {
-            row['id']: row['leaf_taxon_count']
+        actual_leaf_taxon_counts = {
+            row['id']: row['leaf_taxa_count']
             for row in conn.execute('SELECT * FROM taxon').fetchall()
         }
         test_common_name = conn.execute(
             'SELECT preferred_common_name FROM taxon WHERE id=101'
         ).fetchone()[0]
 
-    assert actual_counts == expected_counts
-    assert actual_leaf_taxa == expected_leaf_taxa
+    assert actual_observation_counts == expected_counts
+    assert actual_leaf_taxon_counts == expected_leaf_taxa
     assert counts_path.is_file()
     assert test_common_name == 'test_kingdom_1'
