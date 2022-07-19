@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyinaturalist-convert"
-version = "0.4.1"
+version = "0.5.0"
 description = "Tools to convert observation data to and from a variety of useful formats"
 authors = ["Jordan Cook"]
 license = "MIT"

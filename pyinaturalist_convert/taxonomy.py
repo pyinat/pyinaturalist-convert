@@ -1,4 +1,25 @@
-"""Utilities for working with taxonomy data"""
+"""
+Helper utilities for navigating tabular taxonomy data as a tree and adding additional derived
+information to it.
+
+**Extra dependencies**:
+    * ``pandas``
+    * ``sqlalchemy``
+
+**Example**::
+
+    >>> from pyinaturalist_convert import load_dwca_tables, aggregate_taxon_db
+    >>> load_dwca_tables()
+    >>> aggregate_taxon_db()
+
+**Main functions:**
+
+.. autosummary::
+    :nosignatures:
+
+    aggregate_taxon_db
+    get_observation_taxon_counts
+"""
 import sqlite3
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from logging import getLogger
@@ -14,18 +35,14 @@ from pyinaturalist.constants import ICONIC_TAXA, ROOT_TAXON_ID
 from .constants import DB_PATH, DWCA_TAXON_CSV_DIR, TAXON_COUNTS, PathOrStr
 from .download import ParallelMultiProgress
 
-# TODO: Could also add the total number of descendants to the taxon table (useful for display)
-#      Or total leaf taxa
-
 if TYPE_CHECKING:
     from pandas import DataFrame
 
+DEFAULT_LANG_CSV = DWCA_TAXON_CSV_DIR / 'VernacularNames-english.csv'
 # Bacteria, viruses, etc.
 EXCLUDE_IDS = [67333, 131236, 151817, 1228707, 1285874]
-
 # Most populous phylum IDs to start processing first
 LOAD_FIRST_IDS = [47120, 211194, 2]
-
 
 logger = getLogger(__name__)
 
@@ -33,23 +50,33 @@ logger = getLogger(__name__)
 def aggregate_taxon_db(
     db_path: PathOrStr = DB_PATH,
     counts_path: PathOrStr = TAXON_COUNTS,
-    language: str = 'english',
+    common_names_path: PathOrStr = DEFAULT_LANG_CSV,
 ) -> 'DataFrame':
-    """Add aggregate values to the taxon database:
+    """Add aggregate and hierarchical values to the taxon database:
 
     * Ancestor IDs
     * Child IDs
     * Iconic taxon ID
     * Aggregated observation taxon counts
+    * Aggregated leaf taxon counts
+    * Common names
+
+    Requires GBIF datasets to be downloaded and processed first.
+
+    Args:
+        db_path: Path to SQLite database
+        counts_path: Path to optionally save a copy of observation taxon counts
+        common_names_path: Path to a CSV file containing taxon common names.
+            See the DwC-A taxonomy dataset for available languages.
     """
     import pandas as pd
 
     # Get taxon counts from observations table
     start = time()
-    df = get_taxon_df(db_path)
+    df = _get_taxon_df(db_path)
     taxon_counts_dict = get_observation_taxon_counts(db_path)
     taxon_counts = pd.DataFrame(taxon_counts_dict.items(), columns=['id', 'count'])
-    df = _join_counts(df, taxon_counts)
+    df = _join_taxon_counts(df, taxon_counts)
     n_phyla = len(df[(df['rank'] == 'phylum') & ~df['parent_id'].isin(EXCLUDE_IDS)])
 
     # A queue for completed items; a separate process pulls from this to update progress bar
@@ -58,13 +85,13 @@ def aggregate_taxon_db(
     task_queue = manager.Queue()
     progress_total = len(df) + n_phyla + 1
     progress_proc = Process(
-        target=update_progress, args=(progress_queue, task_queue, progress_total)
+        target=_update_progress, args=(progress_queue, task_queue, progress_total)
     )
     progress_proc.start()
 
     # Get common names from CSV
     common_names = _get_common_names(
-        language=language, progress_queue=progress_queue, task_queue=task_queue
+        common_names_path, progress_queue=progress_queue, task_queue=task_queue
     )
 
     # Parallelize by phylum; split up entire dataframe to minimize memory usage per process
@@ -85,7 +112,7 @@ def aggregate_taxon_db(
     with ProcessPoolExecutor() as executor_1, ProcessPoolExecutor() as executor_2:
         futures_to_taxon = {
             executor_1.submit(
-                get_descendant_ids,
+                _get_descendant_ids,
                 taxon_id=taxon.id,
                 taxon_name=taxon.name,
                 df=df[['id', 'parent_id']],
@@ -102,11 +129,8 @@ def aggregate_taxon_db(
             descenant_ids = future.result()
             stage_2_futures.append(
                 executor_2.submit(
-                    aggregate_branch,
+                    _aggregate_branch,
                     df[df['id'].isin(descenant_ids)].copy(),
-                    # df[df['id'].isin(descenants)][
-                    #     ['id', 'parent_id', 'ancestor_ids', 'child_ids']
-                    # ].copy(),
                     taxon_id=taxon.id,
                     taxon_name=taxon.name,
                     ancestor_ids=[ROOT_TAXON_ID, taxon.parent_id],
@@ -127,7 +151,7 @@ def aggregate_taxon_db(
     # Save taxon counts for future use
     if counts_path:
         _save_taxon_counts(df, counts_path)
-    save_taxon_df(df, db_path)
+    _save_taxon_df(df, db_path)
 
     progress_proc.terminate()
     logger.debug(f'Elapsed: {time()-start:.2f}s')
@@ -155,7 +179,7 @@ def get_observation_taxon_counts(db_path: PathOrStr = DB_PATH) -> Dict[int, int]
         }
 
 
-def get_descendant_ids(
+def _get_descendant_ids(
     taxon_id: int,
     taxon_name: str = None,
     db_path: PathOrStr = DB_PATH,
@@ -171,7 +195,7 @@ def get_descendant_ids(
         task_queue.put((task_name, 'Finding descendants of', 1))
 
     if df is None:
-        df = get_taxon_df(db_path)
+        df = _get_taxon_df(db_path)
 
     def _get_descendants_rec(parent_id):
         child_ids = df[(df['parent_id'] == parent_id)]['id']
@@ -184,7 +208,7 @@ def get_descendant_ids(
     return descendant_ids
 
 
-def aggregate_branch(
+def _aggregate_branch(
     df: 'DataFrame',
     taxon_id: int,
     taxon_name: str = None,
@@ -231,16 +255,17 @@ def aggregate_branch(
 
 
 def _aggregate_kingdoms(df: 'DataFrame', common_names: Dict[int, str] = None) -> 'DataFrame':
-    """Process kingdoms (in main thread) after all phyla have been processed"""
+    """Process kingdoms + root taxon (in main thread) after all phyla have been processed"""
     common_names = common_names or {}
 
-    for taxon_id in df[df['rank'] == 'kingdom']['id']:
+    for taxon_id in list(df[df['rank'] == 'kingdom']['id']) + [ROOT_TAXON_ID]:
         children = df[df['parent_id'] == taxon_id]
+        ancestor_ids = [] if taxon_id == ROOT_TAXON_ID else [ROOT_TAXON_ID]
         mask = df['id'] == taxon_id
         df.loc[mask] = df.loc[mask].apply(
             lambda row: _update_taxon(
                 row,
-                [ROOT_TAXON_ID],
+                ancestor_ids,
                 list(children['id']),
                 children['count'].sum(),
                 children['leaf_taxon_count'].sum(),
@@ -265,7 +290,7 @@ def _update_taxon(
         return ','.join(map(str, ids)) if ids else None
 
     iconic_taxon_id = next((i for i in ancestor_ids if i in ICONIC_TAXA), None)
-    row['ancestor_ids'] = _join_ids(ancestor_ids)
+    row['ancestor_ids'] = _join_ids(ancestor_ids) if ancestor_ids else None
     row['child_ids'] = _join_ids(child_ids)
     row['iconic_taxon_id'] = iconic_taxon_id
     row['count'] += agg_count
@@ -274,44 +299,24 @@ def _update_taxon(
     return row
 
 
-def get_taxon_df(db_path: PathOrStr = DB_PATH) -> 'DataFrame':
-    """Load taxon table into a dataframe"""
-    import pandas as pd
-
-    logger.info(f'Loading taxa from {db_path}')
-    df = pd.read_sql_query('SELECT * FROM taxon', sqlite3.connect(db_path))
-    df['parent_id'] = df['parent_id'].astype(pd.Int64Dtype())
-    return df
-
-
-def save_taxon_df(df: 'DataFrame', db_path: PathOrStr = DB_PATH):
-    """Save taxon dataframe back to SQLite; clear and reuse existing table to keep indexes"""
-    logger.info('Saving taxon counts to database')
-    with sqlite3.connect(db_path) as conn:
-        conn.execute('DELETE FROM taxon')
-        df.to_sql('taxon', conn, if_exists='append', index=False)
-        conn.execute('VACUUM')
-
-
 def _get_common_names(
-    csv_dir: PathOrStr = DWCA_TAXON_CSV_DIR,
-    language: str = 'english',
+    common_names_path: PathOrStr = DEFAULT_LANG_CSV,
     progress_queue: Queue = None,
     task_queue: Queue = None,
 ) -> Dict[int, str]:
     """Get common names for the specified language from DwC-A taxonomy files"""
     import pandas as pd
 
-    logger.info(f'Loading {language} common names')
     # Arbitrary value to advance progress bar
     if task_queue:
         task_queue.put(('common names', 'Loading', 1))
 
-    csv_path = Path(csv_dir).expanduser() / f'VernacularNames-{language}.csv'
+    csv_path = Path(common_names_path).expanduser()
     if not csv_path.is_file():
         logger.warning(f'File not found: {csv_path}; common names will not be loaded')
         return {}
 
+    logger.info(f'Loading common names from {common_names_path}')
     df = pd.read_csv(csv_path)
 
     # Get the first match for each taxon ID; appears to be already sorted by relevance
@@ -324,7 +329,63 @@ def _get_common_names(
     return df
 
 
-def update_progress(progress_queue: Queue, task_queue: Queue, total: int):
+def _get_taxon_df(db_path: PathOrStr = DB_PATH) -> 'DataFrame':
+    """Load taxon table into a dataframe"""
+    import pandas as pd
+
+    logger.info(f'Loading taxa from {db_path}')
+    df = pd.read_sql_query('SELECT * FROM taxon', sqlite3.connect(db_path))
+    df['parent_id'] = df['parent_id'].astype(pd.Int64Dtype())
+    return df
+
+
+def _save_taxon_df(df: 'DataFrame', db_path: PathOrStr = DB_PATH):
+    """Save taxon dataframe back to SQLite; clear and reuse existing table to keep indexes"""
+    logger.info('Saving taxon counts to database')
+    with sqlite3.connect(db_path) as conn:
+        conn.execute('DELETE FROM taxon')
+        df.to_sql('taxon', conn, if_exists='append', index=False)
+        conn.execute('VACUUM')
+
+
+def _join_taxon_counts(df: 'DataFrame', taxon_counts: 'DataFrame') -> 'DataFrame':
+    """Join taxon dataframe with updated taxon counts"""
+    from numpy import int64
+
+    df = df.set_index('id')
+    df = df.drop('count', axis=1)
+    taxon_counts = taxon_counts.set_index('id')
+    df = df.join(taxon_counts)
+    df['count'] = df['count'].fillna(0).astype(int64)
+    df['leaf_taxon_count'] = 0
+
+    return df.rename_axis('id').reset_index()
+
+
+def _save_taxon_counts(df: 'DataFrame', counts_path: PathOrStr = TAXON_COUNTS):
+    """Save a minimal copy of taxon observation counts + leaf taxon counts for future use"""
+    counts_path = Path(counts_path)
+    counts_path.parent.mkdir(parents=True, exist_ok=True)
+    df2 = df.set_index('id')
+    df2 = df2[['count', 'leaf_taxon_count']]
+    df2 = df2.sort_values('count', ascending=False)
+    df2.to_parquet(counts_path)
+
+
+def _update_taxon_counts(
+    db_path: PathOrStr = DB_PATH, counts_path: PathOrStr = TAXON_COUNTS
+) -> 'DataFrame':
+    """Load previously saved taxon counts into the local taxon database"""
+    import pandas as pd
+
+    taxon_counts = pd.read_parquet(counts_path)
+    df = _get_taxon_df(db_path)
+    df = _join_taxon_counts(df, taxon_counts)
+    _save_taxon_df(df, db_path)
+    return df
+
+
+def _update_progress(progress_queue: Queue, task_queue: Queue, total: int):
     """Pull from a multiprocessing queue and update progress"""
     progress = ParallelMultiProgress(total=total, auto_refresh=False)
     pending: List[Tuple[str, int]] = []
@@ -355,40 +416,3 @@ def update_progress(progress_queue: Queue, task_queue: Queue, total: int):
 
             progress.refresh()
             sleep(0.1)
-
-
-def update_taxon_counts(
-    db_path: PathOrStr = DB_PATH, counts_path: PathOrStr = TAXON_COUNTS
-) -> 'DataFrame':
-    """Load previously saved taxon counts into the local taxon database"""
-    import pandas as pd
-
-    taxon_counts = pd.read_parquet(counts_path)
-    df = get_taxon_df(db_path)
-    df = _join_counts(df, taxon_counts)
-    save_taxon_df(df, db_path)
-    return df
-
-
-def _join_counts(df: 'DataFrame', taxon_counts: 'DataFrame') -> 'DataFrame':
-    """Join taxon dataframe with updated taxon counts"""
-    from numpy import int64
-
-    df = df.set_index('id')
-    df = df.drop('count', axis=1)
-    taxon_counts = taxon_counts.set_index('id')
-    df = df.join(taxon_counts)
-    df['count'] = df['count'].fillna(0).astype(int64)
-    df['leaf_taxon_count'] = 0
-
-    return df.rename_axis('id').reset_index()
-
-
-def _save_taxon_counts(df: 'DataFrame', counts_path: PathOrStr = TAXON_COUNTS):
-    """Save a minimal copy of taxon observation counts + leaf taxon counts"""
-    counts_path = Path(counts_path)
-    counts_path.parent.mkdir(parents=True, exist_ok=True)
-    df2 = df.set_index('id')
-    df2 = df2[['count', 'leaf_taxon_count']]
-    df2 = df2.sort_values('count', ascending=False)
-    df2.to_parquet(counts_path)
