@@ -164,7 +164,7 @@ def load_fts_taxa(
         csv_dir: Directory containing extracted CSV files
         db_path: Path to SQLite database
         counts_path: Path to previously calculated taxon counts
-            (from :py:func:`.aggregate_taxon_counts`)
+            (from :py:func:`.aggregate_taxon_db`)
         lanugages: List of common name languages to load, or 'all' to load everything
     """
     csv_dir = Path(csv_dir).expanduser()
@@ -276,7 +276,7 @@ def normalize_taxon_counts(counts_path: PathOrStr = TAXON_COUNTS) -> Dict[int, i
         return (series - series.mean()) / series.std()
 
     logger.info('Normalizing taxon counts')
-    df['count_rank'] = normalize(df['count']).fillna(-1)
+    df['count_rank'] = normalize(df['observations_count']).fillna(-1)
     df['count_rank'] = df['count_rank'] * TAXON_COUNT_RANK_FACTOR
     df = df.sort_values(by='count_rank', ascending=False)
     return df['count_rank'].to_dict()

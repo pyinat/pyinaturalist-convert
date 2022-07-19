@@ -5,13 +5,13 @@ from pyinaturalist_convert.fts import TaxonAutocompleter, load_fts_taxa
 from test.conftest import SAMPLE_DATA_DIR
 
 CSV_DIR = SAMPLE_DATA_DIR / 'inaturalist-taxonomy.dwca'
-
+COUNTS_PATH = SAMPLE_DATA_DIR / 'taxon_counts_fts.parquet'
 logger = getLogger(__name__)
 
 
 def test_text_search(tmp_path):
     db_path = tmp_path / 'taxa.db'
-    load_fts_taxa(csv_dir=CSV_DIR, db_path=db_path)
+    load_fts_taxa(csv_dir=CSV_DIR, db_path=db_path, counts_path=COUNTS_PATH)
     ta = TaxonAutocompleter(db_path=db_path)
 
     results = ta.search('ave')
@@ -19,9 +19,7 @@ def test_text_search(tmp_path):
 
     results = ta.search('franco')
     assert len(results) == 3
-    assert results[0].id in [644, 649] and 'Francolin' in results[0].name
-
-    db_path.unlink()
+    assert results[0].id == 649 and results[0].name == 'Black Francolin'
 
 
 def benchmark():
