@@ -385,7 +385,7 @@ def _update_taxon_counts(
     return df
 
 
-def _update_progress(progress_queue: Queue, task_queue: Queue, total: int):
+def _update_progress(progress_queue: Queue, task_queue: Queue, total: int):  # pragma: no cover
     """Pull from a multiprocessing queue and update progress"""
     progress = ParallelMultiProgress(total=total, auto_refresh=False)
     pending: List[Tuple[str, int]] = []
