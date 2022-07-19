@@ -75,7 +75,7 @@ def aggregate_taxon_db(
     start = time()
     df = _get_taxon_df(db_path)
     taxon_counts_dict = get_observation_taxon_counts(db_path)
-    taxon_counts = pd.DataFrame(taxon_counts_dict.items(), columns=['id', 'count'])
+    taxon_counts = pd.DataFrame(taxon_counts_dict.items(), columns=['id', 'observations_count'])
     df = _join_taxon_counts(df, taxon_counts)
     n_phyla = len(df[(df['rank'] == 'phylum') & ~df['parent_id'].isin(EXCLUDE_IDS)])
 
@@ -234,8 +234,8 @@ def _aggregate_branch(
 
         # Get combined child counts
         children = df[df['parent_id'] == taxon_id]
-        obs_count = children['count'].sum()
-        leaf_count = children['leaf_taxon_count'].sum()
+        obs_count = children['observations_count'].sum()
+        leaf_count = children['leaf_taxa_count'].sum()
         common_name = common_names.get(taxon_id)  # type: ignore
         if len(children) == 0:  # Current taxon is a leaf
             leaf_count = 1
@@ -267,8 +267,8 @@ def _aggregate_kingdoms(df: 'DataFrame', common_names: Dict[int, str] = None) ->
                 row,
                 ancestor_ids,
                 list(children['id']),
-                children['count'].sum(),
-                children['leaf_taxon_count'].sum(),
+                children['observations_count'].sum(),
+                children['leaf_taxa_count'].sum(),
                 common_names.get(taxon_id),
             ),
             axis=1,
@@ -293,8 +293,8 @@ def _update_taxon(
     row['ancestor_ids'] = _join_ids(ancestor_ids) if ancestor_ids else None
     row['child_ids'] = _join_ids(child_ids)
     row['iconic_taxon_id'] = iconic_taxon_id
-    row['count'] += agg_count
-    row['leaf_taxon_count'] += leaf_count
+    row['observations_count'] += agg_count
+    row['leaf_taxa_count'] += leaf_count
     row['preferred_common_name'] = common_name
     return row
 
@@ -320,8 +320,8 @@ def _get_common_names(
     df = pd.read_csv(csv_path)
 
     # Get the first match for each taxon ID; appears to be already sorted by relevance
-    df = df.groupby('id').take([0])
-    df = df.reset_index(['id']).set_index('id')
+    df = df.drop_duplicates(subset='id', keep='first')
+    df = df.set_index('id')
     df = df['vernacularName'].to_dict()
 
     if progress_queue:
@@ -341,9 +341,14 @@ def _get_taxon_df(db_path: PathOrStr = DB_PATH) -> 'DataFrame':
 
 def _save_taxon_df(df: 'DataFrame', db_path: PathOrStr = DB_PATH):
     """Save taxon dataframe back to SQLite; clear and reuse existing table to keep indexes"""
+    # Backup to CSV in the rare case that this fails
+    db_path = Path(db_path)
+    df.to_csv(db_path.parent / 'taxa.csv')
+
     logger.info('Saving taxon counts to database')
     with sqlite3.connect(db_path) as conn:
         conn.execute('DELETE FROM taxon')
+        conn.commit()
         df.to_sql('taxon', conn, if_exists='append', index=False)
         conn.execute('VACUUM')
 
@@ -353,11 +358,11 @@ def _join_taxon_counts(df: 'DataFrame', taxon_counts: 'DataFrame') -> 'DataFrame
     from numpy import int64
 
     df = df.set_index('id')
-    df = df.drop('count', axis=1)
+    df = df.drop('observations_count', axis=1)
     taxon_counts = taxon_counts.set_index('id')
     df = df.join(taxon_counts)
-    df['count'] = df['count'].fillna(0).astype(int64)
-    df['leaf_taxon_count'] = 0
+    df['observations_count'] = df['observations_count'].fillna(0).astype(int64)
+    df['leaf_taxa_count'] = 0
 
     return df.rename_axis('id').reset_index()
 
@@ -367,8 +372,8 @@ def _save_taxon_counts(df: 'DataFrame', counts_path: PathOrStr = TAXON_COUNTS):
     counts_path = Path(counts_path)
     counts_path.parent.mkdir(parents=True, exist_ok=True)
     df2 = df.set_index('id')
-    df2 = df2[['count', 'leaf_taxon_count']]
-    df2 = df2.sort_values('count', ascending=False)
+    df2 = df2[['leaf_taxa_count', 'observations_count']]
+    df2 = df2.sort_values('observations_count', ascending=False)
     df2.to_parquet(counts_path)
 
 
@@ -387,18 +392,16 @@ def _update_taxon_counts(
 
 def _update_progress(progress_queue: Queue, task_queue: Queue, total: int):  # pragma: no cover
     """Pull from a multiprocessing queue and update progress"""
-    progress = ParallelMultiProgress(total=total, auto_refresh=False)
+    progress = ParallelMultiProgress(total=total)
     pending: List[Tuple[str, int]] = []
-    max_new_tasks_per_tick = 10
+    refresh_rate = 10  # ticks per second
 
     with progress:
         while True:
-            new_tasks = 0
-            # Check for new tasks
-            while not task_queue.empty() and new_tasks < max_new_tasks_per_tick:
+            # Check for new tasks (max 1 per tick)
+            if not task_queue.empty():
                 task_name, task_desc, total = task_queue.get()
                 progress.start_job(task_name, total, task_desc)
-                new_tasks += 1
 
             # Check for new progress
             while not progress_queue.empty():
@@ -414,5 +417,4 @@ def _update_progress(progress_queue: Queue, task_queue: Queue, total: int):  # p
                 else:
                     pending.append((task_name, n_completed))
 
-            progress.refresh()
-            sleep(0.1)
+            sleep(1 / refresh_rate)
