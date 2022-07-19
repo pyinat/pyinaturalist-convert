@@ -7,6 +7,7 @@ from os.path import basename, getsize
 from pathlib import Path
 from shutil import copyfileobj
 from tarfile import TarFile
+from time import time
 from typing import Callable, Dict, Iterable, Optional, Tuple
 from zipfile import ZipFile
 
@@ -28,6 +29,9 @@ from rich.table import Table
 from .constants import PathOrStr
 
 ProgressTask = Tuple[Progress, TaskID]
+
+# Times per second to redraw a table of parallel progress bars
+JOB_REFRESH_RATE = 1
 
 
 class FlatTarFile(TarFile):
@@ -127,20 +131,16 @@ class JobProgress:
 class ParallelMultiProgress:
     """Track progress of multiple processes run in parallel, plus overall combined progress"""
 
-    def __init__(
-        self,
-        total: int = 0,
-        total_progress: Progress = None,
-        auto_refresh: bool = True,
-    ):
+    def __init__(self, total: int = 0, total_progress: Progress = None):
         self.total_progress = total_progress or get_progress()
         self.total_task = self.total_progress.add_task('[cyan]Total', total=total)
         self.job_progresses: Dict[str, JobProgress] = {}
 
         self.table = Table.grid()
         self.table.add_row(self.total_progress)
-        self.auto_refresh = auto_refresh
         self.live = Live(self.table, refresh_per_second=10)
+        self._changed_jobs = False
+        self._last_refresh = time()
 
     def __enter__(self):
         self.live.__enter__()
@@ -176,22 +176,30 @@ class ParallelMultiProgress:
             total=total,
         )
         self.log('Started', task_description, name)
-        if self.auto_refresh:
-            self.refresh()
+
+        self._changed_jobs = True
+        self.refresh()
 
     def stop_job(self, name: str):
         progress = self.job_progresses.pop(name)
         self.log('Completed', progress.task_description, name)
-        if self.auto_refresh:
-            self.refresh()
+
+        self._changed_jobs = True
+        self.refresh()
 
     def refresh(self):
         """Recreate table with current jobs"""
+        if not self._changed_jobs or (time() - self._last_refresh < JOB_REFRESH_RATE):
+            return
+
         self.table = Table.grid()
         self.table.add_row(self.total_progress)
         for job in reversed(self.job_progresses.values()):
             self.table.add_row(job.progress)
         self.live.update(self.table)
+
+        self._changed_jobs = False
+        self._last_refresh = time()
 
     def log(self, msg: str, task_description, name: str):
         self.total_progress.log(f'[cyan]{msg} {task_description} [white]{name}[cyan]')

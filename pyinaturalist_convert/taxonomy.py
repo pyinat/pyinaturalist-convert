@@ -320,6 +320,7 @@ def _get_common_names(
     df = pd.read_csv(csv_path)
 
     # Get the first match for each taxon ID; appears to be already sorted by relevance
+    # TODO: This groupby is quite slow; there must be a better way to do this
     df = df.groupby('id').take([0])
     df = df.reset_index(['id']).set_index('id')
     df = df['vernacularName'].to_dict()
@@ -387,18 +388,16 @@ def _update_taxon_counts(
 
 def _update_progress(progress_queue: Queue, task_queue: Queue, total: int):  # pragma: no cover
     """Pull from a multiprocessing queue and update progress"""
-    progress = ParallelMultiProgress(total=total, auto_refresh=False)
+    progress = ParallelMultiProgress(total=total)
     pending: List[Tuple[str, int]] = []
-    max_new_tasks_per_tick = 10
+    refresh_rate = 10  # ticks per second
 
     with progress:
         while True:
-            new_tasks = 0
-            # Check for new tasks
-            while not task_queue.empty() and new_tasks < max_new_tasks_per_tick:
+            # Check for new tasks (max 1 per tick)
+            if not task_queue.empty():
                 task_name, task_desc, total = task_queue.get()
                 progress.start_job(task_name, total, task_desc)
-                new_tasks += 1
 
             # Check for new progress
             while not progress_queue.empty():
@@ -414,5 +413,4 @@ def _update_progress(progress_queue: Queue, task_queue: Queue, total: int):  # p
                 else:
                     pending.append((task_name, n_completed))
 
-            progress.refresh()
-            sleep(0.1)
+            sleep(1 / refresh_rate)
