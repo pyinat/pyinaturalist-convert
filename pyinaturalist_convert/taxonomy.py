@@ -320,9 +320,8 @@ def _get_common_names(
     df = pd.read_csv(csv_path)
 
     # Get the first match for each taxon ID; appears to be already sorted by relevance
-    # TODO: This groupby is quite slow; there must be a better way to do this
-    df = df.groupby('id').take([0])
-    df = df.reset_index(['id']).set_index('id')
+    df = df.drop_duplicates(subset='id', keep='first')
+    df = df.set_index('id')
     df = df['vernacularName'].to_dict()
 
     if progress_queue:
@@ -342,9 +341,14 @@ def _get_taxon_df(db_path: PathOrStr = DB_PATH) -> 'DataFrame':
 
 def _save_taxon_df(df: 'DataFrame', db_path: PathOrStr = DB_PATH):
     """Save taxon dataframe back to SQLite; clear and reuse existing table to keep indexes"""
+    # Backup to CSV in the rare case that this fails
+    db_path = Path(db_path)
+    df.to_csv(db_path.parent / 'taxa.csv')
+
     logger.info('Saving taxon counts to database')
     with sqlite3.connect(db_path) as conn:
         conn.execute('DELETE FROM taxon')
+        conn.commit()
         df.to_sql('taxon', conn, if_exists='append', index=False)
         conn.execute('VACUUM')
 
