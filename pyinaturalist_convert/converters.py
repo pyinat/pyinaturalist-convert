@@ -123,11 +123,9 @@ def _to_models(value: InputTypes, model: Type[BaseModel] = Observation) -> Itera
 
 def to_dicts(value: InputTypes) -> Iterable[Dict]:
     """Convert any supported input type into a observation (or other record type) dicts"""
-    from pandas import DataFrame
-
     if not value:
         return []
-    if isinstance(value, DataFrame):
+    if _is_dataframe(value):
         return _df_to_dicts(value)
     if isinstance(value, Dataset):
         return value.dict
@@ -352,3 +350,12 @@ def _fix_dimensions(flat_observations):
         for field in headers:
             obs.setdefault(field, None)
     return sorted(headers), flat_observations
+
+
+def _is_dataframe(obj) -> bool:
+    try:
+        from pandas import DataFrame
+
+        return isinstance(obj, DataFrame)
+    except ImportError:
+        return False
