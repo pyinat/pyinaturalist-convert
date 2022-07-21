@@ -50,7 +50,6 @@ at least provides a starting point.
 """
 # TODO: Abstraction for converting between DB models and attrs models
 # TODO: Annotations and observation field values
-# TODO: Add iconic taxon ID (requires navigating ancestry tree)
 # TODO: If needed, this could be done with just the stdlib sqlite3 and no SQLAlchemy
 from itertools import chain
 from logging import getLogger
@@ -176,13 +175,14 @@ def save_taxa(taxa: Iterable[Taxon], db_path: PathOrStr = DB_PATH):
         for taxon in taxa:
             session.merge(DbTaxon.from_model(taxon))
 
-        # Save ancestors and children (partial records), but don't overwrite any existing records
+        # Save ancestors and children (partial records), but don't overwrite any full records
         taxonomy = {t.id: t for t in chain.from_iterable([t.ancestors + t.children for t in taxa])}
         unique_taxon_ids = list(taxonomy.keys())
         stmt = select(DbTaxon).where(DbTaxon.id.in_(unique_taxon_ids))  # type: ignore
+        stmt = stmt.where(DbTaxon.partial == False)
         saved_ids = [t[0].id for t in session.execute(stmt)]
         for taxon in taxonomy.values():
             if taxon.id not in saved_ids:
-                session.add(DbTaxon.from_model(taxon))
+                session.merge(DbTaxon.from_model(taxon))
 
         session.commit()

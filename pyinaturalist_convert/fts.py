@@ -257,6 +257,7 @@ def add_taxon_counts(row: Dict[str, Union[int, str]], taxon_counts: Dict[int, in
     return row
 
 
+# TODO: Read from taxon table instead
 def normalize_taxon_counts(counts_path: PathOrStr = TAXON_COUNTS) -> Dict[int, int]:
     """Read previously calculated taxon counts, and normalize to a logarithmic distribution"""
     import numpy as np
