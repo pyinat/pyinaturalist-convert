@@ -33,6 +33,7 @@ class DbObservation:
     id: int = sa_field(Integer, primary_key=True)
     captive: bool = sa_field(Boolean, default=None, index=True)
     description: str = sa_field(String, default=None)
+    identifications_count: int = sa_field(Integer, default=0)
     geoprivacy: str = sa_field(String, default=None, index=True)
     latitude: float = sa_field(Float, default=None)
     longitude: float = sa_field(Float, default=None)
@@ -60,11 +61,14 @@ class DbObservation:
 
     @classmethod
     def from_model(cls, observation: Observation) -> 'DbObservation':
+        # TODO: Update this in pyinat
+        id_count = observation.identifications_count or len(observation.identifications)
         return cls(
             id=observation.id,
             captive=observation.captive,
             description=observation.description,
             geoprivacy=observation.geoprivacy,
+            identifications_count=id_count,
             latitude=observation.location[0] if observation.location else None,
             longitude=observation.location[1] if observation.location else None,
             license_code=observation.license_code,
@@ -85,6 +89,7 @@ class DbObservation:
             captive=self.captive,
             description=self.description,
             geoprivacy=self.geoprivacy,
+            identifications_count=self.identifications_count,
             location=(self.latitude, self.longitude),
             license_code=self.license_code,
             observed_on=self.observed_on,
