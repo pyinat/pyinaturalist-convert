@@ -131,7 +131,9 @@ class DbTaxon:
     photo_urls: str = sa_field(String, default=None)
     preferred_common_name: str = sa_field(String, default=None)
     rank: str = sa_field(String, default=None)
+    reference_url: str = sa_field(String, default=None)
 
+    # TODO: Add reference_url to pyinaturalist.Taxon
     @classmethod
     def from_model(cls, taxon: Taxon) -> 'DbTaxon':
         photo_urls = _join_photo_urls(taxon.taxon_photos or [taxon.default_photo])
