@@ -63,6 +63,8 @@ class DbObservation:
         return cls(
             id=observation.id,
             captive=observation.captive,
+            description=observation.description,
+            geoprivacy=observation.geoprivacy,
             latitude=observation.location[0] if observation.location else None,
             longitude=observation.location[1] if observation.location else None,
             license_code=observation.license_code,
@@ -81,6 +83,8 @@ class DbObservation:
         return Observation(
             id=self.id,
             captive=self.captive,
+            description=self.description,
+            geoprivacy=self.geoprivacy,
             location=(self.latitude, self.longitude),
             license_code=self.license_code,
             observed_on=self.observed_on,
