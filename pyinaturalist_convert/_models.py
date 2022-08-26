@@ -1,14 +1,23 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from logging import getLogger
-from typing import List
+from typing import Any, Dict, List, Optional
 from urllib.parse import quote_plus, unquote
 
-from pyinaturalist import IconPhoto, Observation, Photo, Taxon, User
-from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String
+from pyinaturalist import (
+    Annotation,
+    IconPhoto,
+    Observation,
+    ObservationFieldValue,
+    Photo,
+    Taxon,
+    User,
+)
+from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, types
 from sqlalchemy.orm import registry, relationship
 
 Base = registry()
+JsonField = Dict[str, Any]
 logger = getLogger(__name__)
 
 
@@ -49,6 +58,11 @@ class DbObservation:
     user_login: int = sa_field(Integer, default=None)
     uuid: str = sa_field(String, default=None, index=True)
 
+    # Denormalized nested collections
+    annotations: Optional[List[JsonField]] = sa_field(types.JSON, default=None)
+    ofvs: Optional[List[JsonField]] = sa_field(types.JSON, default=None)
+
+    # Table relationships
     photos = relationship(
         'DbPhoto', back_populates='observation', foreign_keys='DbPhoto.observation_id'
     )  # type: ignore
@@ -60,32 +74,33 @@ class DbObservation:
     # observer_id: int = synonym('user_id')  # type: ignore
 
     @classmethod
-    def from_model(cls, observation: Observation) -> 'DbObservation':
-        # TODO: Update this in pyinat
-        id_count = observation.identifications_count or len(observation.identifications)
+    def from_model(cls, obs: Observation) -> 'DbObservation':
         return cls(
-            id=observation.id,
-            captive=observation.captive,
-            description=observation.description,
-            geoprivacy=observation.geoprivacy,
-            identifications_count=id_count,
-            latitude=observation.location[0] if observation.location else None,
-            longitude=observation.location[1] if observation.location else None,
-            license_code=observation.license_code,
-            observed_on=observation.observed_on.isoformat() if observation.observed_on else None,
-            place_guess=observation.place_guess,
-            place_ids=_join_ids(observation.place_ids),
-            positional_accuracy=observation.positional_accuracy,
-            quality_grade=observation.quality_grade,
-            taxon_id=observation.taxon.id if observation.taxon else None,
-            updated_at=observation.updated_at.isoformat() if observation.updated_at else None,
-            user_id=observation.user.id if observation.user else None,
-            uuid=observation.uuid,
+            id=obs.id,
+            annotations=_flatten_annotations(obs.annotations),
+            captive=obs.captive,
+            description=obs.description,
+            geoprivacy=obs.geoprivacy,
+            identifications_count=obs.identifications_count,
+            latitude=obs.location[0] if obs.location else None,
+            longitude=obs.location[1] if obs.location else None,
+            license_code=obs.license_code,
+            observed_on=obs.observed_on.isoformat() if obs.observed_on else None,
+            ofvs=_flatten_ofvs(obs.ofvs),
+            place_guess=obs.place_guess,
+            place_ids=_join_ids(obs.place_ids),
+            positional_accuracy=obs.positional_accuracy,
+            quality_grade=obs.quality_grade,
+            taxon_id=obs.taxon.id if obs.taxon else None,
+            updated_at=obs.updated_at.isoformat() if obs.updated_at else None,
+            user_id=obs.user.id if obs.user else None,
+            uuid=obs.uuid,
         )
 
     def to_model(self) -> Observation:
         return Observation(
             id=self.id,
+            annotations=_unflatten_annotations(self.annotations),
             captive=self.captive,
             description=self.description,
             geoprivacy=self.geoprivacy,
@@ -93,6 +108,7 @@ class DbObservation:
             location=(self.latitude, self.longitude),
             license_code=self.license_code,
             observed_on=self.observed_on,
+            ofvs=_unflatten_ofvs(self.ofvs),
             place_guess=self.place_guess,
             place_ids=_split_ids(self.place_ids),
             positional_accuracy=self.positional_accuracy,
@@ -133,7 +149,6 @@ class DbTaxon:
     rank: str = sa_field(String, default=None)
     reference_url: str = sa_field(String, default=None)
 
-    # TODO: Add reference_url to pyinaturalist.Taxon
     @classmethod
     def from_model(cls, taxon: Taxon) -> 'DbTaxon':
         photo_urls = _join_photo_urls(taxon.taxon_photos or [taxon.default_photo])
@@ -150,6 +165,7 @@ class DbTaxon:
             partial=taxon._partial,
             preferred_common_name=taxon.preferred_common_name,
             rank=taxon.rank,
+            reference_url=taxon.reference_url,
             photo_urls=photo_urls,
         )
 
@@ -157,8 +173,8 @@ class DbTaxon:
         photos = _split_photo_urls(self.photo_urls)
         return Taxon(
             id=self.id,
-            ancestors=self._get_taxa(self.ancestor_ids),
-            children=self._get_taxa(self.child_ids),
+            ancestors=_get_taxa(self.ancestor_ids),
+            children=_get_taxa(self.child_ids),
             default_photo=photos[0] if photos else None,
             iconic_taxon_id=self.iconic_taxon_id,
             is_active=self.active,
@@ -169,11 +185,9 @@ class DbTaxon:
             partial=self.partial,
             preferred_common_name=self.preferred_common_name,
             rank=self.rank,
+            reference_url=self.reference_url,
             taxon_photos=photos,
         )
-
-    def _get_taxa(self, id_str: str) -> List[Taxon]:
-        return [Taxon(id=id, partial=True) for id in _split_ids(id_str)]
 
 
 # TODO: Combine observation_id/uuid into one column? Or two separate foreign keys?
@@ -239,6 +253,44 @@ class DbUser:
 
     def to_model(self) -> User:
         return User(id=self.id, login=self.login, name=self.name)
+
+
+# Minor helper functions
+# ----------------------
+
+
+def _flatten_annotations(annotations: List[Annotation] = None) -> Optional[List[JsonField]]:
+    return [_flatten_annotation(a) for a in annotations] if annotations else None
+
+
+def _flatten_annotation(annotation: Annotation) -> JsonField:
+    """Save an annotation as a dict of either term/value labels (if available) or IDs"""
+    if annotation.term and annotation.value:
+        return {
+            'term_label': annotation.term_label,
+            'value_label': annotation.value_label,
+        }
+    else:
+        return {
+            'controlled_attribute_id': annotation.controlled_attribute_id,
+            'controlled_value_id': annotation.controlled_value_id,
+        }
+
+
+def _unflatten_annotations(flat_annotations: List[JsonField] = None) -> Optional[List[Annotation]]:
+    return Annotation.from_json_list(flat_annotations) if flat_annotations else None
+
+
+def _flatten_ofvs(ofvs: List[ObservationFieldValue] = None) -> Optional[List[JsonField]]:
+    return [{'name': ofv.name, 'value': ofv.value} for ofv in ofvs] if ofvs else None
+
+
+def _unflatten_ofvs(flat_ofvs: List[JsonField] = None) -> List[ObservationFieldValue]:
+    return ObservationFieldValue.from_json_list(flat_ofvs) if flat_ofvs else None
+
+
+def _get_taxa(id_str: str) -> List[Taxon]:
+    return [Taxon(id=id, partial=True) for id in _split_ids(id_str)]
 
 
 def _split_ids(ids_str: str = None) -> List[int]:
