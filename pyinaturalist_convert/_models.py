@@ -61,6 +61,7 @@ class DbObservation:
     # Denormalized nested collections
     annotations: Optional[List[JsonField]] = sa_field(types.JSON, default=None)
     ofvs: Optional[List[JsonField]] = sa_field(types.JSON, default=None)
+    tags: str = sa_field(String, default=None)
 
     # Table relationships
     photos = relationship(
@@ -88,9 +89,10 @@ class DbObservation:
             observed_on=obs.observed_on.isoformat() if obs.observed_on else None,
             ofvs=_flatten_ofvs(obs.ofvs),
             place_guess=obs.place_guess,
-            place_ids=_join_ids(obs.place_ids),
+            place_ids=_join_list(obs.place_ids),
             positional_accuracy=obs.positional_accuracy,
             quality_grade=obs.quality_grade,
+            tags=_join_list(obs.tags),
             taxon_id=obs.taxon.id if obs.taxon else None,
             updated_at=obs.updated_at.isoformat() if obs.updated_at else None,
             user_id=obs.user.id if obs.user else None,
@@ -110,10 +112,11 @@ class DbObservation:
             observed_on=self.observed_on,
             ofvs=_unflatten_ofvs(self.ofvs),
             place_guess=self.place_guess,
-            place_ids=_split_ids(self.place_ids),
+            place_ids=_split_int_list(self.place_ids),
             positional_accuracy=self.positional_accuracy,
             quality_grade=self.quality_grade,
             photos=[p.to_model() for p in self.photos],  # type: ignore
+            tags=_split_list(self.tags),
             taxon=self.taxon.to_model() if self.taxon else None,
             updated_at=self.updated_at,
             user=User(id=self.user_id),
@@ -155,8 +158,8 @@ class DbTaxon:
         return cls(
             id=taxon.id,
             active=taxon.is_active,
-            ancestor_ids=_join_ids(taxon.ancestor_ids),
-            child_ids=_join_ids(taxon.child_ids),
+            ancestor_ids=_join_list(taxon.ancestor_ids),
+            child_ids=_join_list(taxon.child_ids),
             iconic_taxon_id=taxon.iconic_taxon_id,
             leaf_taxa_count=taxon.complete_species_count,
             observations_count=taxon.observations_count,
@@ -278,6 +281,7 @@ def _flatten_annotation(annotation: Annotation) -> JsonField:
 
 
 def _unflatten_annotations(flat_annotations: List[JsonField] = None) -> Optional[List[Annotation]]:
+    """Initialize Annotations from either term/value labels (if available) or IDs"""
     return Annotation.from_json_list(flat_annotations) if flat_annotations else None
 
 
@@ -290,15 +294,19 @@ def _unflatten_ofvs(flat_ofvs: List[JsonField] = None) -> List[ObservationFieldV
 
 
 def _get_taxa(id_str: str) -> List[Taxon]:
-    return [Taxon(id=id, partial=True) for id in _split_ids(id_str)]
+    return [Taxon(id=id, partial=True) for id in _split_int_list(id_str)]
 
 
-def _split_ids(ids_str: str = None) -> List[int]:
-    return [int(i) for i in ids_str.split(',')] if ids_str else []
+def _split_list(values_str: str = None) -> List[str]:
+    return values_str.split(',') if values_str else []
 
 
-def _join_ids(ids: List[int] = None) -> str:
-    return ','.join(map(str, ids)) if ids else ''
+def _split_int_list(values_str: str = None) -> List[int]:
+    return [int(i) for i in values_str.split(',')] if values_str else []
+
+
+def _join_list(values: List = None) -> str:
+    return ','.join(map(str, values)) if values else ''
 
 
 def _split_photo_urls(urls_str: str) -> List[Photo]:
