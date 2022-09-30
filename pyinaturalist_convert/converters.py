@@ -273,14 +273,15 @@ def flatten_observations(
 
 def _df_to_dicts(df: 'DataFrame') -> List[JsonResponse]:
     """Convert a pandas DataFrame into nested dicts (similar to API response JSON)"""
-    from numpy import nan
+    from numpy import nan, ndarray
+
+    # Convert numpy arrays to python lists for compatibility with Observation.from_json()
+    def _convert_arrays(obj: JsonResponse) -> JsonResponse:
+        return {k: v.tolist() if isinstance(v, ndarray) else v for k, v in obj.items()}
 
     df = df.replace([nan], [None])
     observations = [unflatten(flat_dict, splitter='dot') for flat_dict in df.to_dict('records')]
-    # TODO: Handle array types in Observation.from_json()
-    for obs in observations:
-        coords = obs.get('location')
-        obs['location'] = tuple(coords) if coords is not None else None
+    observations = [_convert_arrays(obs) for obs in observations]
     return observations
 
 
