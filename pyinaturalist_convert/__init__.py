@@ -1,4 +1,6 @@
 # flake8: noqa: F401, F403
+from pyinaturalist import enable_logging
+
 from .constants import *
 from .converters import *
 from .csv import load_csv_exports
