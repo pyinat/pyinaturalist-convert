@@ -59,7 +59,7 @@ from pyinaturalist import Observation, Taxon
 
 from .constants import DB_PATH, PathOrStr
 
-# Is SQLAlchemy isn't installed, don't raise ImportErrors at import time.
+# If SQLAlchemy isn't installed, don't raise ImportErrors at import time.
 # DB Model classes require SA imports in module scope, so they're wrapped here.
 try:
     from ._models import Base, DbObservation, DbPhoto, DbTaxon, DbUser
