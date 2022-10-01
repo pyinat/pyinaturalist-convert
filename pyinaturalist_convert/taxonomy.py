@@ -27,7 +27,7 @@ from multiprocessing import Manager, Process
 from pathlib import Path
 from queue import Queue
 from time import sleep, time
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple
 
 from pyinaturalist import Taxon
 from pyinaturalist.constants import ICONIC_TAXA, ROOT_TAXON_ID
@@ -47,10 +47,13 @@ LOAD_FIRST_IDS = [47120, 211194, 2]
 logger = getLogger(__name__)
 
 
+# TODO: Save separate backup files for base taxon counts and aggregate taxon counts
+#   Use base taxon counts if available, allowing usage without full observation table
 def aggregate_taxon_db(
     db_path: PathOrStr = DB_PATH,
     counts_path: PathOrStr = TAXON_COUNTS,
     common_names_path: PathOrStr = DEFAULT_LANG_CSV,
+    progress_bars: bool = True,
 ) -> 'DataFrame':
     """Add aggregate and hierarchical values to the taxon database:
 
@@ -68,6 +71,7 @@ def aggregate_taxon_db(
         counts_path: Path to optionally save a copy of observation taxon counts
         common_names_path: Path to a CSV file containing taxon common names.
             See the DwC-A taxonomy dataset for available languages.
+        progress_bars: Show detailed progress bars in addition to log output
     """
     import pandas as pd
 
@@ -78,21 +82,54 @@ def aggregate_taxon_db(
     taxon_counts = pd.DataFrame(taxon_counts_dict.items(), columns=['id', 'observations_count'])
     df = _join_taxon_counts(df, taxon_counts)
     n_phyla = len(df[(df['rank'] == 'phylum') & ~df['parent_id'].isin(EXCLUDE_IDS)])
+    n_kigndoms = len(df[(df['rank'] == 'kingdom')])
 
-    # A queue for completed items; a separate process pulls from this to update progress bar
+    # Optionally run without fancy progress bars
+    if not progress_bars:
+        df = _aggregate_taxon_db(df, db_path, counts_path, common_names_path)
+        return df
+
+    # Set up a separate process to manage progress updates via queues
     manager = Manager()
     progress_queue = manager.Queue()
     task_queue = manager.Queue()
-    progress_total = len(df) + n_phyla + 1
+    log_queue = manager.Queue()
+    progress_total = len(df) + n_phyla + n_kigndoms + 1
     progress_proc = Process(
-        target=_update_progress, args=(progress_queue, task_queue, progress_total)
+        target=_update_progress, args=(progress_queue, task_queue, log_queue, progress_total)
     )
     progress_proc.start()
 
+    try:
+        _aggregate_taxon_db(
+            df, db_path, counts_path, common_names_path, progress_queue, task_queue, log_queue
+        )
+        logger.info(f'Completed in {time()-start:.2f}s')
+    except Exception as e:
+        logger.exception(e)
+    finally:
+        progress_proc.terminate()
+    return df
+
+
+def _aggregate_taxon_db(
+    df: 'DataFrame',
+    db_path: PathOrStr = DB_PATH,
+    counts_path: PathOrStr = TAXON_COUNTS,
+    common_names_path: PathOrStr = DEFAULT_LANG_CSV,
+    progress_queue: Queue = None,
+    task_queue: Queue = None,
+    log_queue: Queue = None,
+) -> 'DataFrame':
+    import pandas as pd
+
+    # Write a log message to either a stdlib logger, or rich's progress logger
+    # (for better formatting that doesn't mangle progress bars)
+    log_func: Callable[[str], None] = log_queue.put if log_queue else logger.info  # type: ignore
+    q_kwargs = {'progress_queue': progress_queue, 'task_queue': task_queue}
+
     # Get common names from CSV
-    common_names = _get_common_names(
-        common_names_path, progress_queue=progress_queue, task_queue=task_queue
-    )
+    common_names = _get_common_names(common_names_path, **q_kwargs)
 
     # Parallelize by phylum; split up entire dataframe to minimize memory usage per process
     combined_df = df[(df['id'] == ROOT_TAXON_ID) | (df['rank'] == 'kingdom')]
@@ -104,20 +141,20 @@ def aggregate_taxon_db(
         [
             Taxon.from_json(taxon)
             for taxon in df[df['rank'] == 'phylum'].to_dict(orient='records')
-            if taxon['parent_id'] not in (EXCLUDE_IDS + LOAD_FIRST_IDS)
+            if taxon['parent_id'] not in (EXCLUDE_IDS)
+            and taxon['id'] not in (EXCLUDE_IDS + LOAD_FIRST_IDS)
         ]
     )
 
-    logger.info('Partitioning taxon dataframe by phylum')
     with ProcessPoolExecutor() as executor_1, ProcessPoolExecutor() as executor_2:
+        log_func('Partitioning tasks by phylum')
         futures_to_taxon = {
             executor_1.submit(
                 _get_descendant_ids,
-                taxon_id=taxon.id,
+                taxon.id,
                 taxon_name=taxon.name,
                 df=df[['id', 'parent_id']],
-                progress_queue=progress_queue,
-                task_queue=task_queue,
+                **q_kwargs,  # type: ignore
             ): taxon
             for taxon in phyla
         }
@@ -135,29 +172,23 @@ def aggregate_taxon_db(
                     taxon_name=taxon.name,
                     ancestor_ids=[ROOT_TAXON_ID, taxon.parent_id],
                     common_names=common_names,
-                    progress_queue=progress_queue,
-                    task_queue=task_queue,
+                    **q_kwargs,
                 )
             )
 
         # As each subtree is completed, recombine into a single dataframe
+        log_func('Combining results')
         for future in as_completed(stage_2_futures):
             sub_df = future.result()
             combined_df = pd.concat([combined_df, sub_df], ignore_index=True)
 
-        executor_1.shutdown()
-        executor_2.shutdown()
-
     # Process kingdoms
-    df = _aggregate_kingdoms(combined_df, common_names)
+    df = _aggregate_kingdoms(combined_df, common_names, **q_kwargs)
 
-    # Save taxon counts for future use
+    # Save all results back to the database, and a separate minimal taxon counts file for future use
     if counts_path:
         _save_taxon_counts(df, counts_path)
     _save_taxon_df(df, db_path)
-
-    progress_proc.terminate()
-    logger.debug(f'Elapsed: {time()-start:.2f}s')
     return df
 
 
@@ -221,7 +252,6 @@ def _aggregate_branch(
     task_queue: Queue = None,
 ) -> 'DataFrame':
     """Add aggregate values to all descendants of a given taxon"""
-    logger.debug(f'Processing phylum {taxon_name} ({len(df)} taxa)')
     common_names = common_names or {}
     task_name = f'phylum {taxon_name}'
     if task_queue:
@@ -253,15 +283,23 @@ def _aggregate_branch(
         )
 
     aggregate_rec(taxon_id, ancestor_ids or [ROOT_TAXON_ID])
-    logger.debug(f'Completed {taxon_name}')
     return df
 
 
-def _aggregate_kingdoms(df: 'DataFrame', common_names: Dict[int, str] = None) -> 'DataFrame':
+def _aggregate_kingdoms(
+    df: 'DataFrame',
+    common_names: Dict[int, str] = None,
+    progress_queue: Queue = None,
+    task_queue: Queue = None,
+) -> 'DataFrame':
     """Process kingdoms + root taxon (in main thread) after all phyla have been processed"""
     common_names = common_names or {}
+    kingdom_ids = list(df[df['rank'] == 'kingdom']['id'])
 
-    for taxon_id in list(df[df['rank'] == 'kingdom']['id']) + [ROOT_TAXON_ID]:
+    if task_queue:
+        task_queue.put(('kingdoms', 'Loading', len(kingdom_ids) + 1))
+
+    for taxon_id in kingdom_ids + [ROOT_TAXON_ID]:
         children = df[df['parent_id'] == taxon_id]
         ancestor_ids = [] if taxon_id == ROOT_TAXON_ID else [ROOT_TAXON_ID]
         mask = df['id'] == taxon_id
@@ -276,6 +314,10 @@ def _aggregate_kingdoms(df: 'DataFrame', common_names: Dict[int, str] = None) ->
             ),
             axis=1,
         )
+
+        if progress_queue:
+            progress_queue.put(('kingdoms', 1))
+
     return df
 
 
@@ -346,26 +388,39 @@ def _save_taxon_df(df: 'DataFrame', db_path: PathOrStr = DB_PATH):
     """Save taxon dataframe back to SQLite; clear and reuse existing table to keep indexes"""
     # Backup to CSV in the rare case that this fails
     db_path = Path(db_path)
-    df.to_csv(db_path.parent / 'taxa.csv')
+    backup_path = db_path.parent / 'taxa_backup.csv'
+    df.to_csv(backup_path)
 
     logger.info('Saving taxon counts to database')
     with sqlite3.connect(db_path) as conn:
         conn.execute('DELETE FROM taxon')
         conn.commit()
-        df.to_sql('taxon', conn, if_exists='append', index=False)
-        conn.execute('VACUUM')
+        try:
+            df.to_sql('taxon', conn, if_exists='append', index=False)
+        except (IOError, sqlite3.DatabaseError) as e:
+            logger.exception(e)
+            logger.warning(f'Failed writing to database; backup available at {backup_path}')
+        else:
+            backup_path.unlink()
+            conn.execute('VACUUM')
 
 
 def _join_taxon_counts(df: 'DataFrame', taxon_counts: 'DataFrame') -> 'DataFrame':
     """Join taxon dataframe with updated taxon counts"""
     from numpy import int64
 
-    df = df.set_index('id')
     df = df.drop('observations_count', axis=1)
-    taxon_counts = taxon_counts.set_index('id')
+    if 'leaf_taxa_count' in df:
+        df = df.drop('leaf_taxa_count', axis=1)
+    if 'leaf_taxa_count' not in taxon_counts:
+        taxon_counts['leaf_taxa_count'] = 0
+    if 'id' in df:
+        df = df.set_index('id')
+    if 'id' in taxon_counts:
+        taxon_counts = taxon_counts.set_index('id')
     df = df.join(taxon_counts)
     df['observations_count'] = df['observations_count'].fillna(0).astype(int64)
-    df['leaf_taxa_count'] = 0
+    df['leaf_taxa_count'] = df['leaf_taxa_count'].fillna(0).astype(int64)
 
     return df.rename_axis('id').reset_index()
 
@@ -393,7 +448,9 @@ def _update_taxon_counts(
     return df
 
 
-def _update_progress(progress_queue: Queue, task_queue: Queue, total: int):  # pragma: no cover
+def _update_progress(
+    progress_queue: Queue, task_queue: Queue, log_queue: Queue, total: int
+):  # pragma: no cover
     """Pull from a multiprocessing queue and update progress"""
     progress = ParallelMultiProgress(total=total)
     pending: List[Tuple[str, int]] = []
@@ -401,6 +458,10 @@ def _update_progress(progress_queue: Queue, task_queue: Queue, total: int):  # p
 
     with progress:
         while True:
+            # Show any one-off log messages
+            while not log_queue.empty():
+                progress.log(log_queue.get())
+
             # Check for new tasks (max 1 per tick)
             if not task_queue.empty():
                 task_name, task_desc, total = task_queue.get()

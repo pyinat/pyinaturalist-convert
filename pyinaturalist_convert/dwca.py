@@ -35,7 +35,7 @@ from typing import Dict, List
 from pyinaturalist.constants import DATA_DIR
 
 from .constants import DB_PATH, DWCA_OBS_CSV, DWCA_TAXA_URL, DWCA_TAXON_CSV, DWCA_URL, PathOrStr
-from .db import create_tables
+from .db import DbTaxon, create_table, create_tables
 from .download import (
     CSVProgress,
     check_download,
@@ -156,7 +156,7 @@ def load_dwca_taxa(
     progress: CSVProgress = None,
 ):
     """Create or update a taxonomy SQLite table from the GBIF DwC-A archive"""
-    create_tables(db_path)
+    create_table(DbTaxon, db_path)
 
     def get_parent_id(row: Dict):
         """Get parent taxon ID from URL"""

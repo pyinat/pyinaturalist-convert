@@ -175,14 +175,14 @@ class ParallelMultiProgress:
             completed=0,
             total=total,
         )
-        self.log('Started', task_description, name)
+        self.log_job('Started', task_description, name, total)
 
         self._changed_jobs = True
         self.refresh()
 
     def stop_job(self, name: str):
         progress = self.job_progresses.pop(name)
-        self.log('Completed', progress.task_description, name)
+        self.log_job('Completed', progress.task_description, name)
 
         self._changed_jobs = True
         self.refresh()
@@ -201,8 +201,14 @@ class ParallelMultiProgress:
         self._changed_jobs = False
         self._last_refresh = time()
 
-    def log(self, msg: str, task_description, name: str):
-        self.total_progress.log(f'[cyan]{msg} {task_description} [white]{name}[cyan]')
+    def log(self, msg: str):
+        self.total_progress.log(f'[cyan]{msg}')
+
+    def log_job(self, msg: str, task_description, name: str, task_size: int = None):
+        msg = f'[cyan]{msg} {task_description} [white]{name}[cyan]'
+        if task_size:
+            msg += f' ({task_size} items)'
+        self.total_progress.log(msg)
 
 
 class CSVProgress(MultiProgress):
