@@ -11,19 +11,19 @@ on inaturalist.org:
 **Build Example**::
 
     >>> from pyinaturalist_convert import (
-    ...     aggregate_taxon_counts, enable_logging, load_dwca_tables, load_fts_taxa
+    ...     aggregate_taxon_db, enable_logging, load_dwca_tables, load_fts_taxa
     ... )
 
     >>> # Optional, but recommended:
     >>> enable_logging()
     >>> load_dwca_tables()
-    >>> aggregate_taxon_counts()
+    >>> aggregate_taxon_db()
 
     >>> # Load FTS table for all languages (Defaults to English names only):
     >>> load_fts_taxa(language='all')
 
 .. note::
-    Running :py:func:`.aggregate_taxon_counts` will result in more accurate search rankings based
+    Running :py:func:`.aggregate_taxon_db` will result in more accurate search rankings based
     on taxon counts, but will take several hours to complete.
 
 **Search example**::
