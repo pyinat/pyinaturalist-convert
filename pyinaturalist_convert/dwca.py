@@ -62,6 +62,7 @@ OBS_COLUMNS = [
 TAXON_COLUMN_MAP = {
     'id': 'id',
     'parentNameUsageID': 'parent_id',
+    'references': 'reference_url',
     'scientificName': 'name',
     'taxonRank': 'rank',
 }
