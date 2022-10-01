@@ -45,7 +45,7 @@ xmltodict                   = {optional=true, version=">=0.12"}
 # Documentation dependencies
 furo                        = {optional=true, version="^2022.6"}
 myst-parser                 = {optional=true, version="^0.18"}
-sphinx                      = {optional=true, version="^4.5"}
+sphinx                      = {optional=true, version=">=4.5,<6.0"}
 sphinx-autodoc-typehints    = {optional=true, version="^1.17"}
 sphinx-copybutton           = {optional=true, version=">=0.5"}
 sphinx-design               = {optional=true, version=">=0.2"}
