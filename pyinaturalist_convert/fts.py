@@ -24,7 +24,7 @@ on inaturalist.org:
 
 .. note::
     Running :py:func:`.aggregate_taxon_db` will result in more accurate search rankings based
-    on taxon counts, but will take several hours to complete.
+    on taxon counts, but will take a couple hours to complete.
 
 **Search example**::
 
