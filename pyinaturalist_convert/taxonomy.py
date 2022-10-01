@@ -145,6 +145,9 @@ def aggregate_taxon_db(
             sub_df = future.result()
             combined_df = pd.concat([combined_df, sub_df], ignore_index=True)
 
+        executor_1.shutdown()
+        executor_2.shutdown()
+
     # Process kingdoms
     df = _aggregate_kingdoms(combined_df, common_names)
 
