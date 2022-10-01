@@ -1,8 +1,11 @@
 # flake8: noqa: F401
 import sqlite3
+from concurrent.futures import ThreadPoolExecutor
 from csv import DictReader
 from logging import getLogger
 from unittest.mock import patch
+
+from pytest_cov.embed import cleanup_on_sigterm
 
 from pyinaturalist_convert.dwca import load_dwca_taxa
 from pyinaturalist_convert.sqlite import load_table
@@ -12,9 +15,13 @@ from test.conftest import SAMPLE_DATA_DIR
 CSV_DIR = SAMPLE_DATA_DIR / 'inaturalist-taxonomy.dwca'
 
 logger = getLogger(__name__)
+cleanup_on_sigterm()
 
 
 @patch('pyinaturalist_convert.taxonomy.sleep')
+@patch(
+    'pyinaturalist_convert.taxonomy.ProcessPoolExecutor', ThreadPoolExecutor
+)  # Can't get coverage to work with multiprocessing
 def test_aggregate_taxon_db(mock_sleep, tmp_path):
 
     taxon_db_path = SAMPLE_DATA_DIR / 'taxon_counts.csv'
