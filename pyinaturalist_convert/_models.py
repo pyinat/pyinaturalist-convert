@@ -15,11 +15,14 @@ from pyinaturalist import (
     Taxon,
     User,
 )
-from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, types
+from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, inspect, types
 from sqlalchemy.orm import registry, relationship
+
+PRECOMPUTED_COLUMNS = ['leaf_taxa_count', 'observations_count']
 
 Base = registry()
 JsonField = Dict[str, Any]
+
 logger = getLogger(__name__)
 
 
@@ -208,6 +211,16 @@ class DbTaxon:
             reference_url=self.reference_url,
             taxon_photos=photos,
         )
+
+    def update(self, taxon: Taxon):
+        """Update an existing record, without overriding non-null precomputed columns"""
+        new_taxon = self.from_model(taxon)
+        for col in [c.name for c in inspect(self).mapper.columns]:
+            new_val = getattr(new_taxon, col)
+            if col not in PRECOMPUTED_COLUMNS:
+                setattr(self, col, new_val)
+            elif getattr(self, col) is None:
+                setattr(self, col, new_val)
 
 
 # TODO: Combine observation_id/uuid into one column? Or two separate foreign keys?
