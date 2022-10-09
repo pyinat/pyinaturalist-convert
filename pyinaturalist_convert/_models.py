@@ -41,6 +41,7 @@ class DbObservation:
 
     id: int = sa_field(Integer, primary_key=True)
     captive: bool = sa_field(Boolean, default=None, index=True)
+    created_at: datetime = sa_field(String, default=None, index=True)
     description: str = sa_field(String, default=None)
     identifications_count: int = sa_field(Integer, default=0)
     geoprivacy: str = sa_field(String, default=None, index=True)
@@ -80,6 +81,7 @@ class DbObservation:
             id=obs.id,
             annotations=_flatten_annotations(obs.annotations),
             captive=obs.captive,
+            created_at=obs.created_at.isoformat() if obs.created_at else None,
             description=obs.description,
             geoprivacy=obs.geoprivacy,
             identifications_count=obs.identifications_count,
@@ -104,6 +106,7 @@ class DbObservation:
             id=self.id,
             annotations=_unflatten_annotations(self.annotations),
             captive=self.captive,
+            created_at=self.created_at,
             description=self.description,
             geoprivacy=self.geoprivacy,
             identifications_count=self.identifications_count,
