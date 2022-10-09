@@ -25,7 +25,7 @@ from pyinaturalist_convert.db import (
 def test_save_observations(tmp_path):
     db_path = tmp_path / 'observations.db'
     taxon = Taxon(id=1, name='test taxon', reference_url='https://google.com')
-    user = User(id=1, login='Test user')
+    user = User(id=1, login='test_user')
     annotation_1 = Annotation(
         term=ControlledTerm(label='term'),
         value=ControlledTermValue(label='value'),
@@ -92,6 +92,11 @@ def test_save_observations(tmp_path):
     assert obs_2.taxon.id == obs_1.taxon.id
     assert obs_2.taxon.reference_url == obs_1.taxon.reference_url
     assert obs_2.user.id == obs_1.user.id
+
+    results = get_db_observations(db_path, username='test_user', order_by_date=True)
+    assert len(list(results)) == 1
+    results = get_db_observations(db_path, username='nonexistent_user', limit=1)
+    assert len(list(results)) == 0
 
 
 def test_save_taxa(tmp_path):
