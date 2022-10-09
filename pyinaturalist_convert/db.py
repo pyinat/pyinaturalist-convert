@@ -106,22 +106,27 @@ def _get_engine(db_path):
 
 def get_db_observations(
     db_path: PathOrStr = DB_PATH,
-    ids: List[int] = None,
-    limit: int = 200,
+    ids: Iterable[int] = None,
+    username: str = None,
+    limit: int = None,
+    order_by_date: bool = False,
 ) -> Iterator[Observation]:
-    """Load observation records (and associated taxa and photos) from SQLite"""
-    from sqlalchemy import select
+    """Load observation records and associated taxa from SQLite"""
+    from sqlalchemy import desc, select
 
     stmt = (
         select(DbObservation)
-        .join(DbObservation.photos, isouter=True)  # type: ignore  # created at runtime
         .join(DbObservation.taxon, isouter=True)
         .join(DbObservation.user, isouter=True)
     )
     if ids:
-        stmt = stmt.where(DbObservation.id.in_(ids))  # type: ignore
+        stmt = stmt.where(DbObservation.id.in_(list(ids)))  # type: ignore
+    if username:
+        stmt = stmt.where(DbUser.login == username)
     if limit:
         stmt = stmt.limit(limit)
+    if order_by_date:
+        stmt = stmt.order_by(desc(DbObservation.created_at))
 
     with get_session(db_path) as session:
         for obs in session.execute(stmt):
