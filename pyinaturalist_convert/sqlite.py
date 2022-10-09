@@ -98,10 +98,15 @@ def load_table(
     """Load a CSV file into a sqlite3 table.
     This is less efficient than the sqlite3 shell `.import` command, but easier to use.
 
+    Example:
+        # Minimal example to load data into a 'taxon' table in 'my_database.db'
+        >>> from pyinaturalist_convert import load_table
+        >>> load_table('taxon.csv', 'my_database.db')
+
     Args:
         csv_path: Path to CSV file
         db_path: Path to SQLite database
-        table_name: Name of table to load into (defaults to db_path basename)
+        table_name: Name of table to load into (defaults to csv_path basename)
         column_map: Dictionary mapping CSV column names to SQLite column names. And columns not
             listed will be ignored.
         pk: Primary key column name
@@ -120,7 +125,7 @@ def load_table(
         csv_cols = list(column_map.keys())
         db_cols = list(column_map.values())
 
-    table_name = table_name or db_path.stem
+    table_name = table_name or csv_path.stem
     non_pk_cols = [k for k in db_cols if k != pk]
     columns_str = ', '.join(db_cols)
     placeholders = ','.join(['?'] * len(csv_cols))
