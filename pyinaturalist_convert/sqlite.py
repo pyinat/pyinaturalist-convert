@@ -1,5 +1,6 @@
 """Helper utilities to load data directly from CSV into a SQLite database"""
 import sqlite3
+from contextlib import nullcontext
 from csv import DictReader
 from csv import reader as csv_reader
 from logging import getLogger
@@ -84,7 +85,6 @@ def get_fields(csv_path: PathOrStr, delimiter: str = ',') -> List[str]:
         return next(reader)
 
 
-# TODO: Load all columns with original names if a column map isn't provided
 def load_table(
     csv_path: PathOrStr,
     db_path: PathOrStr,
@@ -98,10 +98,15 @@ def load_table(
     """Load a CSV file into a sqlite3 table.
     This is less efficient than the sqlite3 shell `.import` command, but easier to use.
 
+    Example:
+        # Minimal example to load data into a 'taxon' table in 'my_database.db'
+        >>> from pyinaturalist_convert import load_table
+        >>> load_table('taxon.csv', 'my_database.db')
+
     Args:
         csv_path: Path to CSV file
         db_path: Path to SQLite database
-        table_name: Name of table to load into (defaults to db_path basename)
+        table_name: Name of table to load into (defaults to csv_path basename)
         column_map: Dictionary mapping CSV column names to SQLite column names. And columns not
             listed will be ignored.
         pk: Primary key column name
@@ -120,7 +125,7 @@ def load_table(
         csv_cols = list(column_map.keys())
         db_cols = list(column_map.values())
 
-    table_name = table_name or db_path.stem
+    table_name = table_name or csv_path.stem
     non_pk_cols = [k for k in db_cols if k != pk]
     columns_str = ', '.join(db_cols)
     placeholders = ','.join(['?'] * len(csv_cols))
@@ -149,11 +154,13 @@ def load_table(
     logger.info(f'Completed in {time() - start:.2f}s')
 
 
-def vacuum_analyze(table_names: List[str], db_path: PathOrStr = DB_PATH):
+def vacuum_analyze(
+    table_names: List[str], db_path: PathOrStr = DB_PATH, show_spinner: bool = False
+):
     """Vacuum a SQLite database and analzy one or more tables. If loading multiple tables, this
     should be done once after loading all of them.
     """
-    spinner = get_progress_spinner('Final cleanup')
+    spinner = get_progress_spinner('Final cleanup') if show_spinner else nullcontext()
     with spinner, sqlite3.connect(db_path) as conn:
         conn.execute('VACUUM')
         for table_name in table_names:
