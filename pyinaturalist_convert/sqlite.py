@@ -1,5 +1,6 @@
 """Helper utilities to load data directly from CSV into a SQLite database"""
 import sqlite3
+from contextlib import nullcontext
 from csv import DictReader
 from csv import reader as csv_reader
 from logging import getLogger
@@ -84,7 +85,6 @@ def get_fields(csv_path: PathOrStr, delimiter: str = ',') -> List[str]:
         return next(reader)
 
 
-# TODO: Load all columns with original names if a column map isn't provided
 def load_table(
     csv_path: PathOrStr,
     db_path: PathOrStr,
@@ -149,11 +149,13 @@ def load_table(
     logger.info(f'Completed in {time() - start:.2f}s')
 
 
-def vacuum_analyze(table_names: List[str], db_path: PathOrStr = DB_PATH):
+def vacuum_analyze(
+    table_names: List[str], db_path: PathOrStr = DB_PATH, show_spinner: bool = False
+):
     """Vacuum a SQLite database and analzy one or more tables. If loading multiple tables, this
     should be done once after loading all of them.
     """
-    spinner = get_progress_spinner('Final cleanup')
+    spinner = get_progress_spinner('Final cleanup') if show_spinner else nullcontext()
     with spinner, sqlite3.connect(db_path) as conn:
         conn.execute('VACUUM')
         for table_name in table_names:

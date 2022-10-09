@@ -231,7 +231,7 @@ def optimize_fts_table(db_path: PathOrStr = DB_PATH):
         _load_taxon_ranks(conn)
         conn.execute(f"INSERT INTO {TAXON_FTS_TABLE}({TAXON_FTS_TABLE}) VALUES('optimize')")
         conn.commit()
-    vacuum_analyze([TAXON_FTS_TABLE], db_path)
+    vacuum_analyze([TAXON_FTS_TABLE], db_path, show_spinner=True)
 
 
 def _load_taxon_ranks(conn):
