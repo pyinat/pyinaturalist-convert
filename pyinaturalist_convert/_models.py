@@ -155,10 +155,10 @@ class DbTaxon:
     __sa_dataclass_metadata_key__ = 'sa'
 
     id: int = sa_field(Integer, primary_key=True)
-    active: bool = sa_field(Boolean, default=None)
     ancestor_ids: str = sa_field(String, default=None)
     child_ids: str = sa_field(String, default=None)
     iconic_taxon_id: int = sa_field(Integer, default=0)
+    is_active: bool = sa_field(Boolean, default=None)
     leaf_taxa_count: int = sa_field(Integer, default=0)
     observations_count: int = sa_field(Integer, default=0)
     name: str = sa_field(String, default=None, index=True)
@@ -174,10 +174,10 @@ class DbTaxon:
         photo_urls = _join_photo_urls(taxon.taxon_photos or [taxon.default_photo])
         return cls(
             id=taxon.id,
-            active=taxon.is_active,
             ancestor_ids=_join_list(taxon.ancestor_ids),
             child_ids=_join_list(taxon.child_ids),
             iconic_taxon_id=taxon.iconic_taxon_id,
+            is_active=taxon.is_active,
             leaf_taxa_count=taxon.complete_species_count,
             observations_count=taxon.observations_count,
             name=taxon.name,
@@ -197,7 +197,7 @@ class DbTaxon:
             children=_get_taxa(self.child_ids),
             default_photo=photos[0] if photos else None,
             iconic_taxon_id=self.iconic_taxon_id,
-            is_active=self.active,
+            is_active=self.is_active,
             complete_species_count=self.leaf_taxa_count,
             observations_count=self.observations_count,
             name=self.name,
