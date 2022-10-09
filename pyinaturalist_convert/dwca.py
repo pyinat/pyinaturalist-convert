@@ -86,7 +86,7 @@ def load_dwca_tables(db_path: PathOrStr = DB_PATH):
     with CSVProgress(DWCA_OBS_CSV, DWCA_TAXON_CSV) as progress:
         load_dwca_observations(db_path=db_path, progress=progress)
         load_dwca_taxa(db_path=db_path, progress=progress)
-    vacuum_analyze(['observation', 'taxon'], db_path)
+    vacuum_analyze(['observation', 'taxon'], db_path, show_spinner=True)
 
 
 def download_dwca_observations(dest_dir: PathOrStr = DATA_DIR):

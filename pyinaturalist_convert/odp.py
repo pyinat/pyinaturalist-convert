@@ -74,7 +74,7 @@ def load_odp_tables(dest_dir: PathOrStr = DATA_DIR, db_path: PathOrStr = DB_PATH
         load_odp_photos(csv_dir / 'photos.csv', db_path, progress)
         load_odp_taxa(csv_dir / 'taxa.csv', db_path, progress)
         load_odp_users(csv_dir / 'observers.csv', db_path, progress)
-    vacuum_analyze(['observation', 'photo', 'taxon', 'user'], db_path)
+    vacuum_analyze(['observation', 'photo', 'taxon', 'user'], db_path, show_spinner=True)
 
 
 def download_odp_metadata(dest_dir: PathOrStr = DATA_DIR):
