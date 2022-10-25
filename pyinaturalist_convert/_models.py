@@ -6,6 +6,7 @@ from urllib.parse import quote_plus, unquote
 
 from pyinaturalist import (
     Annotation,
+    Comment,
     IconPhoto,
     Observation,
     ObservationFieldValue,
@@ -32,8 +33,12 @@ def sa_field(col_type, index: bool = False, primary_key: bool = False, **kwargs)
 class DbObservation:
     """Intermediate data model for persisting Observation data to a relational database
 
-    Note: datetimes are stored as strings, since SQLAlchemy DateTime doesn't handle timezone offsets
-    from SQLite.
+    Notes:
+        * Datetimes are stored as strings, since SQLAlchemy DateTime doesn't handle timezone offsets
+          from SQLite.
+        * Nested collections (annotations, comments, IDs, OFVs, tags) are stored as denormalized
+          JSON fields rather than in separate tables, since current use cases for this don't require
+          a full relational structure.
     """
 
     __tablename__ = 'observation'
@@ -61,6 +66,8 @@ class DbObservation:
 
     # Denormalized nested collections
     annotations: Optional[List[JsonField]] = sa_field(types.JSON, default=None)
+    comments: Optional[List[JsonField]] = sa_field(types.JSON, default=None)
+    identifications: Optional[List[JsonField]] = sa_field(types.JSON, default=None)
     ofvs: Optional[List[JsonField]] = sa_field(types.JSON, default=None)
     tags: str = sa_field(String, default=None)
 
@@ -81,6 +88,7 @@ class DbObservation:
             id=obs.id,
             annotations=_flatten_annotations(obs.annotations),
             captive=obs.captive,
+            comments=_flatten_comments(obs.comments),
             created_at=obs.created_at.isoformat() if obs.created_at else None,
             description=obs.description,
             geoprivacy=obs.geoprivacy,
@@ -106,6 +114,7 @@ class DbObservation:
             id=self.id,
             annotations=_unflatten_annotations(self.annotations),
             captive=self.captive,
+            comments=_unflatten_comments(self.comments),
             created_at=self.created_at,
             description=self.description,
             geoprivacy=self.geoprivacy,
@@ -262,6 +271,7 @@ class DbUser:
 
 
 # Minor helper functions
+# TODO: Refactor these into marshmallow serializers?
 # ----------------------
 
 
@@ -283,17 +293,34 @@ def _flatten_annotation(annotation: Annotation) -> JsonField:
         }
 
 
-def _unflatten_annotations(flat_annotations: List[JsonField] = None) -> Optional[List[Annotation]]:
+def _unflatten_annotations(flat_objs: List[JsonField] = None) -> Optional[List[Annotation]]:
     """Initialize Annotations from either term/value labels (if available) or IDs"""
-    return Annotation.from_json_list(flat_annotations) if flat_annotations else None
+    return Annotation.from_json_list(flat_objs) if flat_objs else None
+
+
+def _flatten_comments(comments: List[Comment] = None) -> Optional[List[JsonField]]:
+    return [_flatten_comment(c) for c in comments] if comments else None
+
+
+def _flatten_comment(comment: Comment):
+    return {
+        'id': comment.id,
+        'body': comment.body,
+        'created_at': comment.created_at.isoformat(),
+        'user': {'login': comment.user.login} if comment.user else None,
+    }
+
+
+def _unflatten_comments(flat_objs: List[JsonField] = None) -> Optional[List[Comment]]:
+    return Comment.from_json_list(flat_objs) if flat_objs else None
 
 
 def _flatten_ofvs(ofvs: List[ObservationFieldValue] = None) -> Optional[List[JsonField]]:
     return [{'name': ofv.name, 'value': ofv.value} for ofv in ofvs] if ofvs else None
 
 
-def _unflatten_ofvs(flat_ofvs: List[JsonField] = None) -> List[ObservationFieldValue]:
-    return ObservationFieldValue.from_json_list(flat_ofvs) if flat_ofvs else None
+def _unflatten_ofvs(flat_objs: List[JsonField] = None) -> Optional[List[ObservationFieldValue]]:
+    return ObservationFieldValue.from_json_list(flat_objs) if flat_objs else None
 
 
 def _get_taxa(id_str: str) -> List[Taxon]:
