@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyinaturalist-convert"
-version = "0.5.0"
+version = "0.6.0"
 description = "Tools to convert observation data to and from a variety of useful formats"
 authors = ["Jordan Cook"]
 license = "MIT"
@@ -26,7 +26,9 @@ include = [
 
 [tool.poetry.dependencies]
 python                      = "^3.8"
-pyinaturalist               = ">=0.17.4"
+# TODO: v0.18 stable release
+pyinaturalist               = "0.18.0dev0"
+# pyinaturalist               = {git="https://github.com/pyinat/pyinaturalist.git"}
 flatten-dict                = "^0.4.0"
 tablib                      = "^3.0"
 
@@ -42,9 +44,9 @@ tables                      = {optional=true, version=">=3.6"}
 xmltodict                   = {optional=true, version=">=0.12"}
 
 # Documentation dependencies
-furo                        = {optional=true, version="^2022.6"}
+furo                        = {optional=true, version="^2022.9"}
 myst-parser                 = {optional=true, version="^0.18"}
-sphinx                      = {optional=true, version="^4.5"}
+sphinx                      = {optional=true, version="^5.2"}
 sphinx-autodoc-typehints    = {optional=true, version="^1.17"}
 sphinx-copybutton           = {optional=true, version=">=0.5"}
 sphinx-design               = {optional=true, version=">=0.2"}
@@ -66,8 +68,8 @@ docs = ["furo", "myst-parser", "sphinx", "sphinx-autodoc-typehints", "sphinx-cop
 
 [tool.poetry.dev-dependencies]
 coverage = ">=6.3"
-nox = "^2022.1.7"
-nox-poetry = "^1.0.0"
+nox = "^2022.8"
+nox-poetry = "^1.0"
 pre-commit = "^2.18"
 pyparsing = "^3.0"
 pytest = ">=7.0"
