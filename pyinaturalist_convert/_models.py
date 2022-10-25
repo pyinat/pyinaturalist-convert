@@ -8,6 +8,7 @@ from pyinaturalist import (
     Annotation,
     Comment,
     IconPhoto,
+    Identification,
     Observation,
     ObservationFieldValue,
     Photo,
@@ -92,6 +93,7 @@ class DbObservation:
             created_at=obs.created_at.isoformat() if obs.created_at else None,
             description=obs.description,
             geoprivacy=obs.geoprivacy,
+            identifications=_flatten_identifications(obs.identifications),
             identifications_count=obs.identifications_count,
             latitude=obs.location[0] if obs.location else None,
             longitude=obs.location[1] if obs.location else None,
@@ -118,6 +120,7 @@ class DbObservation:
             created_at=self.created_at,
             description=self.description,
             geoprivacy=self.geoprivacy,
+            identifications=_unflatten_identifications(self.identifications),
             identifications_count=self.identifications_count,
             location=(self.latitude, self.longitude),
             license_code=self.license_code,
@@ -313,6 +316,23 @@ def _flatten_comment(comment: Comment):
 
 def _unflatten_comments(flat_objs: List[JsonField] = None) -> Optional[List[Comment]]:
     return Comment.from_json_list(flat_objs) if flat_objs else None
+
+
+def _flatten_identifications(
+    identifications: List[Identification] = None,
+) -> Optional[List[JsonField]]:
+    return [_flatten_identification(i) for i in identifications] if identifications else None
+
+
+def _flatten_identification(identification: Identification) -> JsonField:
+    # Only store the most relevant subset of info; basically a comment + taxon ID
+    id_json = _flatten_comment(identification)
+    id_json['taxon'] = {'id': identification.taxon.id} if identification.taxon else None
+    return id_json
+
+
+def _unflatten_identifications(flat_objs: List[JsonField] = None) -> Optional[List[Identification]]:
+    return Identification.from_json_list(flat_objs) if flat_objs else None
 
 
 def _flatten_ofvs(ofvs: List[ObservationFieldValue] = None) -> Optional[List[JsonField]]:

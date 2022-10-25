@@ -40,6 +40,13 @@ def test_save_observations(tmp_path):
         created_at=datetime(2022, 2, 2),
         user=user,
     )
+    identification = Identification(
+        id=1234,
+        body='This is a test ID comment',
+        created_at=datetime(2022, 2, 2),
+        user=user,
+        taxon=taxon,
+    )
     ofv = ObservationFieldValue(
         name="Magnification (Picture 1)",
         value=100,
@@ -48,6 +55,7 @@ def test_save_observations(tmp_path):
         id=1,
         annotations=[annotation_1, annotation_2],
         comments=[comment],
+        identifications=[identification],
         identifications_count=1,
         license_code='CC-BY-NC',
         ofvs=[ofv],
@@ -71,6 +79,8 @@ def test_save_observations(tmp_path):
     assert obs_2.annotations[1].controlled_value_id == obs_1.annotations[1].controlled_value_id
     assert obs_2.comments[0].body == obs_1.comments[0].body
     assert obs_2.comments[0].user.login == obs_1.comments[0].user.login
+    assert obs_2.identifications[0].created_at == obs_1.identifications[0].created_at
+    assert obs_2.identifications[0].taxon.id == obs_1.identifications[0].taxon.id
     assert obs_2.identifications_count == obs_1.identifications_count
     assert obs_2.license_code == obs_1.license_code
     assert obs_2.ofvs[0].name == obs_1.ofvs[0].name
