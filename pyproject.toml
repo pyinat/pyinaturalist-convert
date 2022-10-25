@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyinaturalist-convert"
-version = "0.5.0"
+version = "0.6.0"
 description = "Tools to convert observation data to and from a variety of useful formats"
 authors = ["Jordan Cook"]
 license = "MIT"
@@ -27,7 +27,8 @@ include = [
 [tool.poetry.dependencies]
 python                      = "^3.8"
 # TODO: v0.18 stable release
-pyinaturalist               = {git="https://github.com/pyinat/pyinaturalist.git"}
+pyinaturalist               = "0.18.0dev0"
+# pyinaturalist               = {git="https://github.com/pyinat/pyinaturalist.git"}
 flatten-dict                = "^0.4.0"
 tablib                      = "^3.0"
 
