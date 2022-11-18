@@ -42,7 +42,7 @@ def test_aggregate_taxon_db(mock_sleep, tmp_path):
             'parent_id': 'parent_id',
             'name': 'name',
             'rank': 'rank',
-            'count': 'observations_count',
+            'count': 'observations_count_rg',
         },
     )
 
@@ -65,7 +65,7 @@ def test_aggregate_taxon_db(mock_sleep, tmp_path):
     with sqlite3.connect(db_path) as conn:
         conn.row_factory = sqlite3.Row
         actual_observation_counts = {
-            row['id']: row['observations_count']
+            row['id']: row['observations_count_rg']
             for row in conn.execute('SELECT * FROM taxon').fetchall()
         }
         actual_leaf_taxon_counts = {
