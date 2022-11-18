@@ -84,6 +84,11 @@ class DbObservation:
     taxon = relationship('DbTaxon', backref='observations')  # type: ignore
     user = relationship('DbUser', backref='observations')  # type: ignore
 
+    @property
+    def sorted_photos(self) -> List[Photo]:
+        """Get photos sorted by original position in the observation"""
+        return [p.to_model() for p in sorted(self.photos, key=lambda p: p.position or 0)]
+
     # Column aliases for inaturalist-open-data
     # observation_uuid: str = synonym('uuid')  # type: ignore
     # observer_id: int = synonym('user_id')  # type: ignore
@@ -135,7 +140,7 @@ class DbObservation:
             place_ids=_split_int_list(self.place_ids),
             positional_accuracy=self.positional_accuracy,
             quality_grade=self.quality_grade,
-            photos=[p.to_model() for p in self.photos],  # type: ignore
+            photos=self.sorted_photos,
             tags=_split_list(self.tags),
             taxon=self.taxon.to_model() if self.taxon else None,
             updated_at=self.updated_at,
@@ -240,10 +245,11 @@ class DbPhoto:
     license: str = sa_field(String, default=None)
     observation_id: int = sa_field(ForeignKey('observation.id'), default=None, index=True)
     observation_uuid: str = sa_field(ForeignKey('observation.uuid'), default=None, index=True)
+    position: int = sa_field(Integer, default=None)
     url: str = sa_field(String, default=None)
     user_id: int = sa_field(ForeignKey('user.id'), default=None)
     width: int = sa_field(Integer, default=None)
-    # uuid: str = sa_field(String, default=None)
+    uuid: str = sa_field(String, default=None)
 
     observation = relationship(
         'DbObservation', back_populates='photos', foreign_keys='DbPhoto.observation_id'
@@ -255,17 +261,18 @@ class DbPhoto:
             id=photo.id,
             license=photo.license_code,
             url=photo.url,
+            uuid=photo.uuid,
             **kwargs,
-            # uuid=photo.uuid,
         )
 
     def to_model(self) -> Photo:
         return Photo(
             id=self.id,
             license_code=self.license,
+            observation_id=self.observation_id,
+            user_id=self.user_id,
             url=self.url,
-            # user_id=self.user_id,
-            # uuid=self.uuid,
+            uuid=self.uuid,
         )
 
 

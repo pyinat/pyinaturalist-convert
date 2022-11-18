@@ -155,16 +155,20 @@ def get_db_taxa(
             yield taxon[0].to_model()
 
 
+# TODO: Merge more of this logic into models
 def save_observations(observations: Iterable[Observation], db_path: PathOrStr = DB_PATH):
     """Save Observation objects (and associated taxa and photos) to SQLite"""
     with get_session(db_path) as session:
         for observation in observations:
             session.merge(DbObservation.from_model(observation))
             session.merge(DbUser.from_model(observation.user))
-            for photo in observation.photos:
+            for i, photo in enumerate(observation.photos):
                 session.merge(
                     DbPhoto.from_model(
-                        photo, observation_id=observation.id, user_id=observation.user.id
+                        photo,
+                        position=i,
+                        observation_id=observation.id,
+                        user_id=observation.user.id,
                     )
                 )
 
