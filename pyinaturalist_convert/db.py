@@ -106,22 +106,27 @@ def _get_engine(db_path):
 
 def get_db_observations(
     db_path: PathOrStr = DB_PATH,
-    ids: List[int] = None,
-    limit: int = 200,
+    ids: Iterable[int] = None,
+    username: str = None,
+    limit: int = None,
+    order_by_date: bool = False,
 ) -> Iterator[Observation]:
-    """Load observation records (and associated taxa and photos) from SQLite"""
-    from sqlalchemy import select
+    """Load observation records and associated taxa from SQLite"""
+    from sqlalchemy import desc, select
 
     stmt = (
         select(DbObservation)
-        .join(DbObservation.photos, isouter=True)  # type: ignore  # created at runtime
         .join(DbObservation.taxon, isouter=True)
         .join(DbObservation.user, isouter=True)
     )
     if ids:
-        stmt = stmt.where(DbObservation.id.in_(ids))  # type: ignore
+        stmt = stmt.where(DbObservation.id.in_(list(ids)))  # type: ignore
+    if username:
+        stmt = stmt.where(DbUser.login == username)
     if limit:
         stmt = stmt.limit(limit)
+    if order_by_date:
+        stmt = stmt.order_by(desc(DbObservation.created_at))
 
     with get_session(db_path) as session:
         for obs in session.execute(stmt):
@@ -155,7 +160,6 @@ def save_observations(observations: Iterable[Observation], db_path: PathOrStr = 
     with get_session(db_path) as session:
         for observation in observations:
             session.merge(DbObservation.from_model(observation))
-            session.merge(DbTaxon.from_model(observation.taxon))
             session.merge(DbUser.from_model(observation.user))
             for photo in observation.photos:
                 session.merge(
@@ -166,23 +170,27 @@ def save_observations(observations: Iterable[Observation], db_path: PathOrStr = 
 
         session.commit()
 
+    save_taxa([obs.taxon for obs in observations if obs.taxon], db_path)
+
 
 def save_taxa(taxa: Iterable[Taxon], db_path: PathOrStr = DB_PATH):
     """Save Taxon objects (plus ancestors and children, if available) to SQLite"""
     from sqlalchemy import select
 
-    with get_session(db_path) as session:
-        for taxon in taxa:
-            session.merge(DbTaxon.from_model(taxon))
+    # Combined list of taxa plus all their unique ancestors + children
+    taxa_by_id = {t.id: t for t in chain.from_iterable([t.ancestors + t.children for t in taxa])}
+    taxa_by_id.update({t.id: t for t in taxa})
+    unique_taxon_ids = list(taxa_by_id.keys())
 
-        # Save ancestors and children (partial records), but don't overwrite any full records
-        taxonomy = {t.id: t for t in chain.from_iterable([t.ancestors + t.children for t in taxa])}
-        unique_taxon_ids = list(taxonomy.keys())
+    with get_session(db_path) as session:
         stmt = select(DbTaxon).where(DbTaxon.id.in_(unique_taxon_ids))  # type: ignore
-        stmt = stmt.where(DbTaxon.partial == False)
-        saved_ids = [t[0].id for t in session.execute(stmt)]
-        for taxon in taxonomy.values():
-            if taxon.id not in saved_ids:
-                session.merge(DbTaxon.from_model(taxon))
+        existing_taxa = {t[0].id: t[0] for t in session.execute(stmt)}
+
+        # Merge (instead of overwriting) any existing taxa with new data
+        for taxon in taxa_by_id.values():
+            if db_taxon := existing_taxa.get(taxon.id):
+                db_taxon.update(taxon)
+            else:
+                session.add(DbTaxon.from_model(taxon))
 
         session.commit()

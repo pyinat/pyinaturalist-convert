@@ -43,6 +43,15 @@ DEFAULT_LANG_CSV = DWCA_TAXON_CSV_DIR / 'VernacularNames-english.csv'
 EXCLUDE_IDS = [67333, 131236, 151817, 1228707, 1285874]
 # Most populous phylum IDs to start processing first
 LOAD_FIRST_IDS = [47120, 211194, 2]
+# All columns computed by aggregate_taxon_db
+PRECOMPUTED_COLUMNS = [
+    'ancestor_ids',
+    'child_ids',
+    'iconic_taxon_id',
+    'observations_count_rg',
+    'leaf_taxa_count',
+    'preferred_common_name',
+]
 
 logger = getLogger(__name__)
 
@@ -79,7 +88,7 @@ def aggregate_taxon_db(
     start = time()
     df = _get_taxon_df(db_path)
     taxon_counts_dict = get_observation_taxon_counts(db_path)
-    taxon_counts = pd.DataFrame(taxon_counts_dict.items(), columns=['id', 'observations_count'])
+    taxon_counts = pd.DataFrame(taxon_counts_dict.items(), columns=['id', 'observations_count_rg'])
     df = _join_taxon_counts(df, taxon_counts)
     n_phyla = len(df[(df['rank'] == 'phylum') & ~df['parent_id'].isin(EXCLUDE_IDS)])
     n_kigndoms = len(df[(df['rank'] == 'kingdom')])
@@ -267,7 +276,7 @@ def _aggregate_branch(
 
         # Get combined child counts
         children = df[df['parent_id'] == taxon_id]
-        obs_count = children['observations_count'].sum()
+        obs_count = children['observations_count_rg'].sum()
         leaf_count = children['leaf_taxa_count'].sum()
         common_name = common_names.get(taxon_id)  # type: ignore
         if len(children) == 0:  # Current taxon is a leaf
@@ -308,7 +317,7 @@ def _aggregate_kingdoms(
                 row,
                 ancestor_ids,
                 list(children['id']),
-                children['observations_count'].sum(),
+                children['observations_count_rg'].sum(),
                 children['leaf_taxa_count'].sum(),
                 common_names.get(taxon_id),
             ),
@@ -338,7 +347,7 @@ def _update_taxon(
     row['ancestor_ids'] = _join_ids(ancestor_ids) if ancestor_ids else None
     row['child_ids'] = _join_ids(child_ids)
     row['iconic_taxon_id'] = iconic_taxon_id
-    row['observations_count'] += agg_count
+    row['observations_count_rg'] += agg_count
     row['leaf_taxa_count'] += leaf_count
     row['preferred_common_name'] = common_name
     return row
@@ -409,7 +418,7 @@ def _join_taxon_counts(df: 'DataFrame', taxon_counts: 'DataFrame') -> 'DataFrame
     """Join taxon dataframe with updated taxon counts"""
     from numpy import int64
 
-    df = df.drop('observations_count', axis=1)
+    df = df.drop('observations_count_rg', axis=1)
     if 'leaf_taxa_count' in df:
         df = df.drop('leaf_taxa_count', axis=1)
     if 'leaf_taxa_count' not in taxon_counts:
@@ -419,7 +428,7 @@ def _join_taxon_counts(df: 'DataFrame', taxon_counts: 'DataFrame') -> 'DataFrame
     if 'id' in taxon_counts:
         taxon_counts = taxon_counts.set_index('id')
     df = df.join(taxon_counts)
-    df['observations_count'] = df['observations_count'].fillna(0).astype(int64)
+    df['observations_count_rg'] = df['observations_count_rg'].fillna(0).astype(int64)
     df['leaf_taxa_count'] = df['leaf_taxa_count'].fillna(0).astype(int64)
 
     return df.rename_axis('id').reset_index()
@@ -430,8 +439,8 @@ def _save_taxon_counts(df: 'DataFrame', counts_path: PathOrStr = TAXON_COUNTS):
     counts_path = Path(counts_path)
     counts_path.parent.mkdir(parents=True, exist_ok=True)
     df2 = df.set_index('id')
-    df2 = df2[['leaf_taxa_count', 'observations_count']]
-    df2 = df2.sort_values('observations_count', ascending=False)
+    df2 = df2[['leaf_taxa_count', 'observations_count_rg']]
+    df2 = df2.sort_values('observations_count_rg', ascending=False)
     df2.to_parquet(counts_path)
 
 
