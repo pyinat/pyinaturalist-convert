@@ -1,3 +1,4 @@
+import sqlite3
 from datetime import datetime
 
 from pyinaturalist import (
@@ -123,3 +124,44 @@ def test_save_taxa(tmp_path):
     urls = [p.url for p in taxon_1.taxon_photos]
     saved_urls = [p.url for p in taxon_2.taxon_photos]
     assert saved_urls == urls
+
+
+def test_save_taxa__preserve_precomputed_cols(tmp_path):
+    db_path = tmp_path / 'observations.db'
+    taxon_2 = Taxon(
+        id=4,
+        name='Gruifomres',
+        rank='order',
+        preferred_common_name='Cranes, Rails, and Allies',
+        complete_species_count=416,
+        observations_count=None,
+    )
+    taxon_1 = Taxon(
+        id=3,
+        name='Aves',
+        rank='class',
+        preferred_common_name='Birds',
+        complete_species_count=10672,
+        observations_count=18017625,
+        children=[taxon_2],
+    )
+
+    create_tables(db_path)
+    save_taxa([taxon_1], db_path=db_path)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute('UPDATE taxon SET observations_count_rg = observations_count')
+        conn.execute('UPDATE taxon SET observations_count = NULL')
+
+    # Save with updated values for precomputed columns
+    taxon_1.complete_species_count = 1
+    taxon_1.observations_count = 1
+    taxon_2.complete_species_count = None
+    taxon_2.observations_count = 218279
+    save_taxa([taxon_1], db_path=db_path)
+
+    # Only previously null values (taxon_2.observations_count) in DB should be updated
+    results = list(get_db_taxa(db_path))
+    assert results[0].complete_species_count == 10672
+    assert results[0].observations_count == 18017625
+    assert results[1].complete_species_count == 416
+    assert results[1].observations_count == 218279

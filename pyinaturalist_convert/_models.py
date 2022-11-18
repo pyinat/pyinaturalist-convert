@@ -18,7 +18,7 @@ from pyinaturalist import (
 from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, inspect, types
 from sqlalchemy.orm import registry, relationship
 
-PRECOMPUTED_COLUMNS = ['leaf_taxa_count', 'observations_count']
+from .taxonomy import PRECOMPUTED_COLUMNS
 
 Base = registry()
 JsonField = Dict[str, Any]
@@ -164,6 +164,7 @@ class DbTaxon:
     is_active: bool = sa_field(Boolean, default=None)
     leaf_taxa_count: int = sa_field(Integer, default=0)
     observations_count: int = sa_field(Integer, default=0)
+    observations_count_rg: int = sa_field(Integer, default=0)
     name: str = sa_field(String, default=None, index=True)
     parent_id: int = sa_field(ForeignKey('taxon.id'), default=None, index=True)
     partial: int = sa_field(Boolean, default=False)
@@ -202,7 +203,7 @@ class DbTaxon:
             iconic_taxon_id=self.iconic_taxon_id,
             is_active=self.is_active,
             complete_species_count=self.leaf_taxa_count,
-            observations_count=self.observations_count,
+            observations_count=self.observations_count_rg or self.observations_count,
             name=self.name,
             parent_id=self.parent_id,
             partial=self.partial,
