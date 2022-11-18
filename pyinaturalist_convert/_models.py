@@ -94,8 +94,8 @@ class DbObservation:
     # observer_id: int = synonym('user_id')  # type: ignore
 
     @classmethod
-    def from_model(cls, obs: Observation) -> 'DbObservation':
-        return cls(
+    def from_model(cls, obs: Observation, skip_taxon: bool = False) -> 'DbObservation':
+        db_obs = cls(
             id=obs.id,
             annotations=_flatten_annotations(obs.annotations),
             captive=obs.captive,
@@ -121,6 +121,15 @@ class DbObservation:
             uuid=obs.uuid,
         )
 
+        # Add associated records
+        db_obs.photos = _get_db_obs_photos(obs)  # type: ignore
+        db_obs.user = DbUser.from_model(obs.user) if obs.user else None  # type: ignore
+        # Optionally skip taxon, to instead merge via db.save_taxa()
+        if obs.taxon and not skip_taxon:
+            db_obs.taxon = DbTaxon.from_model(obs.taxon)  # type: ignore
+
+        return db_obs
+
     def to_model(self) -> Observation:
         return Observation(
             id=self.id,
@@ -144,7 +153,7 @@ class DbObservation:
             tags=_split_list(self.tags),
             taxon=self.taxon.to_model() if self.taxon else None,
             updated_at=self.updated_at,
-            user=User(id=self.user_id),
+            user=self.user.to_model() if self.user else User(id=self.user_id),
             uuid=self.uuid,
         )
 
@@ -368,6 +377,22 @@ def _unflatten_ofvs(flat_objs: List[JsonField] = None) -> Optional[List[Observat
 
 def _get_taxa(id_str: str) -> List[Taxon]:
     return [Taxon(id=id, partial=True) for id in _split_int_list(id_str)]
+
+
+def _get_db_obs_photos(obs: Observation) -> Optional[List[DbPhoto]]:
+    if not obs.photos:
+        return None
+    photos = []
+    for i, photo in enumerate(obs.photos):
+        photos.append(
+            DbPhoto.from_model(
+                photo,
+                position=i,
+                observation_id=obs.id,
+                user_id=obs.user.id if obs.user else None,
+            )
+        )
+    return photos
 
 
 def _split_list(values_str: str = None) -> List[str]:

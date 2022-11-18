@@ -48,6 +48,7 @@ at least provides a starting point.
     DbTaxon
     DbUser
 """
+# flake8: noqa: F401
 # TODO: Abstraction for converting between DB models and attrs models
 # TODO: Annotations and observation field values
 # TODO: If needed, this could be done with just the stdlib sqlite3 and no SQLAlchemy
@@ -155,23 +156,11 @@ def get_db_taxa(
             yield taxon[0].to_model()
 
 
-# TODO: Merge more of this logic into models
 def save_observations(observations: Iterable[Observation], db_path: PathOrStr = DB_PATH):
     """Save Observation objects (and associated taxa and photos) to SQLite"""
     with get_session(db_path) as session:
         for observation in observations:
-            session.merge(DbObservation.from_model(observation))
-            session.merge(DbUser.from_model(observation.user))
-            for i, photo in enumerate(observation.photos):
-                session.merge(
-                    DbPhoto.from_model(
-                        photo,
-                        position=i,
-                        observation_id=observation.id,
-                        user_id=observation.user.id,
-                    )
-                )
-
+            session.merge(DbObservation.from_model(observation, skip_taxon=True))
         session.commit()
 
     save_taxa([obs.taxon for obs in observations if obs.taxon], db_path)
