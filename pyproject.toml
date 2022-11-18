@@ -27,7 +27,7 @@ include = [
 [tool.poetry.dependencies]
 python                      = "^3.8"
 # TODO: v0.18 stable release
-pyinaturalist               = "0.18.0dev0"
+pyinaturalist               = "0.18.0dev1"
 # pyinaturalist               = {git="https://github.com/pyinat/pyinaturalist.git"}
 flatten-dict                = "^0.4.0"
 tablib                      = "^3.0"
@@ -38,7 +38,7 @@ geojson                     = {optional=true, version=">=2.5"}
 gpxpy                       = {optional=true, version="^1.4.2"}
 openpyxl                    = {optional=true, version=">=2.6"}
 pandas                      = {optional=true, version=">=1.2"}
-pyarrow                     = {optional=true, version=">=4.0"}
+pyarrow                     = {optional=true, version=">=10.0"}
 sqlalchemy                  = {optional=true, version="^1.4.36"}
 tables                      = {optional=true, version=">=3.6"}
 xmltodict                   = {optional=true, version=">=0.12"}
