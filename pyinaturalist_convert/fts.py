@@ -1,14 +1,21 @@
-"""Build and search a taxonomy full text search database using
-`FTS5 <https://www.sqlite.org/fts5.html>`_. This works similarly to the API endpoint
-:py:func:`~pyinaturalist.v1.taxa.get_taxa_autocomplete`, which powers the taxon autocomplete feature
-on inaturalist.org:
+"""
+Build and search a full text search tables for taxa and observations using
+`FTS5 <https://www.sqlite.org/fts5.html>`_.
+
+**Extra dependencies**: ``sqlalchemy`` (only for building the database; not required for searches)
+
+Taxon Autocomplete
+------------------
+
+:py:class:`.TaxonAutocompleter` works similarly to the API endpoint
+:py:func:`~pyinaturalist.v1.taxa.get_taxa_autocomplete`, which powers the taxon autocomplete
+feature on inaturalist.org:
 
 .. image::
     ../images/inat-taxon-autocomplete.png
 
-**Extra dependencies**: ``sqlalchemy`` (only for building the database; not required for searches)
 
-**Build Example**::
+Build database with all taxa from GBIF archive::
 
     >>> from pyinaturalist_convert import (
     ...     aggregate_taxon_db, enable_logging, load_dwca_tables, load_fts_taxa
@@ -26,7 +33,7 @@ on inaturalist.org:
     Running :py:func:`.aggregate_taxon_db` will result in more accurate search rankings based
     on taxon counts, but will take a couple hours to complete.
 
-**Search example**::
+Search taxa::
 
     >>> from pyinaturalist_convert import TaxonAutocompleter
 
@@ -51,14 +58,48 @@ on inaturalist.org:
     >>> # Or by common name in a specific language
     >>> ta.search('flughund', language='german')
 
-**Main classes & functions:**
+Observation Autocomplete
+------------------------
+
+:py:class:`.ObservationAutocompleter` adds additional observation search features not available in
+the web UI.
+
+Query all of your own observations::
+
+    >>> from pyinaturalist import iNatClient
+
+    >>> client = iNatClient()
+    >>> observations = client.observations.search(user_id='my_username').all()
+
+Create table and index observations::
+
+    >>> from pyinaturalist_convert import create_observation_fts_table, index_observation_text
+
+    >>> create_observation_fts_table()
+    >>> index_observation_text(observations)
+
+Search observations::
+
+    >>> from pyinaturalist_convert import ObservationAutocompleter
+
+    >>> obs_autocompleter = ObservationAutocompleter
+    >>> obs_autocompleter.search('test')
+    [
+        (12345, 'test description text'),
+        (67890, 'test comment text'),
+    ]
+
+**Main classes and functions:**
 
 .. autosummary::
     :nosignatures:
 
     TaxonAutocompleter
+    ObservationAutocompleter
+    create_taxon_fts_table
+    create_observation_fts_table
+    index_observation_text
     load_fts_taxa
-
 """
 import sqlite3
 from functools import partial
@@ -106,7 +147,7 @@ logger = getLogger(__name__)
 
 # TODO: Deduplicate results (if both common and scientific names are present)
 class TaxonAutocompleter:
-    """Taxon autocomplete search.
+    """Taxon autocomplete search. Runs full text search on taxon scientific and common names.
 
     Args:
         db_path: Path to SQLite database; uses platform-specific data directory by default
@@ -153,7 +194,8 @@ class TaxonAutocompleter:
 # TODO: Add iconic taxon ID to display emjoi in search results?
 # TODO: Filter by (description or comment)?
 class ObservationAutocompleter:
-    """Observation autocomplete search.
+    """Observation autocomplete search. Runs full text search on observation descriptions, comments,
+    and identification comments.
 
     Args:
         db_path: Path to SQLite database; uses platform-specific data directory by default
@@ -176,7 +218,7 @@ class ObservationAutocompleter:
             q: Search query
 
         Returns:
-            Tuples of ``(observation_id, truncated_text)``
+            Tuples of ``(observation_id, truncated_matched_text)``
         """
         if not q:
             return []
@@ -227,7 +269,7 @@ def load_fts_taxa(
     """
     csv_dir = Path(csv_dir).expanduser()
     main_csv = csv_dir / 'taxa.csv'
-    common_name_csvs = get_common_name_csvs(csv_dir, languages)
+    common_name_csvs = _get_common_name_csvs(csv_dir, languages)
     progress = CSVProgress(main_csv, *common_name_csvs.values())
 
     taxon_counts = _normalize_taxon_counts(counts_path)
@@ -260,6 +302,11 @@ def load_fts_taxa(
 
 
 def create_taxon_fts_table(db_path: PathOrStr = DB_PATH):
+    """Create a SQLite FTS5 table for taxonomic names
+
+    Args:
+        db_path: Path to SQLite database
+    """
     prefix_idxs = ', '.join([f'prefix={i}' for i in PREFIX_INDEXES])
 
     with sqlite3.connect(db_path) as conn:
@@ -271,6 +318,11 @@ def create_taxon_fts_table(db_path: PathOrStr = DB_PATH):
 
 
 def create_observation_fts_table(db_path: PathOrStr = DB_PATH):
+    """Create a SQLite FTS5 table for observation text
+
+    Args:
+        db_path: Path to SQLite database
+    """
     prefix_idxs = ', '.join([f'prefix={i}' for i in PREFIX_INDEXES])
 
     with sqlite3.connect(db_path) as conn:
@@ -282,7 +334,12 @@ def create_observation_fts_table(db_path: PathOrStr = DB_PATH):
 
 
 def index_observation_text(obs: Observation, db_path: PathOrStr = DB_PATH):
-    """Index observation text (descriptions, comments, and identification comments) in FTS table"""
+    """Index observation text (descriptions, comments, and identification comments) in FTS table
+
+    Args:
+        obs: observation to index
+        db_path: Path to SQLite database
+    """
     if not obs:
         return
 
