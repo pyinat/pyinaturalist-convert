@@ -133,12 +133,16 @@ class TaxonAutocompleter:
 
         language = (language or '').lower().replace('-', '_')
         query = f'SELECT *, rank, (rank - count_rank) AS combined_rank FROM {TAXON_FTS_TABLE} '
-        query += f"WHERE name MATCH '{q}*' AND (language_code IS NULL "
-        query += f"OR language_code = '{language}') " if language else ' '
-        query += f'ORDER BY combined_rank LIMIT {self.limit}'
+        query += "WHERE name MATCH ? || '*' AND (language_code IS NULL "
+        query += "OR language_code = ?) " if language else ' '
+        query += 'ORDER BY combined_rank LIMIT ?'
 
         with self.connection as conn:
-            results = sorted(conn.execute(query).fetchall(), key=lambda row: row['combined_rank'])
+            cursor = conn.execute(query, (q, language, self.limit))
+            results = sorted(
+                cursor.fetchall(),
+                key=lambda row: row['combined_rank'],
+            )
             return [
                 Taxon(id=int(row['taxon_id']), name=row['name'], rank=row['taxon_rank'])
                 for row in results
@@ -326,7 +330,6 @@ def index_obs_text(obs: Observation, db_path: PathOrStr = DB_PATH):
 # TODO: Add observation short description (what/where/when) to FTS table?
 # TODO: Add iconic taxon ID to display emjoi in search results?
 # TODO: Filter by (description or comment)?
-# TODO: Use '?' placeholder for q?
 class ObservationAutocompleter:
     """Observation autocomplete search.
 
@@ -357,11 +360,12 @@ class ObservationAutocompleter:
             return []
 
         query = f'SELECT *, rank FROM {OBS_FTS_TABLE} '
-        query += f"WHERE text MATCH '*{q}*'"
-        query += f'ORDER BY rank LIMIT {self.limit}'
+        query += "WHERE text MATCH ? "
+        query += 'ORDER BY rank LIMIT ?'
 
         with self.connection as conn:
-            results = sorted(conn.execute(query).fetchall(), key=lambda row: row['rank'])
+            cursor = conn.execute(query, (q, self.limit))
+            results = sorted(cursor.fetchall(), key=lambda row: row['rank'])
             return [(row['observation_id'], self._truncate(row['text'], q)) for row in results]
 
     def _truncate(self, text: str, q: str) -> str:
