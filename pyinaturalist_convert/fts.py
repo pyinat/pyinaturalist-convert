@@ -64,8 +64,9 @@ import sqlite3
 from functools import partial
 from logging import getLogger
 from pathlib import Path
-from typing import Dict, Iterable, List, Union
+from typing import Dict, Iterable, List, Tuple, Union
 
+from pyinaturalist import Observation
 from pyinaturalist.models import Taxon
 
 from .constants import DB_PATH, DWCA_TAXON_CSV_DIR, TAXON_COUNTS, PathOrStr
@@ -75,15 +76,8 @@ from .sqlite import load_table, vacuum_analyze
 # Add extra text search prefix indexes to speed up searches for these prefix lengths
 PREFIX_INDEXES = [2, 3, 4]
 
-# Columns to use for text search table, and which should be indexed
+OBS_FTS_TABLE = 'observation_fts'
 TAXON_FTS_TABLE = 'taxon_fts'
-TAXON_FTS_COLUMNS = {
-    'name': True,
-    'taxon_id': False,
-    'taxon_rank': False,
-    'count_rank': False,
-    'language': False,
-}
 
 TAXON_COUNT_RANK_FACTOR = 2.5
 TAXON_NAME_MAP = {
@@ -120,9 +114,9 @@ class TaxonAutocompleter:
     """
 
     def __init__(self, db_path: PathOrStr = DB_PATH, limit: int = 10):
-        self.limit = limit
         self.connection = sqlite3.connect(db_path)
         self.connection.row_factory = sqlite3.Row
+        self.limit = limit
 
     def search(self, q: str, language: str = 'en') -> List[Taxon]:
         """Search for taxa by scientific and/or common name.
@@ -190,14 +184,15 @@ def load_fts_taxa(
             f'Loading taxon scientific names + common names for {len(common_name_csvs)} languages:'
             + ', '.join(common_name_csvs.keys())
         )
-        create_fts5_table(db_path)
+        create_taxon_fts_table(db_path)
 
         for lang, csv_file in common_name_csvs.items():
             lang = lang.lower().replace('-', '_')
             load_fts_table(csv_file, COMMON_TAXON_NAME_MAP)
         load_fts_table(main_csv, TAXON_NAME_MAP)
 
-    optimize_fts_table(db_path)
+    _load_taxon_ranks(db_path)
+    optimize_fts_table(TAXON_FTS_TABLE, db_path)
 
 
 def get_common_name_csvs(csv_dir: Path, languages: Iterable[str] = None) -> Dict[str, Path]:
@@ -212,7 +207,7 @@ def get_common_name_csvs(csv_dir: Path, languages: Iterable[str] = None) -> Dict
         }
 
 
-def create_fts5_table(db_path: PathOrStr = DB_PATH):
+def create_taxon_fts_table(db_path: PathOrStr = DB_PATH):
     prefix_idxs = ', '.join([f'prefix={i}' for i in PREFIX_INDEXES])
 
     with sqlite3.connect(db_path) as conn:
@@ -223,29 +218,31 @@ def create_fts5_table(db_path: PathOrStr = DB_PATH):
         )
 
 
-def optimize_fts_table(db_path: PathOrStr = DB_PATH):
-    """Some final cleanup after loading text search tables"""
-    logger.info('Optimizing FTS table')
+def optimize_fts_table(table: str, db_path: PathOrStr = DB_PATH):
+    """Some final cleanup after loading a text search table"""
+    logger.info(f'Optimizing FTS table {table}')
     progress = get_progress_spinner('Optimizing table')
     with progress, sqlite3.connect(db_path) as conn:
-        _load_taxon_ranks(conn)
-        conn.execute(f"INSERT INTO {TAXON_FTS_TABLE}({TAXON_FTS_TABLE}) VALUES('optimize')")
+        conn.execute(f"INSERT INTO {table}({table}) VALUES('optimize')")
         conn.commit()
-    vacuum_analyze([TAXON_FTS_TABLE], db_path, show_spinner=True)
+    vacuum_analyze([table], db_path, show_spinner=True)
 
 
-def _load_taxon_ranks(conn):
+def _load_taxon_ranks(db_path: PathOrStr = DB_PATH):
     """Set taxon ranks for common name results. Attempt to get from full taxa table, which
     will be much faster than using text search table.
     """
-    try:
-        conn.execute(
-            f'UPDATE {TAXON_FTS_TABLE} SET taxon_rank = '
-            f'(SELECT t2.rank from taxon t2 WHERE t2.id = {TAXON_FTS_TABLE}.taxon_id) '
-            'WHERE taxon_rank IS NULL'
-        )
-    except sqlite3.OperationalError:
-        logger.warning('Full taxon table not found; ranks not loaded for common names')
+    logger.info('Loading taxon ranks')
+    progress = get_progress_spinner('Loading taxon ranks for common names')
+    with progress, sqlite3.connect(db_path) as conn:
+        try:
+            conn.execute(
+                f'UPDATE {TAXON_FTS_TABLE} SET taxon_rank = '
+                f'(SELECT t2.rank from taxon t2 WHERE t2.id = {TAXON_FTS_TABLE}.taxon_id) '
+                'WHERE taxon_rank IS NULL'
+            )
+        except sqlite3.OperationalError:
+            logger.warning('Full taxon table not found; ranks not loaded for common names')
 
 
 def add_taxon_counts(row: Dict[str, Union[int, str]], taxon_counts: Dict[int, int]):
@@ -281,3 +278,46 @@ def normalize_taxon_counts(counts_path: PathOrStr = TAXON_COUNTS) -> Dict[int, i
     df['count_rank'] = df['count_rank'] * TAXON_COUNT_RANK_FACTOR
     df = df.sort_values(by='count_rank', ascending=False)
     return df['count_rank'].to_dict()
+
+
+# TODO: Pre-populate with any existing observations in db?
+# TODO: Should rows be added via trigger on observation table, or in save_observations()?
+def load_fts_observations(db_path: PathOrStr = DB_PATH):
+    """Create full text search table for observations (descriptions, comments, and identifications).
+    Requires SQLite FTS5 extension.
+
+    Args:
+        db_path: Path to SQLite database
+    """
+    create_observation_fts_table(db_path)
+    optimize_fts_table(OBS_FTS_TABLE, db_path)
+
+
+def create_observation_fts_table(db_path: PathOrStr = DB_PATH):
+    prefix_idxs = ', '.join([f'prefix={i}' for i in PREFIX_INDEXES])
+
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            f'CREATE VIRTUAL TABLE IF NOT EXISTS {OBS_FTS_TABLE} USING fts5( '
+            '   text, observation_id,'
+            f'  {prefix_idxs})'
+        )
+
+
+def index_obs_text(obs: Observation, db_path: PathOrStr = DB_PATH):
+    """Index observation text (descriptions, comments, and identification comments) in FTS table"""
+    if not obs:
+        return
+
+    texts = [obs.description]
+    texts.extend([c.body for c in obs.comments])
+    texts.extend([i.body for i in obs.identifications])
+    texts = [t for t in texts if t]
+
+    with sqlite3.connect(db_path) as conn:
+        for text in texts:
+            conn.execute(
+                f'INSERT INTO {OBS_FTS_TABLE} (id, text) VALUES (?, ?)',
+                (obs.id, text),
+            )
+        conn.commit()
