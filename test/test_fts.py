@@ -75,3 +75,39 @@ def test_observation_text_search(tmp_path):
     assert results[0] == (1, '...test identification...')
     results = oa.search('description 2')
     assert results[0] == (2, 'description 2')
+
+
+def test_observation_text_search__reindex(tmp_path):
+    db_path = tmp_path / 'taxa.db'
+    create_observation_fts_table(db_path)
+    obs_1 = Observation(
+        id=1,
+        description='This is a test observation with a description',
+        comments=[Comment(body='This is a test comment')],
+        identifications=[Identification(body='This is a test identification comment')],
+    )
+    obs_2 = Observation(
+        id=2,
+        description='description 2',
+        comments=[Comment(body='comment')],
+        identifications=[Identification(body='identification comment')],
+    )
+    index_observation_text([obs_1, obs_2], db_path=db_path)
+
+    oa = ObservationAutocompleter(db_path=db_path, truncate_match_chars=25)
+
+    # Update an observation and re-index
+    obs_1 = Observation(
+        id=1,
+        description='replaced description',
+        comments=[Comment(body='replaced comment')],
+        identifications=[Identification(body='replaced identification comment')],
+    )
+    index_observation_text([obs_1], db_path=db_path)
+
+    # Expect previously indexed results to be replaced
+    assert len(oa.search('test')) == 0
+    assert len(oa.search('replaced')) == 3
+    assert len(oa.search('description')) == 2
+    assert len(oa.search('comment')) == 4
+    assert len(oa.search('identification')) == 2

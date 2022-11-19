@@ -106,7 +106,7 @@ from functools import partial
 from itertools import chain
 from logging import getLogger
 from pathlib import Path
-from typing import Dict, Iterable, List, Tuple, Union
+from typing import Dict, Iterable, List, Sequence, Tuple, Union
 
 from pyinaturalist import Observation
 from pyinaturalist.models import Taxon
@@ -334,8 +334,10 @@ def create_observation_fts_table(db_path: PathOrStr = DB_PATH):
         )
 
 
-def index_observation_text(observations: Iterable[Observation], db_path: PathOrStr = DB_PATH):
-    """Index observation text (descriptions, comments, and identification comments) in FTS table
+# TODO: Could/should this optionally be done via a trigger instead?
+def index_observation_text(observations: Sequence[Observation], db_path: PathOrStr = DB_PATH):
+    """Index observation text (descriptions, comments, and identification comments) in FTS table.
+    Replaces any previously indexed text associated with these observations.
 
     Args:
         observations: observations to index
@@ -353,6 +355,11 @@ def index_observation_text(observations: Iterable[Observation], db_path: PathOrS
     all_obs_strs = [_get_obs_texts(obs) for obs in observations]
 
     with sqlite3.connect(db_path) as conn:
+        placeholders = ','.join(['?'] * len(observations))
+        conn.execute(
+            f'DELETE FROM {OBS_FTS_TABLE} WHERE observation_id IN ({placeholders})',
+            [obs.id for obs in observations],
+        )
         conn.executemany(
             f'INSERT INTO {OBS_FTS_TABLE} (observation_id, text) VALUES (?, ?)',
             chain.from_iterable(all_obs_strs),
