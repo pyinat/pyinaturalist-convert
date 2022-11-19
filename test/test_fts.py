@@ -5,8 +5,8 @@ from pyinaturalist import Comment, Identification, Observation
 
 from pyinaturalist_convert.fts import (
     ObservationAutocompleter,
-    ObsTextType,
     TaxonAutocompleter,
+    TextField,
     create_observation_fts_table,
     index_observation_text,
     load_fts_taxa,
@@ -101,25 +101,25 @@ def test_observation_text_search__limit(tmp_path):
     assert len(oa.search('test')) == 3
 
 
-def test_observation_text_search__by_type(tmp_path):
+def test_observation_text_search__by_field(tmp_path):
     db_path = tmp_path / 'obs.db'
     create_observation_fts_table(db_path)
     index_observation_text([obs_1, obs_2], db_path=db_path)
 
     oa = ObservationAutocompleter(db_path=db_path)
-    types_except_place = [ObsTextType.DESCRIPTION, ObsTextType.COMMENT, ObsTextType.IDENTIFICATION]
-    assert len(oa.search('test', types=[ObsTextType.DESCRIPTION])) == 1
-    assert len(oa.search('test', types=[ObsTextType.DESCRIPTION, ObsTextType.COMMENT])) == 2
-    assert len(oa.search('test', types=types_except_place)) == 3
-    assert len(oa.search('description', types=[ObsTextType.DESCRIPTION])) == 2
-    assert len(oa.search('description', types=[ObsTextType.COMMENT])) == 0
-    assert len(oa.search('comment', types=[ObsTextType.COMMENT])) == 2
-    assert len(oa.search('comment', types=[ObsTextType.COMMENT, ObsTextType.IDENTIFICATION])) == 4
-    assert len(oa.search('comment', types=[ObsTextType.DESCRIPTION])) == 0
-    assert len(oa.search('identification', types=[ObsTextType.IDENTIFICATION])) == 2
-    assert len(oa.search('identification', types=[ObsTextType.DESCRIPTION])) == 0
-    assert len(oa.search('maryland', types=types_except_place)) == 0
-    assert len(oa.search('maryland', types=[ObsTextType.PLACE])) == 1
+    fields_except_place = [TextField.DESCRIPTION, TextField.COMMENT, TextField.IDENTIFICATION]
+    assert len(oa.search('test', fields=[TextField.DESCRIPTION])) == 1
+    assert len(oa.search('test', fields=[TextField.DESCRIPTION, TextField.COMMENT])) == 2
+    assert len(oa.search('test', fields=fields_except_place)) == 3
+    assert len(oa.search('description', fields=[TextField.DESCRIPTION])) == 2
+    assert len(oa.search('description', fields=[TextField.COMMENT])) == 0
+    assert len(oa.search('comment', fields=[TextField.COMMENT])) == 2
+    assert len(oa.search('comment', fields=[TextField.COMMENT, TextField.IDENTIFICATION])) == 4
+    assert len(oa.search('comment', fields=[TextField.DESCRIPTION])) == 0
+    assert len(oa.search('identification', fields=[TextField.IDENTIFICATION])) == 2
+    assert len(oa.search('identification', fields=[TextField.DESCRIPTION])) == 0
+    assert len(oa.search('maryland', fields=fields_except_place)) == 0
+    assert len(oa.search('maryland', fields=[TextField.PLACE])) == 1
 
 
 def test_observation_text_search__reindex(tmp_path):

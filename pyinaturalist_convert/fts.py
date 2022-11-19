@@ -148,7 +148,7 @@ COMMON_TAXON_NAME_MAP = {
 logger = getLogger(__name__)
 
 
-class ObsTextType(Enum):
+class TextField(Enum):
     DESCRIPTION = 1
     COMMENT = 2
     IDENTIFICATION = 3
@@ -224,13 +224,13 @@ class ObservationAutocompleter:
         self.limit = limit
         self.truncate_match_chars = truncate_match_chars
 
-    def search(self, q: str, types: Optional[List[ObsTextType]] = None) -> List[Tuple[int, str]]:
+    def search(self, q: str, fields: Optional[List[TextField]] = None) -> List[Tuple[int, str]]:
         """Search for observations by text.
 
         Args:
             q: Search query
-            types: Specific text types to search (description, comment, identification, and/or place).
-                If not specified, all text types will be searched.
+            fields: Specific text fields to search (description, comment, identification, and/or
+                place). If not specified, all fieldswill be searched.
 
         Returns:
             Tuples of ``(observation_id, truncated_matched_text)``
@@ -241,10 +241,10 @@ class ObservationAutocompleter:
         query = f"SELECT *, rank FROM {OBS_FTS_TABLE} WHERE text MATCH ? || '*' "
         params: ParamList = [q]
 
-        if types:
-            placeholders = ','.join('?' for _ in types)
-            query += f"AND type IN ({placeholders}) "
-            params += [t.value for t in types]
+        if fields:
+            placeholders = ','.join('?' for _ in fields)
+            query += f"AND field IN ({placeholders}) "
+            params += [t.value for t in fields]
         if self.limit > 1:
             query += 'ORDER BY rank LIMIT ?'
             params += [self.limit]
@@ -350,7 +350,7 @@ def create_observation_fts_table(db_path: PathOrStr = DB_PATH):
     with sqlite3.connect(db_path) as conn:
         conn.execute(
             f'CREATE VIRTUAL TABLE IF NOT EXISTS {OBS_FTS_TABLE} USING fts5( '
-            '   text, observation_id, type,'
+            '   text, observation_id, field,'
             f'  {prefix_idxs})'
         )
 
@@ -372,7 +372,7 @@ def index_observation_text(observations: Sequence[Observation], db_path: PathOrS
             [obs.id for obs in observations],
         )
         conn.executemany(
-            f'INSERT INTO {OBS_FTS_TABLE} (observation_id, text, type) VALUES (?, ?, ?)',
+            f'INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field) VALUES (?, ?, ?)',
             chain.from_iterable(all_obs_strs),
         )
         conn.commit()
@@ -381,12 +381,12 @@ def index_observation_text(observations: Sequence[Observation], db_path: PathOrS
 def _get_obs_strs(obs: Observation) -> List[Tuple[int, str, int]]:
     obs_strs = []
     if obs.description:
-        obs_strs.append((obs.id, obs.description, ObsTextType.DESCRIPTION.value))
+        obs_strs.append((obs.id, obs.description, TextField.DESCRIPTION.value))
     if obs.place_guess:
-        obs_strs.append((obs.id, obs.place_guess, ObsTextType.PLACE.value))
-    obs_strs.extend([(obs.id, c.body, ObsTextType.COMMENT.value) for c in obs.comments if c.body])
+        obs_strs.append((obs.id, obs.place_guess, TextField.PLACE.value))
+    obs_strs.extend([(obs.id, c.body, TextField.COMMENT.value) for c in obs.comments if c.body])
     obs_strs.extend(
-        [(obs.id, i.body, ObsTextType.IDENTIFICATION.value) for i in obs.identifications if i.body]
+        [(obs.id, i.body, TextField.IDENTIFICATION.value) for i in obs.identifications if i.body]
     )
     return obs_strs
 
