@@ -46,21 +46,32 @@ def benchmark():
 def test_observation_text_search(tmp_path):
     db_path = tmp_path / 'taxa.db'
     create_observation_fts_table(db_path)
-    obs = Observation(
+    obs_1 = Observation(
         id=1,
         description='This is a test observation with a description',
         comments=[Comment(body='This is a test comment')],
         identifications=[Identification(body='This is a test identification comment')],
     )
-    index_observation_text(obs, db_path=db_path)
+    obs_2 = Observation(
+        id=2,
+        description='description 2',
+        comments=[Comment(body='comment')],
+        identifications=[Identification(body='identification comment')],
+    )
+    index_observation_text([obs_1, obs_2], db_path=db_path)
 
     oa = ObservationAutocompleter(db_path=db_path, truncate_match_chars=25)
     assert len(oa.search('test')) == 3
+    assert len(oa.search('description')) == 2
+    assert len(oa.search('comment')) == 4
+    assert len(oa.search('identification')) == 2
 
     # Test results with matching text truncated to 25 characters
     results = oa.search('test observation')
-    assert results[0][1] == '...test observation wi...'
+    assert results[0] == (1, '...test observation wi...')
     results = oa.search('test comment')
-    assert results[0][1] == 'This is a test comment'
+    assert results[0] == (1, 'This is a test comment')
     results = oa.search('test identification')
-    assert results[0][1] == '...test identification...'
+    assert results[0] == (1, '...test identification...')
+    results = oa.search('description 2')
+    assert results[0] == (2, 'description 2')

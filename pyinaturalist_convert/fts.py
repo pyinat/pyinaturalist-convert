@@ -103,6 +103,7 @@ Search observations::
 """
 import sqlite3
 from functools import partial
+from itertools import chain
 from logging import getLogger
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple, Union
@@ -333,27 +334,29 @@ def create_observation_fts_table(db_path: PathOrStr = DB_PATH):
         )
 
 
-def index_observation_text(obs: Observation, db_path: PathOrStr = DB_PATH):
+def index_observation_text(observations: Iterable[Observation], db_path: PathOrStr = DB_PATH):
     """Index observation text (descriptions, comments, and identification comments) in FTS table
 
     Args:
-        obs: observation to index
+        observations: observations to index
         db_path: Path to SQLite database
     """
-    if not obs:
+    if not observations:
         return
 
-    texts = [obs.description]
-    texts.extend([c.body for c in obs.comments])
-    texts.extend([i.body for i in obs.identifications])
-    texts = [t for t in texts if t]
+    def _get_obs_texts(obs) -> List[Tuple[int, str]]:
+        obs_strs = [obs.description]
+        obs_strs.extend([c.body for c in obs.comments])
+        obs_strs.extend([i.body for i in obs.identifications])
+        return [(obs.id, t) for t in obs_strs if t]
+
+    all_obs_strs = [_get_obs_texts(obs) for obs in observations]
 
     with sqlite3.connect(db_path) as conn:
-        for text in texts:
-            conn.execute(
-                f'INSERT INTO {OBS_FTS_TABLE} (text, observation_id) VALUES (?, ?)',
-                (text, obs.id),
-            )
+        conn.executemany(
+            f'INSERT INTO {OBS_FTS_TABLE} (observation_id, text) VALUES (?, ?)',
+            chain.from_iterable(all_obs_strs),
+        )
         conn.commit()
 
 
