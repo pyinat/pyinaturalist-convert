@@ -1,7 +1,15 @@
 from logging import getLogger
 from time import time
 
-from pyinaturalist_convert.fts import TaxonAutocompleter, load_fts_taxa
+from pyinaturalist import Comment, Identification, Observation
+
+from pyinaturalist_convert.fts import (
+    ObservationAutocompleter,
+    TaxonAutocompleter,
+    create_observation_fts_table,
+    index_observation_text,
+    load_fts_taxa,
+)
 from test.conftest import SAMPLE_DATA_DIR
 
 CSV_DIR = SAMPLE_DATA_DIR / 'inaturalist-taxonomy.dwca'
@@ -33,3 +41,26 @@ def benchmark():
 
     logger.info(f'Total: {elapsed:.2f}s')
     logger.info(f'Avg per query: {(elapsed/iterations)*1000:2f}ms')
+
+
+def test_observation_text_search(tmp_path):
+    db_path = tmp_path / 'taxa.db'
+    create_observation_fts_table(db_path)
+    obs = Observation(
+        id=1,
+        description='This is a test observation with a description',
+        comments=[Comment(body='This is a test comment')],
+        identifications=[Identification(body='This is a test identification comment')],
+    )
+    index_observation_text(obs, db_path=db_path)
+
+    oa = ObservationAutocompleter(db_path=db_path, truncate_match_chars=25)
+    assert len(oa.search('test')) == 3
+
+    # Test results with matching text truncated to 25 characters
+    results = oa.search('test observation')
+    assert results[0][1] == '...test observation wi...'
+    results = oa.search('test comment')
+    assert results[0][1] == 'This is a test comment'
+    results = oa.search('test identification')
+    assert results[0][1] == '...test identification...'
