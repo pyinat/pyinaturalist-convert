@@ -102,21 +102,23 @@ Search observations::
     load_fts_taxa
 """
 import sqlite3
+from enum import Enum
 from functools import partial
 from itertools import chain
 from logging import getLogger
 from pathlib import Path
-from typing import Dict, Iterable, List, Sequence, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 from pyinaturalist import Observation
 from pyinaturalist.models import Taxon
 
-from .constants import DB_PATH, DWCA_TAXON_CSV_DIR, TAXON_COUNTS, PathOrStr
+from .constants import DB_PATH, DWCA_TAXON_CSV_DIR, TAXON_COUNTS, ParamList, PathOrStr
 from .download import CSVProgress, get_progress_spinner
 from .sqlite import load_table, vacuum_analyze
 
 # Add extra text search prefix indexes to speed up searches for these prefix lengths
-PREFIX_INDEXES = [2, 3, 4]
+TAXON_PREFIX_INDEXES = [2, 3, 4]
+OBS_PREFIX_INDEXES = [3, 4]
 
 OBS_FTS_TABLE = 'observation_fts'
 TAXON_FTS_TABLE = 'taxon_fts'
@@ -146,7 +148,13 @@ COMMON_TAXON_NAME_MAP = {
 logger = getLogger(__name__)
 
 
-# TODO: Deduplicate results (if both common and scientific names are present)
+class ObsTextType(Enum):
+    DESCRIPTION = 1
+    COMMENT = 2
+    IDENTIFICATION = 3
+    PLACE = 4
+
+
 class TaxonAutocompleter:
     """Taxon autocomplete search. Runs full text search on taxon scientific and common names.
 
@@ -193,10 +201,9 @@ class TaxonAutocompleter:
 
 # TODO: Add observation short description (what/where/when) to FTS table?
 # TODO: Add iconic taxon ID to display emjoi in search results?
-# TODO: Filter by (description or comment)?
 class ObservationAutocompleter:
     """Observation autocomplete search. Runs full text search on observation descriptions, comments,
-    and identification comments.
+    identification comments, and place names.
 
     Args:
         db_path: Path to SQLite database; uses platform-specific data directory by default
@@ -212,11 +219,13 @@ class ObservationAutocompleter:
         self.limit = limit
         self.truncate_match_chars = truncate_match_chars
 
-    def search(self, q: str) -> List[Tuple[int, str]]:
-        """Search for taxa by scientific and/or common name.
+    def search(self, q: str, types: Optional[List[ObsTextType]] = None) -> List[Tuple[int, str]]:
+        """Search for observations by text.
 
         Args:
             q: Search query
+            types: Specific text types to search (description, comment, identification, and/or place).
+                If not specified, all text types will be searched.
 
         Returns:
             Tuples of ``(observation_id, truncated_matched_text)``
@@ -224,12 +233,19 @@ class ObservationAutocompleter:
         if not q:
             return []
 
-        query = f'SELECT *, rank FROM {OBS_FTS_TABLE} '
-        query += "WHERE text MATCH ? "
-        query += 'ORDER BY rank LIMIT ?'
+        query = f"SELECT *, rank FROM {OBS_FTS_TABLE} WHERE text MATCH ? || '*' "
+        params: ParamList = [q]
+
+        if types:
+            placeholders = ','.join('?' for _ in types)
+            query += f"AND type IN ({placeholders}) "
+            params += [t.value for t in types]
+        if self.limit:
+            query += 'ORDER BY rank LIMIT ?'
+            params += [self.limit]
 
         with self.connection as conn:
-            cursor = conn.execute(query, (q, self.limit))
+            cursor = conn.execute(query, params)
             results = sorted(cursor.fetchall(), key=lambda row: row['rank'])
             return [(row['observation_id'], self._truncate(row['text'], q)) for row in results]
 
@@ -308,7 +324,7 @@ def create_taxon_fts_table(db_path: PathOrStr = DB_PATH):
     Args:
         db_path: Path to SQLite database
     """
-    prefix_idxs = ', '.join([f'prefix={i}' for i in PREFIX_INDEXES])
+    prefix_idxs = ', '.join([f'prefix={i}' for i in TAXON_PREFIX_INDEXES])
 
     with sqlite3.connect(db_path) as conn:
         conn.execute(
@@ -324,20 +340,19 @@ def create_observation_fts_table(db_path: PathOrStr = DB_PATH):
     Args:
         db_path: Path to SQLite database
     """
-    prefix_idxs = ', '.join([f'prefix={i}' for i in PREFIX_INDEXES])
+    prefix_idxs = ', '.join([f'prefix={i}' for i in OBS_PREFIX_INDEXES])
 
     with sqlite3.connect(db_path) as conn:
         conn.execute(
             f'CREATE VIRTUAL TABLE IF NOT EXISTS {OBS_FTS_TABLE} USING fts5( '
-            '   text, observation_id,'
+            '   text, observation_id, type,'
             f'  {prefix_idxs})'
         )
 
 
-# TODO: Could/should this optionally be done via a trigger instead?
 def index_observation_text(observations: Sequence[Observation], db_path: PathOrStr = DB_PATH):
-    """Index observation text (descriptions, comments, and identification comments) in FTS table.
-    Replaces any previously indexed text associated with these observations.
+    """Index observation text in FTS table: descriptions, places, comments, and identification
+    comments. Replaces any previously indexed text associated with these observations.
 
     Args:
         observations: observations to index
@@ -346,13 +361,7 @@ def index_observation_text(observations: Sequence[Observation], db_path: PathOrS
     if not observations:
         return
 
-    def _get_obs_texts(obs) -> List[Tuple[int, str]]:
-        obs_strs = [obs.description]
-        obs_strs.extend([c.body for c in obs.comments])
-        obs_strs.extend([i.body for i in obs.identifications])
-        return [(obs.id, t) for t in obs_strs if t]
-
-    all_obs_strs = [_get_obs_texts(obs) for obs in observations]
+    all_obs_strs = [_get_obs_strs(obs) for obs in observations]
 
     with sqlite3.connect(db_path) as conn:
         placeholders = ','.join(['?'] * len(observations))
@@ -361,10 +370,23 @@ def index_observation_text(observations: Sequence[Observation], db_path: PathOrS
             [obs.id for obs in observations],
         )
         conn.executemany(
-            f'INSERT INTO {OBS_FTS_TABLE} (observation_id, text) VALUES (?, ?)',
+            f'INSERT INTO {OBS_FTS_TABLE} (observation_id, text, type) VALUES (?, ?, ?)',
             chain.from_iterable(all_obs_strs),
         )
         conn.commit()
+
+
+def _get_obs_strs(obs: Observation) -> List[Tuple[int, str, int]]:
+    obs_strs = []
+    if obs.description:
+        obs_strs.append((obs.id, obs.description, ObsTextType.DESCRIPTION.value))
+    if obs.place_guess:
+        obs_strs.append((obs.id, obs.place_guess, ObsTextType.PLACE.value))
+    obs_strs.extend([(obs.id, c.body, ObsTextType.COMMENT.value) for c in obs.comments if c.body])
+    obs_strs.extend(
+        [(obs.id, i.body, ObsTextType.IDENTIFICATION.value) for i in obs.identifications if i.body]
+    )
+    return obs_strs
 
 
 def optimize_fts_table(table: str, db_path: PathOrStr = DB_PATH):
