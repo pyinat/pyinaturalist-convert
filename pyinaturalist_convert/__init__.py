@@ -7,7 +7,7 @@ from .csv import load_csv_exports
 from .db import *
 from .dwc import *
 from .dwca import *
-from .fts import TaxonAutocompleter, load_fts_taxa, create_taxon_fts_table
+from .fts import *
 from .geojson import to_geojson
 from .gpx import to_gpx
 from .odp import *
