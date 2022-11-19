@@ -18,7 +18,7 @@ COUNTS_PATH = SAMPLE_DATA_DIR / 'taxon_counts_fts.parquet'
 logger = getLogger(__name__)
 
 
-def test_text_search(tmp_path):
+def test_taxon_text_search(tmp_path):
     db_path = tmp_path / 'taxa.db'
     load_fts_taxa(csv_dir=CSV_DIR, db_path=db_path, counts_path=COUNTS_PATH)
     ta = TaxonAutocompleter(db_path=db_path)
@@ -30,18 +30,19 @@ def test_text_search(tmp_path):
     assert len(results) == 3
     assert results[0].id == 649 and results[0].name == 'Black Francolin'
 
+    assert len(ta.search('')) == 0
+    assert len(ta.search('franco', language=None)) == 3
 
-def benchmark():
-    iterations = 10000
-    ta = TaxonAutocompleter()
-    start = time()
 
-    for _ in range(iterations):
-        ta.search('berry', language=None)
-    elapsed = time() - start
+def test_taxon_text_search__limit(tmp_path):
+    db_path = tmp_path / 'taxa.db'
+    load_fts_taxa(csv_dir=CSV_DIR, db_path=db_path, counts_path=COUNTS_PATH)
+    ta = TaxonAutocompleter(db_path=db_path)
 
-    logger.info(f'Total: {elapsed:.2f}s')
-    logger.info(f'Avg per query: {(elapsed/iterations)*1000:2f}ms')
+    ta.limit = 2
+    assert len(ta.search('franco')) == 2
+    ta.limit = -1
+    assert len(ta.search('franco')) == 3
 
 
 obs_1 = Observation(
@@ -61,7 +62,7 @@ obs_2 = Observation(
 
 
 def test_observation_text_search(tmp_path):
-    db_path = tmp_path / 'taxa.db'
+    db_path = tmp_path / 'obs.db'
     create_observation_fts_table(db_path)
     index_observation_text([obs_1, obs_2], db_path=db_path)
 
@@ -70,6 +71,7 @@ def test_observation_text_search(tmp_path):
     assert len(oa.search('description')) == 2
     assert len(oa.search('comment')) == 4
     assert len(oa.search('identification')) == 2
+    assert len(oa.search('')) == 0
 
     # Test results with matching text truncated to 25 characters
     results = oa.search('test observation')
@@ -88,12 +90,23 @@ def test_observation_text_search(tmp_path):
     assert results[0] == (2, 'Winnipeg, Manitoba, Canada')
 
 
-def test_observation_text_search__by_type(tmp_path):
-    db_path = tmp_path / 'taxa.db'
+def test_observation_text_search__limit(tmp_path):
+    db_path = tmp_path / 'obs.db'
     create_observation_fts_table(db_path)
     index_observation_text([obs_1, obs_2], db_path=db_path)
 
-    oa = ObservationAutocompleter(db_path=db_path, truncate_match_chars=25)
+    oa = ObservationAutocompleter(db_path=db_path, limit=2)
+    assert len(oa.search('test')) == 2
+    oa.limit = -1
+    assert len(oa.search('test')) == 3
+
+
+def test_observation_text_search__by_type(tmp_path):
+    db_path = tmp_path / 'obs.db'
+    create_observation_fts_table(db_path)
+    index_observation_text([obs_1, obs_2], db_path=db_path)
+
+    oa = ObservationAutocompleter(db_path=db_path)
     types_except_place = [ObsTextType.DESCRIPTION, ObsTextType.COMMENT, ObsTextType.IDENTIFICATION]
     assert len(oa.search('test', types=[ObsTextType.DESCRIPTION])) == 1
     assert len(oa.search('test', types=[ObsTextType.DESCRIPTION, ObsTextType.COMMENT])) == 2
@@ -110,11 +123,11 @@ def test_observation_text_search__by_type(tmp_path):
 
 
 def test_observation_text_search__reindex(tmp_path):
-    db_path = tmp_path / 'taxa.db'
+    db_path = tmp_path / 'obs.db'
     create_observation_fts_table(db_path)
     index_observation_text([obs_1, obs_2], db_path=db_path)
 
-    oa = ObservationAutocompleter(db_path=db_path, truncate_match_chars=25)
+    oa = ObservationAutocompleter(db_path=db_path)
 
     # Update an observation and re-index
     obs_1b = Observation(
@@ -134,3 +147,16 @@ def test_observation_text_search__reindex(tmp_path):
     assert len(oa.search('comment')) == 4
     assert len(oa.search('identification')) == 2
     assert len(oa.search('place')) == 1
+
+
+def benchmark():
+    iterations = 10000
+    ta = TaxonAutocompleter()
+    start = time()
+
+    for _ in range(iterations):
+        ta.search('berry', language=None)
+    elapsed = time() - start
+
+    logger.info(f'Total: {elapsed:.2f}s')
+    logger.info(f'Avg per query: {(elapsed/iterations)*1000:2f}ms')

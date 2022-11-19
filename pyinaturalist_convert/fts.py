@@ -160,7 +160,7 @@ class TaxonAutocompleter:
 
     Args:
         db_path: Path to SQLite database; uses platform-specific data directory by default
-        limit: Maximum number of results to return per query
+        limit: Maximum number of results to return per query. Set to -1 to disable.
     """
 
     def __init__(self, db_path: PathOrStr = DB_PATH, limit: int = 10):
@@ -181,14 +181,19 @@ class TaxonAutocompleter:
         if not q:
             return []
 
-        language = (language or '').lower().replace('-', '_')
         query = f'SELECT *, rank, (rank - count_rank) AS combined_rank FROM {TAXON_FTS_TABLE} '
-        query += "WHERE name MATCH ? || '*' AND (language_code IS NULL "
-        query += "OR language_code = ?) " if language else ' '
-        query += 'ORDER BY combined_rank LIMIT ?'
+        query += "WHERE name MATCH ? || '*' "
+        params: ParamList = [q]
+
+        if language:
+            query += 'AND (language_code IS NULL OR language_code = ?) '
+            params += [language.lower().replace('-', '_')]
+        if self.limit > 1:
+            query += 'ORDER BY combined_rank LIMIT ?'
+            params += [self.limit]
 
         with self.connection as conn:
-            cursor = conn.execute(query, (q, language, self.limit))
+            cursor = conn.execute(query, params)
             results = sorted(
                 cursor.fetchall(),
                 key=lambda row: row['combined_rank'],
@@ -207,7 +212,7 @@ class ObservationAutocompleter:
 
     Args:
         db_path: Path to SQLite database; uses platform-specific data directory by default
-        limit: Maximum number of results to return per query
+        limit: Maximum number of results to return per query. Set to -1 to disable.
         truncate_match_chars: Truncate matched text to this many characters. Set to -1 to disable.
     """
 
@@ -240,7 +245,7 @@ class ObservationAutocompleter:
             placeholders = ','.join('?' for _ in types)
             query += f"AND type IN ({placeholders}) "
             params += [t.value for t in types]
-        if self.limit:
+        if self.limit > 1:
             query += 'ORDER BY rank LIMIT ?'
             params += [self.limit]
 
@@ -358,9 +363,6 @@ def index_observation_text(observations: Sequence[Observation], db_path: PathOrS
         observations: observations to index
         db_path: Path to SQLite database
     """
-    if not observations:
-        return
-
     all_obs_strs = [_get_obs_strs(obs) for obs in observations]
 
     with sqlite3.connect(db_path) as conn:
