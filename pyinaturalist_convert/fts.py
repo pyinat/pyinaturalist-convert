@@ -317,7 +317,67 @@ def index_obs_text(obs: Observation, db_path: PathOrStr = DB_PATH):
     with sqlite3.connect(db_path) as conn:
         for text in texts:
             conn.execute(
-                f'INSERT INTO {OBS_FTS_TABLE} (id, text) VALUES (?, ?)',
-                (obs.id, text),
+                f'INSERT INTO {OBS_FTS_TABLE} (text, observation_id) VALUES (?, ?)',
+                (text, obs.id),
             )
         conn.commit()
+
+
+# TODO: Add observation short description (what/where/when) to FTS table?
+# TODO: Add iconic taxon ID to display emjoi in search results?
+# TODO: Filter by (description or comment)?
+# TODO: Use '?' placeholder for q?
+class ObservationAutocompleter:
+    """Observation autocomplete search.
+
+    Args:
+        db_path: Path to SQLite database; uses platform-specific data directory by default
+        limit: Maximum number of results to return per query
+        truncate_match_chars: Truncate matched text to this many characters. Set to -1 to disable.
+    """
+
+    def __init__(
+        self, db_path: PathOrStr = DB_PATH, limit: int = 10, truncate_match_chars: int = 50
+    ):
+        self.connection = sqlite3.connect(db_path)
+        self.connection.row_factory = sqlite3.Row
+        self.limit = limit
+        self.truncate_match_chars = truncate_match_chars
+
+    def search(self, q: str) -> List[Tuple[int, str]]:
+        """Search for taxa by scientific and/or common name.
+
+        Args:
+            q: Search query
+
+        Returns:
+            Tuples of ``(observation_id, truncated_text)``
+        """
+        if not q:
+            return []
+
+        query = f'SELECT *, rank FROM {OBS_FTS_TABLE} '
+        query += f"WHERE text MATCH '*{q}*'"
+        query += f'ORDER BY rank LIMIT {self.limit}'
+
+        with self.connection as conn:
+            results = sorted(conn.execute(query).fetchall(), key=lambda row: row['rank'])
+            return [(row['observation_id'], self._truncate(row['text'], q)) for row in results]
+
+    def _truncate(self, text: str, q: str) -> str:
+        """Truncate matched text to a maximum number of characters"""
+        if self.truncate_match_chars == -1 or len(text) <= self.truncate_match_chars:
+            return text
+
+        # Determine if match is at beginning, middle, or end of text
+        idx = text.lower().find(q.lower())
+        truncated_text = ''
+        truncate_chars = self.truncate_match_chars
+        if idx > 0:
+            truncated_text += '...'
+            truncate_chars -= 3
+
+        truncated_text += text[idx : idx + truncate_chars]
+        if idx + truncate_chars < len(text):
+            truncated_text = truncated_text[:-3] + '...'
+        return truncated_text
