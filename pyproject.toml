@@ -67,7 +67,7 @@ docs = ["furo", "myst-parser", "sphinx", "sphinx-autodoc-typehints", "sphinx-cop
 
 [tool.poetry.dev-dependencies]
 coverage = ">=6.3"
-nox = "^2022.8"
+nox = "^2022.11"
 nox-poetry = "^1.0"
 pre-commit = "^2.18"
 pyparsing = "^3.0"
