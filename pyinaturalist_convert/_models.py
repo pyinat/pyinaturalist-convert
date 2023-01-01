@@ -310,30 +310,31 @@ class DbUser:
 # ----------------------
 
 
-def _flatten_annotations(annotations: List[Annotation] = None) -> Optional[List[JsonField]]:
+def _flatten_annotations(
+    annotations: Optional[List[Annotation]] = None,
+) -> Optional[List[JsonField]]:
     return [_flatten_annotation(a) for a in annotations] if annotations else None
 
 
 def _flatten_annotation(annotation: Annotation) -> JsonField:
     """Save an annotation as a dict of either term/value labels (if available) or IDs"""
-    if annotation.term and annotation.value:
-        return {
-            'term_label': annotation.term_label,
-            'value_label': annotation.value_label,
-        }
-    else:
-        return {
-            'controlled_attribute_id': annotation.controlled_attribute_id,
-            'controlled_value_id': annotation.controlled_value_id,
-        }
+    annotation_dict = {
+        'controlled_attribute_id': annotation.controlled_attribute.id,
+        'controlled_value_id': annotation.controlled_value.id,
+        'term': annotation.term,
+        'value': annotation.value,
+    }
+    return {k: v for k, v in annotation_dict.items() if v is not None}
 
 
-def _unflatten_annotations(flat_objs: List[JsonField] = None) -> Optional[List[Annotation]]:
+def _unflatten_annotations(
+    flat_objs: Optional[List[JsonField]] = None,
+) -> Optional[List[Annotation]]:
     """Initialize Annotations from either term/value labels (if available) or IDs"""
     return Annotation.from_json_list(flat_objs) if flat_objs else None
 
 
-def _flatten_comments(comments: List[Comment] = None) -> Optional[List[JsonField]]:
+def _flatten_comments(comments: Optional[List[Comment]] = None) -> Optional[List[JsonField]]:
     return [_flatten_comment(c) for c in comments] if comments else None
 
 
@@ -346,12 +347,12 @@ def _flatten_comment(comment: Comment):
     }
 
 
-def _unflatten_comments(flat_objs: List[JsonField] = None) -> Optional[List[Comment]]:
+def _unflatten_comments(flat_objs: Optional[List[JsonField]] = None) -> Optional[List[Comment]]:
     return Comment.from_json_list(flat_objs) if flat_objs else None
 
 
 def _flatten_identifications(
-    identifications: List[Identification] = None,
+    identifications: Optional[List[Identification]] = None,
 ) -> Optional[List[JsonField]]:
     return [_flatten_identification(i) for i in identifications] if identifications else None
 
@@ -363,15 +364,19 @@ def _flatten_identification(identification: Identification) -> JsonField:
     return id_json
 
 
-def _unflatten_identifications(flat_objs: List[JsonField] = None) -> Optional[List[Identification]]:
+def _unflatten_identifications(
+    flat_objs: Optional[List[JsonField]] = None,
+) -> Optional[List[Identification]]:
     return Identification.from_json_list(flat_objs) if flat_objs else None
 
 
-def _flatten_ofvs(ofvs: List[ObservationFieldValue] = None) -> Optional[List[JsonField]]:
+def _flatten_ofvs(ofvs: Optional[List[ObservationFieldValue]] = None) -> Optional[List[JsonField]]:
     return [{'name': ofv.name, 'value': ofv.value} for ofv in ofvs] if ofvs else None
 
 
-def _unflatten_ofvs(flat_objs: List[JsonField] = None) -> Optional[List[ObservationFieldValue]]:
+def _unflatten_ofvs(
+    flat_objs: Optional[List[JsonField]] = None,
+) -> Optional[List[ObservationFieldValue]]:
     return ObservationFieldValue.from_json_list(flat_objs) if flat_objs else None
 
 
@@ -395,15 +400,15 @@ def _get_db_obs_photos(obs: Observation) -> Optional[List[DbPhoto]]:
     return photos
 
 
-def _split_list(values_str: str = None) -> List[str]:
+def _split_list(values_str: Optional[str] = None) -> List[str]:
     return values_str.split(',') if values_str else []
 
 
-def _split_int_list(values_str: str = None) -> List[int]:
+def _split_int_list(values_str: Optional[str] = None) -> List[int]:
     return [int(i) for i in values_str.split(',')] if values_str else []
 
 
-def _join_list(values: List = None) -> str:
+def _join_list(values: Optional[List] = None) -> str:
     return ','.join(map(str, values)) if values else ''
 
 

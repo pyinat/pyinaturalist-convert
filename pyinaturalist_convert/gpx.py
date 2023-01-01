@@ -35,7 +35,7 @@ logger = getLogger(__name__)
 
 
 def to_gpx(
-    observations: AnyObservations, filename: str = None, waypoints: bool = False
+    observations: AnyObservations, filename: Optional[str] = None, waypoints: bool = False
 ) -> Optional['GPX']:
     """Convert a list of observations to a GPX track (default) or a set of GPX waypoints.
 

@@ -54,7 +54,7 @@ at least provides a starting point.
 # TODO: If needed, this could be done with just the stdlib sqlite3 and no SQLAlchemy
 from itertools import chain
 from logging import getLogger
-from typing import TYPE_CHECKING, Iterable, Iterator, List
+from typing import TYPE_CHECKING, Iterable, Iterator, List, Optional
 
 from pyinaturalist import Observation, Taxon
 
@@ -107,9 +107,9 @@ def _get_engine(db_path):
 
 def get_db_observations(
     db_path: PathOrStr = DB_PATH,
-    ids: Iterable[int] = None,
-    username: str = None,
-    limit: int = None,
+    ids: Optional[Iterable[int]] = None,
+    username: Optional[str] = None,
+    limit: Optional[int] = None,
     order_by_date: bool = False,
 ) -> Iterator[Observation]:
     """Load observation records and associated taxa from SQLite"""
@@ -136,7 +136,7 @@ def get_db_observations(
 
 def get_db_taxa(
     db_path: PathOrStr = DB_PATH,
-    ids: List[int] = None,
+    ids: Optional[List[int]] = None,
     accept_partial: bool = True,
     limit: int = 200,
 ) -> Iterator[Taxon]:

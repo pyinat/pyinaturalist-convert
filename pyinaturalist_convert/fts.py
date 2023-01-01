@@ -402,7 +402,9 @@ def optimize_fts_table(table: str, db_path: PathOrStr = DB_PATH):
     vacuum_analyze([table], db_path, show_spinner=True)
 
 
-def _get_common_name_csvs(csv_dir: Path, languages: Iterable[str] = None) -> Dict[str, Path]:
+def _get_common_name_csvs(
+    csv_dir: Path, languages: Optional[Iterable[str]] = None
+) -> Dict[str, Path]:
     """Get common name CSVs, for either all or some languages, with a separate table per language"""
     if languages and languages != 'all':
         common_name_csvs = {lang: csv_dir / f'VernacularNames-{lang}.csv' for lang in languages}
