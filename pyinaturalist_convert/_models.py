@@ -310,22 +310,21 @@ class DbUser:
 # ----------------------
 
 
-def _flatten_annotations(annotations: List[Annotation] = None) -> Optional[List[JsonField]]:
+def _flatten_annotations(
+    annotations: Optional[List[Annotation]] = None,
+) -> Optional[List[JsonField]]:
     return [_flatten_annotation(a) for a in annotations] if annotations else None
 
 
 def _flatten_annotation(annotation: Annotation) -> JsonField:
     """Save an annotation as a dict of either term/value labels (if available) or IDs"""
-    if annotation.term and annotation.value:
-        return {
-            'term_label': annotation.term_label,
-            'value_label': annotation.value_label,
-        }
-    else:
-        return {
-            'controlled_attribute_id': annotation.controlled_attribute_id,
-            'controlled_value_id': annotation.controlled_value_id,
-        }
+    annotation_dict = {
+        'controlled_attribute_id': annotation.controlled_attribute.id,
+        'controlled_value_id': annotation.controlled_value.id,
+        'term': annotation.term,
+        'value': annotation.value,
+    }
+    return {k: v for k, v in annotation_dict.items() if v is not None}
 
 
 def _unflatten_annotations(
