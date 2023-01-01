@@ -149,7 +149,9 @@ XML_NAMESPACES = {
 
 
 def to_dwc(
-    observations: AnyObservations = None, filename: PathOrStr = None, taxa: AnyTaxa = None
+    observations: Optional[AnyObservations] = None,
+    filename: Optional[PathOrStr] = None,
+    taxa: Optional[AnyTaxa] = None,
 ) -> Optional[List[Dict]]:
     """Convert observations into to a Simple Darwin Core RecordSet.
 

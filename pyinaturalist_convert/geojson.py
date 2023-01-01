@@ -41,7 +41,7 @@ DEFAULT_OBSERVATION_ATTRS = [
 
 def to_geojson(
     observations: AnyObservations,
-    filename: PathOrStr = None,
+    filename: Optional[PathOrStr] = None,
     properties: List[str] = DEFAULT_OBSERVATION_ATTRS,
 ) -> Optional['FeatureCollection']:
     """Convert observations to a GeoJSON FeatureCollection.
@@ -71,7 +71,9 @@ def to_geojson(
         return feature_collection
 
 
-def _to_geojson_feature(observation: ResponseResult, properties: List[str] = None) -> 'Feature':
+def _to_geojson_feature(
+    observation: ResponseResult, properties: Optional[List[str]] = None
+) -> 'Feature':
     from geojson import Feature, Point
 
     # Add geometry

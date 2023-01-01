@@ -126,9 +126,9 @@ def _aggregate_taxon_db(
     db_path: PathOrStr = DB_PATH,
     counts_path: PathOrStr = TAXON_COUNTS,
     common_names_path: PathOrStr = DEFAULT_LANG_CSV,
-    progress_queue: Queue = None,
-    task_queue: Queue = None,
-    log_queue: Queue = None,
+    progress_queue: Optional[Queue] = None,
+    task_queue: Optional[Queue] = None,
+    log_queue: Optional[Queue] = None,
 ) -> 'DataFrame':
     import pandas as pd
 
@@ -224,11 +224,11 @@ def get_observation_taxon_counts(db_path: PathOrStr = DB_PATH) -> Dict[int, int]
 
 def _get_descendant_ids(
     taxon_id: int,
-    taxon_name: str = None,
+    taxon_name: Optional[str] = None,
     db_path: PathOrStr = DB_PATH,
-    df: 'DataFrame' = None,
-    progress_queue: Queue = None,
-    task_queue: Queue = None,
+    df: Optional['DataFrame'] = None,
+    progress_queue: Optional[Queue] = None,
+    task_queue: Optional[Queue] = None,
 ) -> List[int]:
     """Recursively get all descendant taxon IDs (down to leaf taxa) for the given taxon"""
     import pandas as pd
@@ -254,11 +254,11 @@ def _get_descendant_ids(
 def _aggregate_branch(
     df: 'DataFrame',
     taxon_id: int,
-    taxon_name: str = None,
-    ancestor_ids: List[int] = None,
-    common_names: Dict[int, str] = None,
-    progress_queue: Queue = None,
-    task_queue: Queue = None,
+    taxon_name: Optional[str] = None,
+    ancestor_ids: Optional[List[int]] = None,
+    common_names: Optional[Dict[int, str]] = None,
+    progress_queue: Optional[Queue] = None,
+    task_queue: Optional[Queue] = None,
 ) -> 'DataFrame':
     """Add aggregate values to all descendants of a given taxon"""
     common_names = common_names or {}
@@ -297,9 +297,9 @@ def _aggregate_branch(
 
 def _aggregate_kingdoms(
     df: 'DataFrame',
-    common_names: Dict[int, str] = None,
-    progress_queue: Queue = None,
-    task_queue: Queue = None,
+    common_names: Optional[Dict[int, str]] = None,
+    progress_queue: Optional[Queue] = None,
+    task_queue: Optional[Queue] = None,
 ) -> 'DataFrame':
     """Process kingdoms + root taxon (in main thread) after all phyla have been processed"""
     common_names = common_names or {}
@@ -336,7 +336,7 @@ def _update_taxon(
     child_ids: List[int],
     agg_count: int = 0,
     leaf_count: int = 0,
-    common_name: str = None,
+    common_name: Optional[str] = None,
 ):
     """Update aggregate values for a single taxon"""
 
@@ -355,8 +355,8 @@ def _update_taxon(
 
 def _get_common_names(
     common_names_path: PathOrStr = DEFAULT_LANG_CSV,
-    progress_queue: Queue = None,
-    task_queue: Queue = None,
+    progress_queue: Optional[Queue] = None,
+    task_queue: Optional[Queue] = None,
 ) -> Dict[int, str]:
     """Get common names for the specified language from DwC-A taxonomy files"""
     import pandas as pd
