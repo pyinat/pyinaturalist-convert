@@ -26,6 +26,7 @@
     load_odp_users
 """
 from pathlib import Path
+from typing import Optional
 
 from .constants import (
     DATA_DIR,
@@ -100,7 +101,7 @@ def download_odp_metadata(dest_dir: PathOrStr = DATA_DIR):
 def load_odp_observations(
     csv_path: PathOrStr = ODP_OBS_CSV,
     db_path: PathOrStr = DB_PATH,
-    progress: CSVProgress = None,
+    progress: Optional[CSVProgress] = None,
 ):
     """Create or update an observation SQLite table from the Open Data archive"""
     create_tables(db_path)
@@ -114,7 +115,7 @@ def load_odp_observations(
 def load_odp_photos(
     csv_path: PathOrStr = ODP_PHOTO_CSV,
     db_path: PathOrStr = DB_PATH,
-    progress: CSVProgress = None,
+    progress: Optional[CSVProgress] = None,
 ):
     """Create or update a photo metadata SQLite table from the Open Data archive."""
     create_tables(db_path)
@@ -126,7 +127,7 @@ def load_odp_photos(
 def load_odp_taxa(
     csv_path: PathOrStr = ODP_TAXON_CSV,
     db_path: PathOrStr = DB_PATH,
-    progress: CSVProgress = None,
+    progress: Optional[CSVProgress] = None,
 ):
     """Create or update a taxonomy SQLite table from the Open Data archive"""
     create_tables(db_path)
@@ -138,7 +139,7 @@ def load_odp_taxa(
 def load_odp_users(
     csv_path: PathOrStr = ODP_USER_CSV,
     db_path: PathOrStr = DB_PATH,
-    progress: CSVProgress = None,
+    progress: Optional[CSVProgress] = None,
 ):
     """Create or update a user SQLite table from the Open Data archive"""
     create_tables(db_path)

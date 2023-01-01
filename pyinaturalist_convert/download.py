@@ -53,7 +53,12 @@ class ProgressIO(FileIO):
     """
 
     def __init__(
-        self, path, *args, callback: Callable = None, description: str = 'Extracting', **kwargs
+        self,
+        path,
+        *args,
+        callback: Optional[Callable] = None,
+        description: str = 'Extracting',
+        **kwargs,
     ):
         if callback:
             self.callback = callback
@@ -78,8 +83,8 @@ class MultiProgress:
     def __init__(
         self,
         totals: Dict[str, int],
-        total_progress: Progress = None,
-        job_progress: Progress = None,
+        total_progress: Optional[Progress] = None,
+        job_progress: Optional[Progress] = None,
         task_description: str = 'Loading',
     ):
         self.total_progress = total_progress or get_progress()
@@ -131,7 +136,7 @@ class JobProgress:
 class ParallelMultiProgress:
     """Track progress of multiple processes run in parallel, plus overall combined progress"""
 
-    def __init__(self, total: int = 0, total_progress: Progress = None):
+    def __init__(self, total: int = 0, total_progress: Optional[Progress] = None):
         self.total_progress = total_progress or get_progress()
         self.total_task = self.total_progress.add_task('[cyan]Total', total=total)
         self.job_progresses: Dict[str, JobProgress] = {}
@@ -204,9 +209,9 @@ class ParallelMultiProgress:
     def log(self, msg: str):
         self.total_progress.log(f'[cyan]{msg}')
 
-    def log_job(self, msg: str, task_description, name: str, task_size: int = None):
+    def log_job(self, msg: str, task_description, name: str, task_size: int = -1):
         msg = f'[cyan]{msg} {task_description} [white]{name}[cyan]'
-        if task_size:
+        if task_size > 0:
             msg += f' ({task_size} items)'
         self.total_progress.log(msg)
 
@@ -233,10 +238,10 @@ class ZipProgress(MultiProgress):
 
 def check_download(
     dest_file: Path,
-    url: str = None,
-    bucket: str = None,
-    key: str = None,
-    release_interval: int = None,
+    url: Optional[str] = None,
+    bucket: Optional[str] = None,
+    key: Optional[str] = None,
+    release_interval: Optional[int] = None,
 ) -> bool:
     """Check if a locally downloaded file exists and is up to date"""
     if not dest_file.exists():
@@ -248,17 +253,16 @@ def check_download(
 
     if remote_mtime is not None and local_mtime >= remote_mtime:
         print(f'[cyan]File already exists and is up to date:[/cyan] {dest_file}')
-        estimate_next_release(remote_mtime, release_interval)
+        if release_interval:
+            estimate_next_release(remote_mtime, release_interval)
         return True
     else:
         print(f'[cyan]File exists, but is out of date:[/cyan] {dest_file}')
         return False
 
 
-def estimate_next_release(remote_mtime: datetime, release_interval: int = None):
+def estimate_next_release(remote_mtime: datetime, release_interval: int):
     """Get estimated time until the next update"""
-    if not release_interval:
-        return
     elapsed = datetime.now(timezone.utc) - remote_mtime
     est_release_days = max(release_interval - elapsed.days, 1)
     print(f'[cyan]Possible new release in ~[magenta]{est_release_days}[cyan] days')
