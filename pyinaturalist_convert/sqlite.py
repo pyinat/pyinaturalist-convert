@@ -6,7 +6,7 @@ from csv import reader as csv_reader
 from logging import getLogger
 from pathlib import Path
 from time import time
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, Optional
 
 from .constants import DB_PATH, PathOrStr
 from .download import MultiProgress, get_progress_spinner
@@ -22,7 +22,7 @@ class ChunkReader:
         fields: List of fields to include in each chunk
     """
 
-    def __init__(self, f, chunk_size: int = 2000, fields: List[str] = None, **kwargs):
+    def __init__(self, f, chunk_size: int = 2000, fields: Optional[List[str]] = None, **kwargs):
         self.reader = csv_reader(f, **kwargs)
         self._chunk_size = chunk_size
 
@@ -62,8 +62,8 @@ class XFormChunkReader(ChunkReader):
         self,
         f,
         chunk_size: int = 2000,
-        fields: List[str] = None,
-        transform: Callable = None,
+        fields: Optional[List[str]] = None,
+        transform: Optional[Callable] = None,
         **kwargs,
     ):
         self.reader = DictReader(f, **kwargs)  # type: ignore
@@ -88,12 +88,12 @@ def get_fields(csv_path: PathOrStr, delimiter: str = ',') -> List[str]:
 def load_table(
     csv_path: PathOrStr,
     db_path: PathOrStr,
-    table_name: str = None,
-    column_map: Dict = None,
+    table_name: Optional[str] = None,
+    column_map: Optional[Dict] = None,
     pk: str = 'id',
-    progress: MultiProgress = None,
+    progress: Optional[MultiProgress] = None,
     delimiter: str = ',',
-    transform: Callable = None,
+    transform: Optional[Callable] = None,
 ):
     """Load a CSV file into a sqlite3 table.
     This is less efficient than the sqlite3 shell `.import` command, but easier to use.

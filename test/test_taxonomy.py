@@ -23,7 +23,6 @@ cleanup_on_sigterm()
     'pyinaturalist_convert.taxonomy.ProcessPoolExecutor', ThreadPoolExecutor
 )  # Can't get coverage to work with multiprocessing
 def test_aggregate_taxon_db(mock_sleep, tmp_path):
-
     taxon_db_path = SAMPLE_DATA_DIR / 'taxon_counts.csv'
     common_names_path = SAMPLE_DATA_DIR / 'taxon_common_names.csv'
     db_path = tmp_path / 'observations.db'

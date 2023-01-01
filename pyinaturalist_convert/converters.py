@@ -61,14 +61,14 @@ import json
 from copy import deepcopy
 from logging import getLogger
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Iterable, List, Sequence, Type, Union
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Sequence, Type, Union
 
 from flatten_dict import flatten, unflatten
 from pyinaturalist import BaseModel, JsonResponse, ModelObjects, Observation, ResponseResult, Taxon
 from requests import Response
 from tablib import Dataset
 
-# TODO: Flatten annotations and ofvs into top-level {term_label: value_label} fields
+# TODO: Flatten annotations and ofvs into top-level {term: value} fields
 # TODO: to_csv(): Maybe try to keep simple ID lists and manually parse when reading CSV?
 # TODO: dict lists not returning correctly when reading parquet and feather
 # TODO: Better condensed format for simplify_observations() that still works with parquet
@@ -143,7 +143,7 @@ def to_dicts(value: InputTypes) -> Iterable[Dict]:
         return [value]
 
 
-def to_csv(observations: AnyObservations, filename: str = None):
+def to_csv(observations: AnyObservations, filename: Optional[str] = None):
     """Convert observations to CSV"""
     from pandas import DataFrame
 

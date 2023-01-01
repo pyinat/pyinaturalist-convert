@@ -30,7 +30,7 @@ import subprocess
 from logging import getLogger
 from os.path import basename, splitext
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from pyinaturalist.constants import DATA_DIR
 
@@ -119,7 +119,7 @@ def download_dwca_taxa(dest_dir: PathOrStr = DATA_DIR):
 def load_dwca_observations(
     csv_path: PathOrStr = DWCA_OBS_CSV,
     db_path: PathOrStr = DB_PATH,
-    progress: CSVProgress = None,
+    progress: Optional[CSVProgress] = None,
 ):
     """Create or update an observations SQLite table from the GBIF DwC-A archive. This keeps only the most
     relevant subset of columns available in the archive, in a format consistent with API results and
@@ -153,7 +153,7 @@ def load_dwca_taxa(
     csv_path: PathOrStr = DWCA_TAXON_CSV,
     db_path: PathOrStr = DB_PATH,
     column_map: Dict = TAXON_COLUMN_MAP,
-    progress: CSVProgress = None,
+    progress: Optional[CSVProgress] = None,
 ):
     """Create or update a taxonomy SQLite table from the GBIF DwC-A archive"""
     create_table(DbTaxon, db_path)

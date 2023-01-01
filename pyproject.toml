@@ -66,15 +66,15 @@ all = ["boto3", "geojson", "gpxpy", "openpyxl", "pandas", "pyarrow", "sqlalchemy
 docs = ["furo", "myst-parser", "sphinx", "sphinx-autodoc-typehints", "sphinx-copybutton", "sphinx-design"]
 
 [tool.poetry.dev-dependencies]
-coverage = ">=6.3"
-nox = "^2022.8"
+coverage = "^7.0"
+nox = "^2022.11"
 nox-poetry = "^1.0"
 pre-commit = "^2.18"
 pyparsing = "^3.0"
 pytest = ">=7.0"
 pytest-cov = ">=3.0"
 pytest-xdist = ">=2.2"
-sqlalchemy2-stubs = ">=0.0.2-alpha.22"
+sqlalchemy2-stubs = ">=0.0.2-alpha.31"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
