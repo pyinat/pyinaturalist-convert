@@ -38,7 +38,7 @@ gpxpy                       = {optional=true, version="^1.4.2"}
 openpyxl                    = {optional=true, version=">=2.6"}
 pandas                      = {optional=true, version=">=1.2"}
 pyarrow                     = {optional=true, version=">=10.0"}
-sqlalchemy                  = {optional=true, version="^1.4.36"}
+sqlalchemy                  = {optional=true, version=">=1.4.36,<3.0.0"}
 tables                      = {optional=true, version=">=3.6"}
 xmltodict                   = {optional=true, version=">=0.12"}
 
