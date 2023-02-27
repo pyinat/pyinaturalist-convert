@@ -26,8 +26,7 @@ include = [
 
 [tool.poetry.dependencies]
 python                      = "^3.8"
-# TODO: v0.18 stable release
-pyinaturalist               = {git="https://github.com/pyinat/pyinaturalist.git"}
+pyinaturalist               = ">=0.18"
 flatten-dict                = "^0.4.0"
 tablib                      = "^3.0"
 
