@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyinaturalist-convert"
-version = "0.6.0"
+version = "0.6.1"
 description = "Tools to convert observation data to and from a variety of useful formats"
 authors = ["Jordan Cook"]
 license = "MIT"
@@ -34,16 +34,23 @@ tablib                      = "^3.0"
 boto3                       = {optional=true, version=">=1.20"}
 geojson                     = {optional=true, version=">=2.5"}
 gpxpy                       = {optional=true, version="^1.4.2"}
+markuppy                    = {optional=true, version=">=1.12"}
+odfpy                       = {optional=true, version=">=1.4"}
 openpyxl                    = {optional=true, version=">=2.6"}
 pandas                      = {optional=true, version=">=1.2"}
 pyarrow                     = {optional=true, version=">=10.0"}
-sqlalchemy                  = {optional=true, version="^1.4.36"}
+pyyaml                      = {optional=true, version=">=6.0"}
+sqlalchemy                  = {optional=true, version="^2.0"}
 tables                      = {optional=true, version=">=3.6"}
+tabulate                    = {optional=true, version="*"}
+xlrd                        = {optional=true, version="*"}
+xlwt                        = {optional=true, version="*"}
 xmltodict                   = {optional=true, version=">=0.12"}
+
 
 # Documentation dependencies
 furo                        = {optional=true, version="^2022.9"}
-myst-parser                 = {optional=true, version="^0.18"}
+myst-parser                 = {optional=true, version="^0.19"}
 sphinx                      = {optional=true, version="^5.2"}
 sphinx-autodoc-typehints    = {optional=true, version="^1.17"}
 sphinx-copybutton           = {optional=true, version=">=0.5"}
@@ -56,19 +63,19 @@ feather    = ["pandas", "pyarrow"]
 geojson    = ["geojson"]
 gpx        = ["gpxpy"]
 hdf        = ["pandas", "tables"]
-html       = ["jinja", "tablib[html]"]
+html       = ["jinja", "markuppy", "tablib"]
 odp        = ["boto3"]
 parquet    = ["pandas", "pyarrow"]
 xlsx       = ["pandas", "openpyxl"]
 
-all = ["boto3", "geojson", "gpxpy", "openpyxl", "pandas", "pyarrow", "sqlalchemy", "tables", "tablib[all]", "xmltodict"]
+all = ["boto3", "geojson", "gpxpy", "openpyxl", "odfpy", "pandas", "pyarrow", "pyyaml", "sqlalchemy", "tables", "tablib", "tabulate", "xlrd", "xlwt", "xmltodict"]
 docs = ["furo", "myst-parser", "sphinx", "sphinx-autodoc-typehints", "sphinx-copybutton", "sphinx-design"]
 
 [tool.poetry.dev-dependencies]
 coverage = "^7.0"
 nox = "^2022.11"
 nox-poetry = "^1.0"
-pre-commit = "^2.18"
+pre-commit = "^3.1"
 pyparsing = "^3.0"
 pytest = ">=7.0"
 pytest-cov = ">=3.0"
