@@ -445,7 +445,7 @@ def _normalize_taxon_counts(counts_path: PathOrStr = TAXON_COUNTS) -> Dict[int, 
         return (series - series.mean()) / series.std()
 
     logger.info('Normalizing taxon counts')
-    df['count_rank'] = normalize(df['observations_count']).fillna(-1)
+    df['count_rank'] = normalize(df['observations_count_rg']).fillna(-1)
     df['count_rank'] = df['count_rank'] * TAXON_COUNT_RANK_FACTOR
     df = df.sort_values(by='count_rank', ascending=False)
     return df['count_rank'].to_dict()
