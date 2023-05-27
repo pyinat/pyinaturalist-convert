@@ -8,11 +8,11 @@ repos:
       - id: mixed-line-ending
       - id: trailing-whitespace
   - repo: https://github.com/psf/black
-    rev: 23.1.0
+    rev: 23.3.0
     hooks:
       - id: black
   - repo: https://github.com/asottile/blacken-docs
-    rev: 1.13.0
+    rev: 1.14.0
     hooks:
       - id: blacken-docs
         args: [--skip-errors, --skip-string-normalization]
@@ -31,7 +31,7 @@ repos:
       - id: xenon
         args: ['--max-average=B', '--max-modules=C', '--max-absolute=C', '--exclude=test/test_db.py']
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.0.1
+    rev: v1.4.1
     hooks:
       - id: mypy
         additional_dependencies: [attrs, sqlalchemy2-stubs, types-python-dateutil, types-requests, types-tabulate]
