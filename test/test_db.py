@@ -98,9 +98,13 @@ def test_save_observations(tmp_path):
     assert obs_2.taxon.reference_url == obs_1.taxon.reference_url
     assert obs_2.user.id == obs_1.user.id
 
-    results = get_db_observations(db_path, username='test_user', order_by_date=True)
+    results = get_db_observations(db_path, username='test_user', order_by_created=True)
     assert len(list(results)) == 1
     results = get_db_observations(db_path, username='nonexistent_user', limit=1)
+    assert len(list(results)) == 0
+    results = get_db_observations(
+        db_path, username='nonexistent_user', limit=1, page=2, order_by_observed=True
+    )
     assert len(list(results)) == 0
 
 
