@@ -110,7 +110,9 @@ def get_db_observations(
     ids: Optional[Iterable[int]] = None,
     username: Optional[str] = None,
     limit: Optional[int] = None,
-    order_by_date: bool = False,
+    page: Optional[int] = None,
+    order_by_created: bool = False,
+    order_by_observed: bool = False,
 ) -> Iterator[Observation]:
     """Load observation records and associated taxa from SQLite"""
     from sqlalchemy import desc, select
@@ -126,8 +128,12 @@ def get_db_observations(
         stmt = stmt.where(DbUser.login == username)
     if limit:
         stmt = stmt.limit(limit)
-    if order_by_date:
+    if limit and page and page > 1:
+        stmt = stmt.offset((page - 1) * limit)
+    if order_by_created:
         stmt = stmt.order_by(desc(DbObservation.created_at))
+    elif order_by_observed:
+        stmt = stmt.order_by(desc(DbObservation.observed_on))
 
     with get_session(db_path) as session:
         for obs in session.execute(stmt):
