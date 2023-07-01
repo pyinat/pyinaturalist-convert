@@ -28,7 +28,7 @@ include = [
 python                      = "^3.8"
 pyinaturalist               = ">=0.18"
 flatten-dict                = "^0.4.0"
-tablib                      = "^3.0"
+tablib                      = "^3.5"
 
 # Optional dependencies for specific data formats
 boto3                       = {optional=true, version=">=1.20"}
