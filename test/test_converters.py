@@ -23,9 +23,9 @@ def test_read_formats(file_type):
 def test_to_dataset():
     observations = Observation.from_json_list(load_sample_data('observations.json'))
     dataset = to_dataset(observations)
-    assert all([isinstance(i, int) for i in dataset['id']])
-    assert all([isinstance(i, int) for i in dataset['taxon.id']])
-    assert all([isinstance(i, datetime) for i in dataset['created_at']])
+    assert all(isinstance(i, int) for i in dataset['id'])
+    assert all(isinstance(i, int) for i in dataset['taxon.id'])
+    assert all(isinstance(i, datetime) for i in dataset['created_at'])
     assert isinstance(dataset['location'][0][0], float)
 
 
