@@ -39,7 +39,7 @@ def test_to_gpx__to_file(tmp_path):
 
 def _validate_point(point: Dict):
     assert point['@lat'] == '32.8430971478' and point['@lon'] == '-117.2815829044'
-    assert point['time'] == '2020-05-09T06:01:00-0700'
+    assert point['time'] == '2020-05-09T06:01:00-07:00'
     assert 'Dirona picta' in point['cmt']
     assert 'May 09, 2020' in point['cmt']
     assert point['link']['@href'].startswith('https://inaturalist-open-data.s3.amazonaws.com/')
