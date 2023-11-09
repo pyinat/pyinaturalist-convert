@@ -1,5 +1,5 @@
 # pyinaturalist-convert
-[![Build status](https://github.com/pyinat/pyinaturalist-convert/workflows/Build/badge.svg)](https://github.com/pyinat/pyinaturalist-convert/actions)
+[![Build status](https://github.com/pyinat/pyinaturalist-convert/workflows/Build/badge.svg?branch=main)](https://github.com/pyinat/pyinaturalist-convert/actions)
 [![codecov](https://codecov.io/gh/pyinat/pyinaturalist-convert/branch/main/graph/badge.svg?token=Mt3V5H409C)](https://codecov.io/gh/pyinat/pyinaturalist-convert)
 [![Docs](https://img.shields.io/readthedocs/pyinaturalist-convert/stable)](https://pyinaturalist-convert.readthedocs.io)
 [![PyPI](https://img.shields.io/pypi/v/pyinaturalist-convert?color=blue)](https://pypi.org/project/pyinaturalist-convert)
@@ -119,3 +119,6 @@ ta = TaxonAutocompleter()
 ta.search('aves')
 ta.search('flughund', language='german')
 ```
+
+# Feedback
+If you have any problems, suggestions, or questions about pyinaturalist-convert, you are welcome to [create an issue](https://github.com/pyinat/pyinaturalist-convert/issues/new/choose) or [discussion](https://github.com/orgs/pyinat/discussions). Also, **PRs are welcome!**
