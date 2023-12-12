@@ -37,7 +37,7 @@ JOB_REFRESH_RATE = 1
 class FlatTarFile(TarFile):
     """Extracts all archive contents to a flat base directory, ignoring archive subdirectories"""
 
-    def extract(self, member, path="", **kwargs):
+    def extract(self, member, path='', **kwargs):
         if member.isfile():
             member.name = basename(member.name)
             super().extract(member, path, **kwargs)

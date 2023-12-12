@@ -244,7 +244,7 @@ class ObservationAutocompleter:
 
         if fields:
             placeholders = ','.join('?' for _ in fields)
-            query += f"AND field IN ({placeholders}) "
+            query += f'AND field IN ({placeholders}) '
             params += [t.value for t in fields]
         if self.limit > 1:
             query += 'ORDER BY rank LIMIT ?'
@@ -288,7 +288,7 @@ def load_fts_taxa(
         db_path: Path to SQLite database
         counts_path: Path to previously calculated taxon counts
             (from :py:func:`.aggregate_taxon_db`)
-        lanugages: List of common name languages to load, or 'all' to load everything
+        languages: List of common name languages to load, or 'all' to load everything
     """
     csv_dir = Path(csv_dir).expanduser()
     main_csv = csv_dir / 'taxa.csv'
