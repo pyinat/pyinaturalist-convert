@@ -198,7 +198,7 @@ def _cleanup_observations(db_path: PathOrStr = DB_PATH):
     spinner = get_progress_spinner('Post-processing')
     with spinner, sqlite3.connect(db_path) as conn:
         logger.info('Finding observations with open geoprivacy')
-        conn.execute("UPDATE observation SET geoprivacy='open' " "WHERE geoprivacy IS NULL")
+        conn.execute("UPDATE observation SET geoprivacy='open' " 'WHERE geoprivacy IS NULL')
 
         logger.info('Finding observations with obscured geoprivacy')
         conn.execute(
@@ -214,7 +214,7 @@ def _cleanup_observations(db_path: PathOrStr = DB_PATH):
 
         logger.info('Formatting captive/wild status')
         conn.execute("UPDATE observation SET captive=FALSE WHERE captive='wild'")
-        conn.execute("UPDATE observation SET captive=TRUE WHERE captive IS NOT FALSE")
+        conn.execute('UPDATE observation SET captive=TRUE WHERE captive IS NOT FALSE')
 
 
 def _get_obs_column_map(fields: List[str]) -> Dict[str, str]:

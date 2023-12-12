@@ -8,7 +8,16 @@ readme = "README.md"
 homepage = "https://github.com/pyinat/pyinaturalist-convert"
 repository = "https://github.com/pyinat/pyinaturalist-convert"
 documentation = "https://pyinaturalist-convert.readthedocs.io"
-keywords = ["inaturalist", "biodiversity", "export", "convert", "csv", "darwin-core", "dataframe", "gpx"]
+keywords = [
+    "inaturalist",
+    "biodiversity",
+    "export",
+    "convert",
+    "csv",
+    "darwin-core",
+    "dataframe",
+    "gpx",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -17,58 +26,81 @@ classifiers = [
     "Typing :: Typed",
 ]
 include = [
-    { path = "*.md", format = "sdist"  },
-    { path = "*.yml", format = "sdist"  },
+    { path = "*.md", format = "sdist" },
+    { path = "*.yml", format = "sdist" },
     { path = "docs", format = "sdist" },
     { path = "examples", format = "sdist" },
-    { path = "test", format = "sdist" }
+    { path = "test", format = "sdist" },
 ]
 
 [tool.poetry.dependencies]
-python                      = "^3.8"
-pyinaturalist               = ">=0.18"
-flatten-dict                = ">=0.4"
-tablib                      = ">=3.0"
+python = "^3.8"
+pyinaturalist = ">=0.18"
+flatten-dict = ">=0.4"
+tablib = ">=3.0"
 
 # Optional dependencies for specific data formats
-boto3                       = {optional=true, version=">=1.20"}
-geojson                     = {optional=true, version=">=2.5"}
-gpxpy                       = {optional=true, version=">=1.4"}
-markuppy                    = {optional=true, version=">=1.12"}
-odfpy                       = {optional=true, version=">=1.4"}
-openpyxl                    = {optional=true, version=">=2.6"}
-pandas                      = {optional=true, version=">=1.2"}
-pyarrow                     = {optional=true, version=">=10.0"}
-pyyaml                      = {optional=true, version=">=6.0"}
-sqlalchemy                  = {optional=true, version="^2.0"}
-tables                      = {optional=true, version=">=3.6"}
-tabulate                    = {optional=true, version="*"}
-xlrd                        = {optional=true, version="*"}
-xlwt                        = {optional=true, version="*"}
-xmltodict                   = {optional=true, version=">=0.12"}
+boto3 = { optional = true, version = ">=1.20" }
+geojson = { optional = true, version = ">=2.5" }
+gpxpy = { optional = true, version = ">=1.4" }
+markuppy = { optional = true, version = ">=1.12" }
+odfpy = { optional = true, version = ">=1.4" }
+openpyxl = { optional = true, version = ">=2.6" }
+pandas = { optional = true, version = ">=1.2" }
+pyarrow = { optional = true, version = ">=10.0" }
+pyyaml = { optional = true, version = ">=6.0" }
+sqlalchemy = { optional = true, version = "^2.0" }
+tables = { optional = true, version = ">=3.6" }
+tabulate = { optional = true, version = "*" }
+xlrd = { optional = true, version = "*" }
+xlwt = { optional = true, version = "*" }
+xmltodict = { optional = true, version = ">=0.12" }
 
 # Documentation dependencies
-furo                        = {optional=true, version="^2023.9"}
-myst-parser                 = {optional=true, version=">1.0"}
-sphinx                      = {optional=true, version="^6.2"}
-sphinx-autodoc-typehints    = {optional=true, version="1.20"}
-sphinx-copybutton           = {optional=true, version=">=0.5"}
-sphinx-design               = {optional=true, version=">=0.5"}
+furo = { optional = true, version = "^2023.9" }
+myst-parser = { optional = true, version = ">1.0" }
+sphinx = { optional = true, version = "^6.2" }
+sphinx-autodoc-typehints = { optional = true, version = "1.20" }
+sphinx-copybutton = { optional = true, version = ">=0.5" }
+sphinx-design = { optional = true, version = ">=0.5" }
 
 [tool.poetry.extras]
-db         = ["sqlalchemy"]
-dwc        = ["xmltodict"]
-feather    = ["pandas", "pyarrow"]
-geojson    = ["geojson"]
-gpx        = ["gpxpy"]
-hdf        = ["pandas", "tables"]
-html       = ["jinja", "markuppy", "tablib"]
-odp        = ["boto3"]
-parquet    = ["pandas", "pyarrow"]
-xlsx       = ["pandas", "openpyxl"]
+db = ["sqlalchemy"]
+dwc = ["xmltodict"]
+feather = ["pandas", "pyarrow"]
+geojson = ["geojson"]
+gpx = ["gpxpy"]
+hdf = ["pandas", "tables"]
+html = ["jinja", "markuppy", "tablib"]
+odp = ["boto3"]
+parquet = ["pandas", "pyarrow"]
+xlsx = ["pandas", "openpyxl"]
 
-all = ["boto3", "geojson", "gpxpy", "openpyxl", "odfpy", "pandas", "pyarrow", "pyyaml", "sqlalchemy", "tables", "tablib", "tabulate", "xlrd", "xlwt", "xmltodict"]
-docs = ["furo", "myst-parser", "sphinx", "sphinx-autodoc-typehints", "sphinx-copybutton", "sphinx-design"]
+all = [
+    "boto3",
+    "geojson",
+    "gpxpy",
+    "openpyxl",
+    "odfpy",
+    "pandas",
+    "pyarrow",
+    "pyyaml",
+    "sqlalchemy",
+    "tables",
+    "tablib",
+    "tabulate",
+    "xlrd",
+    "xlwt",
+    "xmltodict",
+]
+docs = [
+    "furo",
+    "myst-parser",
+    "sphinx",
+    "sphinx-autodoc-typehints",
+    "sphinx-copybutton",
+    "sphinx-design",
+]
 
 [tool.poetry.dev-dependencies]
 coverage = "^7.0"
@@ -85,10 +117,6 @@ sqlalchemy2-stubs = ">=0.0.2-alpha.32"
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.black]
-skip-string-normalization = true
-line-length = 100
-
 [tool.coverage.html]
 directory = 'test-reports'
 
@@ -97,19 +125,28 @@ branch = true
 source = ['pyinaturalist_convert']
 
 [tool.coverage.report]
-exclude_lines = [
-    'pragma: no cover',
-    'if TYPE_CHECKING:',
-    'except ImportError:',
-]
-
-[tool.isort]
-profile = 'black'
-line_length = 100
-skip_gitignore = true
-skip = ['pyinaturalist_convert/__init__.py']
-known_first_party = ['test']
+exclude_lines = ['pragma: no cover', 'if TYPE_CHECKING:', 'except ImportError:']
 
 [tool.mypy]
 ignore_missing_imports = true
 files = ['pyinaturalist_convert']
+
+[tool.ruff]
+fix = true
+unsafe-fixes = true
+line-length = 100
+output-format = 'grouped'
+select = ['B', 'C4', 'C90', 'E', 'F']
+ignore = ['B023']
+target-version = 'py38'
+exclude = ['examples/']
+
+[tool.ruff.format]
+quote-style = 'single'
+
+[tool.ruff.lint.isort]
+known-first-party = ['test']
+
+# Wrap lines to 100 chars, but don't error on unwrappable lines until 120 chars
+[tool.ruff.lint.pycodestyle]
+max-line-length = 120

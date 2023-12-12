@@ -153,7 +153,7 @@ def get_db_taxa(
     if ids:
         stmt = stmt.where(DbTaxon.id.in_(ids))  # type: ignore
     if not accept_partial:
-        stmt = stmt.where(DbTaxon.partial == False)
+        stmt = stmt.where(DbTaxon.partial == False)  # noqa: E712
     if limit:
         stmt = stmt.limit(limit)
 
