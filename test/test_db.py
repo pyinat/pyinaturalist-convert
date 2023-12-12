@@ -49,7 +49,7 @@ def test_save_observations(tmp_path):
         taxon=taxon,
     )
     ofv = ObservationFieldValue(
-        name="Magnification (Picture 1)",
+        name='Magnification (Picture 1)',
         value=100,
     )
     obs_1 = Observation(

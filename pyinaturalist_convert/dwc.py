@@ -319,7 +319,7 @@ def _format_location(location: Optional[List[float]]) -> Dict[str, float]:
 def _format_time(dt: Union[datetime, str]) -> str:
     if isinstance(dt, str):
         dt = parse_date(dt)
-    return dt.strftime("%H:%M%z")
+    return dt.strftime('%H:%M%z')
 
 
 def dwc_to_observations(filename: PathOrStr) -> List[Observation]:

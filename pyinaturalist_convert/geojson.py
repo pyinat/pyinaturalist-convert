@@ -78,7 +78,7 @@ def _to_geojson_feature(
 
     # Add geometry
     if not observation.get('geojson'):
-        raise ValueError("Observation without coordinates")
+        raise ValueError('Observation without coordinates')
     point = Point([float(coord) for coord in observation['geojson']['coordinates']])
 
     # Add properties
