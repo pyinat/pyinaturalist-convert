@@ -1,10 +1,13 @@
-"""ORM data models, which can be used to create and access tables in
-`any database supported by SQLAlchemy <https://docs.sqlalchemy.org/en/14/dialects/>`_.
-These contain a relevant subset of columns common to most iNat data sources,
+"""Data models and utilities for storing observations and related data in a relational database,
+including SQLite, PostgreSQL, and
+`any other database supported by SQLAlchemy <https://docs.sqlalchemy.org/en/14/dialects/>`_.
+
+These models contain a relevant subset of columns common to most iNat data sources,
 suitable for combining data from API results, CSV export, DwC-A, and/or inaturalist-open-data.
 
-Requirements for a relational database are highly variable, so this won't suit all use cases, but
-at least provides a starting point.
+Some helper functions are included for the most common cases of saving and loading taxon and
+observation data. Requirements for a relational database are highly variable, so this won't suit all
+use cases, but at least provides a starting point.
 
 **Extra dependencies**: ``sqlalchemy``
 
@@ -49,8 +52,7 @@ at least provides a starting point.
     DbUser
 """
 # flake8: noqa: F401
-# TODO: Abstraction for converting between DB models and attrs models
-# TODO: Annotations and observation field values
+# TODO: Simplify converting between DB models and attrs models
 # TODO: If needed, this could be done with just the stdlib sqlite3 and no SQLAlchemy
 from itertools import chain
 from logging import getLogger
