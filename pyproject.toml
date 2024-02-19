@@ -57,7 +57,7 @@ xlwt                        = {optional=true, version="*"}
 xmltodict                   = {optional=true, version=">=0.12"}
 
 # Documentation dependencies
-furo = { optional = true, version = "^2023.9" }
+furo = { optional = true, version = ">=2023.9,<2025.0" }
 myst-parser = { optional = true, version = ">1.0" }
 sphinx = { optional = true, version = "^6.2" }
 sphinx-autodoc-typehints = { optional = true, version = "1.20" }
