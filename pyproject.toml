@@ -104,7 +104,7 @@ docs = [
 
 [tool.poetry.dev-dependencies]
 coverage = "^7.0"
-nox = "^2022.11"
+nox = "^2024.3"
 nox-poetry = "^1.0"
 pre-commit = "^3.1"
 pyparsing = "^3.0"
