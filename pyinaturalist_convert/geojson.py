@@ -15,6 +15,7 @@
     >>> # Convert to GeoJSON
     >>> geojson = to_geojson(observations)
 """
+
 import json
 from typing import TYPE_CHECKING, List, Optional
 

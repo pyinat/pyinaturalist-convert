@@ -20,6 +20,7 @@ information to it.
     aggregate_taxon_db
     get_observation_taxon_counts
 """
+
 import sqlite3
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from logging import getLogger

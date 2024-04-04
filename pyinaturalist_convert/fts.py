@@ -102,6 +102,7 @@ Search observations::
     index_observation_text
     load_fts_taxa
 """
+
 import sqlite3
 from enum import Enum
 from functools import partial

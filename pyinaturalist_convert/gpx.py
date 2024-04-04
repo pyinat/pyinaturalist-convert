@@ -18,6 +18,7 @@
     ... )
     >>> to_gpx(results, '~/tracks/observations-36883.gpx')
 """
+
 from logging import getLogger
 from typing import TYPE_CHECKING, Optional
 

@@ -23,6 +23,7 @@ from DwC-A to SQLite.
     load_dwca_observations
     load_dwca_taxa
 """
+
 # TODO: Lookup and replace user_login with user_id
 # TODO: Translate DwC lifeStage and sex to iNat annotations
 import sqlite3

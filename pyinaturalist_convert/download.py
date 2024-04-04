@@ -1,4 +1,5 @@
 """Helper utilities for downloading and extracting files, with progress bars"""
+
 # TODO: Make progress bar optional
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime

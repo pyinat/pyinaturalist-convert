@@ -57,7 +57,7 @@ xlwt                        = {optional=true, version="*"}
 xmltodict                   = {optional=true, version=">=0.12"}
 
 # Documentation dependencies
-furo = { optional = true, version = "^2023.9" }
+furo = { optional = true, version = ">=2023.9,<2025.0" }
 myst-parser = { optional = true, version = ">1.0" }
 sphinx = { optional = true, version = "^6.2" }
 sphinx-autodoc-typehints = { optional = true, version = "1.20" }
@@ -104,12 +104,12 @@ docs = [
 
 [tool.poetry.dev-dependencies]
 coverage = "^7.0"
-nox = "^2022.11"
+nox = "^2024.3"
 nox-poetry = "^1.0"
 pre-commit = "^3.1"
 pyparsing = "^3.0"
 pytest = ">=7.0"
-pytest-cov = ">=3.0"
+pytest-cov = ">=5.0"
 pytest-xdist = ">=2.2"
 sqlalchemy2-stubs = ">=0.0.2-alpha.32"
 
@@ -136,13 +136,15 @@ fix = true
 unsafe-fixes = true
 line-length = 100
 output-format = 'grouped'
-select = ['B', 'C4', 'C90', 'E', 'F']
-ignore = ['B023']
 target-version = 'py38'
 exclude = ['examples/']
 
 [tool.ruff.format]
 quote-style = 'single'
+
+[tool.ruff.lint]
+select = ['B', 'C4', 'C90', 'E', 'F']
+ignore = ['B023']
 
 [tool.ruff.lint.isort]
 known-first-party = ['test']

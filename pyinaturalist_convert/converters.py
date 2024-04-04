@@ -57,6 +57,7 @@
     to_observations
     to_taxa
 """
+
 import json
 from copy import deepcopy
 from logging import getLogger
@@ -64,7 +65,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Sequence, Type, Union
 
 from flatten_dict import flatten, unflatten
-from pyinaturalist import BaseModel, JsonResponse, ModelObjects, Observation, ResponseResult, Taxon
+from pyinaturalist import (
+    BaseModel,
+    JsonResponse,
+    ModelObjects,
+    Observation,
+    ResponseResult,
+    Taxon,
+)
 from requests import Response
 from tablib import Dataset
 

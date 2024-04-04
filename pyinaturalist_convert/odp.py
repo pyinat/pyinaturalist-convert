@@ -25,6 +25,7 @@
     load_odp_photos
     load_odp_users
 """
+
 from pathlib import Path
 from typing import Optional
 

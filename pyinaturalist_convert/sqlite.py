@@ -1,4 +1,5 @@
 """Helper utilities to load data directly from CSV into a SQLite database"""
+
 import sqlite3
 from contextlib import nullcontext
 from csv import DictReader

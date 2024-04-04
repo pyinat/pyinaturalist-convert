@@ -51,6 +51,7 @@ use cases, but at least provides a starting point.
     DbTaxon
     DbUser
 """
+
 # flake8: noqa: F401
 # TODO: Simplify converting between DB models and attrs models
 # TODO: If needed, this could be done with just the stdlib sqlite3 and no SQLAlchemy
