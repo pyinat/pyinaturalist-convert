@@ -299,6 +299,9 @@ def _drop_observation_lists(observations: Iterable[Dict]) -> List[ResponseResult
     def _drop(obs):
         photos = obs.get('photos', [])
         obs['photo_url'] = photos[0]['url'] if photos else None
+        sounds = obs.get('sounds', [])
+        obs['sound_url'] = sounds[0]['file_url'] if sounds else None
+
         taxon = obs['taxon']
         obs['taxon']['parent_id'] = taxon['ancestor_ids'][-1] if taxon.get('ancestor_ids') else None
         if obs.get('location'):
@@ -317,6 +320,7 @@ def _flatten_observation_lists(observations: Iterable[Dict]) -> List[ResponseRes
     * identifications
     * observation field values
     * photos
+    * sounds
     """
 
     def _flatten(obs: Dict):
@@ -340,11 +344,17 @@ def _flatten_observation_lists(observations: Iterable[Dict]) -> List[ResponseRes
         obs['photos'] = [{str(p['id']): p['url']} for p in photos]
         obs['photo_url'] = photos[0]['url'] if photos else None
 
+        # Reduce sounds to IDs and URLs
+        sounds = obs.get('sounds', [])
+        obs['sounds'] = [{str(s['id']): s['file_url']} for s in sounds]
+        obs['sound_url'] = sounds[0]['file_url'] if sounds else None
+
         # Reduce observation field values to field IDs and values
         obs['ofvs'] = {str(ofv['field_id']): ofv['value'] for ofv in obs.get('ofvs', [])}
 
         # Drop some (typically) redundant collections
         obs.pop('observation_photos', None)
+        obs.pop('observation_sounds', None)
         obs.pop('non_owner_ids', None)
         return obs
 
