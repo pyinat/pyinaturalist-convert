@@ -1,11 +1,11 @@
 from csv import DictReader
 from datetime import datetime
+from test.conftest import SAMPLE_DATA_DIR, load_sample_data
 
 import pytest
 from pyinaturalist import Observation, Taxon, User
 
-from pyinaturalist_convert.converters import read, to_csv, to_dataset
-from test.conftest import SAMPLE_DATA_DIR, load_sample_data
+from pyinaturalist_convert.converters import read, to_csv, to_dataframe, to_dataset
 
 
 @pytest.mark.parametrize('file_type', ['.csv', '_export.csv', '.feather', '.parquet', '.hdf'])
@@ -27,6 +27,23 @@ def test_to_dataset():
     assert all(isinstance(i, int) for i in dataset['taxon.id'])
     assert all(isinstance(i, datetime) for i in dataset['created_at'])
     assert isinstance(dataset['location'][0][0], float)
+
+
+def test_to_dataframe():
+    observations = Observation.from_json_list(load_sample_data('observations.json'))
+    df = to_dataframe(observations)
+
+    assert df['id'][0] == 117511016
+    assert df['taxon.id'][0] == 48662
+    assert df['annotations'][0] == []
+    assert df['comments'][0] == []
+    assert df['identifications'][0] == [{'261377245': 48662}]
+    assert df['photos'][0][0]['198465145'].startswith(
+        'https://inaturalist-open-data.s3.amazonaws.com'
+    )
+    assert df['photo_url'][0].startswith('https://inaturalist-open-data.s3.amazonaws.com')
+    assert df['sounds'][0][0]['263113'].startswith('https://static.inaturalist.org')
+    assert df['sound_url'][0].startswith('https://static.inaturalist.org')
 
 
 def test_to_csv(tmp_path):
