@@ -86,15 +86,13 @@ from tablib import Dataset
 if TYPE_CHECKING:
     from pandas import DataFrame
 
-    CollectionTypes = Union[
-        DataFrame, Dataset, Response, JsonResponse, Iterable[ResponseResult]
-    ]
+    CollectionTypes = Union[DataFrame, Dataset, Response, JsonResponse, Iterable[ResponseResult]]
 else:
     CollectionTypes = Union[Dataset, Response, JsonResponse, Iterable[ResponseResult]]
 
 
-TABLIB_FORMATS = ["csv", "html", "json", "ods", "rst", "xlsx", "yaml"]
-PANDAS_FORMATS = ["csv", "feather", "hdf", "parquet", "xlsx"]
+TABLIB_FORMATS = ['csv', 'html', 'json', 'ods', 'rst', 'xlsx', 'yaml']
+PANDAS_FORMATS = ['csv', 'feather', 'hdf', 'parquet', 'xlsx']
 
 InputTypes = Union[CollectionTypes, ModelObjects]
 AnyObservations = Union[CollectionTypes, Observation, Iterable[Observation]]
@@ -120,9 +118,7 @@ def to_taxa(value: InputTypes) -> Iterable[Taxon]:
     return _to_models(value, Taxon)
 
 
-def _to_models(
-    value: InputTypes, model: Type[BaseModel] = Observation
-) -> Iterable[BaseModel]:
+def _to_models(value: InputTypes, model: Type[BaseModel] = Observation) -> Iterable[BaseModel]:
     """Convert any supported input type into a list of Observation (or other record type) objects"""
     # If the value already contains model object(s), don't convert them to dicts and back to models
     if isinstance(value, BaseModel):
@@ -143,8 +139,8 @@ def to_dicts(value: InputTypes) -> Iterable[Dict]:
         return value.dict
     if isinstance(value, Response):
         value = value.json()
-    if isinstance(value, dict) and "results" in value:
-        value = value["results"]
+    if isinstance(value, dict) and 'results' in value:
+        value = value['results']
     if isinstance(value, BaseModel):
         return [value.to_dict()]
     elif isinstance(value, Sequence) and isinstance(value[0], BaseModel):
@@ -168,7 +164,7 @@ def to_dataframe(observations: AnyObservations):
     from pandas import DataFrame
 
     flat_observations = flatten_observations(observations, semitabular=True)
-    return DataFrame(flat_observations).dropna(axis=1, how="all")
+    return DataFrame(flat_observations).dropna(axis=1, how='all')
 
 
 def to_dataset(observations: AnyObservations) -> Dataset:
@@ -189,7 +185,7 @@ def to_dataset(observations: AnyObservations) -> Dataset:
 def to_excel(observations: AnyObservations, filename: str):
     """Convert observations to an Excel spreadsheet (xlsx)"""
     xlsx_observations = to_dataset(observations).get_xlsx()
-    write(xlsx_observations, filename, "wb")
+    write(xlsx_observations, filename, 'wb')
 
 
 def to_feather(observations: AnyObservations, filename: str):
@@ -201,7 +197,7 @@ def to_feather(observations: AnyObservations, filename: str):
 def to_hdf(observations: AnyObservations, filename: str):
     """Convert observations into a HDF5 file"""
     df = to_dataframe(observations)
-    df.to_hdf(filename, "observations")
+    df.to_hdf(filename, 'observations')
 
 
 def to_json(observations: AnyObservations, filename: str):
@@ -231,38 +227,38 @@ def read(filename: PathOrStr) -> List[Observation]:
     from .csv import is_csv_export, load_csv_exports
 
     file_path = Path(filename).expanduser()
-    ext = file_path.suffix.lower().replace(".", "")
-    if ext == "json":
+    ext = file_path.suffix.lower().replace('.', '')
+    if ext == 'json':
         return Observation.from_json_file(file_path)
     # For CSV, check if it came from the export tool or from API results
-    elif ext == "csv" and is_csv_export(file_path):
+    elif ext == 'csv' and is_csv_export(file_path):
         df = load_csv_exports(file_path)
-    elif ext == "csv":
+    elif ext == 'csv':
         df = pd.read_csv(file_path)
-    elif ext == "feather":
+    elif ext == 'feather':
         df = pd.read_feather(file_path)
-    elif ext == "hdf":
-        df = pd.read_hdf(file_path, "observations")
-    elif ext == "parquet":
+    elif ext == 'hdf':
+        df = pd.read_hdf(file_path, 'observations')
+    elif ext == 'parquet':
         df = pd.read_parquet(file_path)
-    elif ext == "xlsx":
+    elif ext == 'xlsx':
         df = pd.read_excel(file_path)
     else:
-        raise ValueError(f"File format not yet supported: {file_path.suffix}")
+        raise ValueError(f'File format not yet supported: {file_path.suffix}')
 
     return Observation.from_json_list(_df_to_dicts(df))
 
 
-def write(content: Union[str, bytes], filename: PathOrStr, mode="w"):
+def write(content: Union[str, bytes], filename: PathOrStr, mode='w'):
     """Write converted observation data to a file, creating parent dirs first"""
-    logger.info(f"Writing to {filename}")
+    logger.info(f'Writing to {filename}')
     file_path = Path(filename).expanduser()
     file_path.parent.mkdir(parents=True, exist_ok=True)
     with file_path.open(mode) as f:
         f.write(content)
         # Ensure trailing newline
-        if isinstance(content, str) and not content.endswith("\n"):
-            f.write("\n")
+        if isinstance(content, str) and not content.endswith('\n'):
+            f.write('\n')
 
 
 def flatten_observations(
@@ -280,10 +276,10 @@ def flatten_observations(
         observations = _drop_observation_lists(observations)
     elif semitabular:
         observations = _flatten_observation_lists(observations)
-    return [flatten(obs, reducer="dot") for obs in observations]
+    return [flatten(obs, reducer='dot') for obs in observations]
 
 
-def _df_to_dicts(df: "DataFrame") -> List[JsonResponse]:
+def _df_to_dicts(df: 'DataFrame') -> List[JsonResponse]:
     """Convert a pandas DataFrame into nested dicts (similar to API response JSON)"""
     from numpy import nan, ndarray
 
@@ -292,9 +288,7 @@ def _df_to_dicts(df: "DataFrame") -> List[JsonResponse]:
         return {k: v.tolist() if isinstance(v, ndarray) else v for k, v in obj.items()}
 
     df = df.replace([nan], [None])
-    observations = [
-        unflatten(flat_dict, splitter="dot") for flat_dict in df.to_dict("records")
-    ]
+    observations = [unflatten(flat_dict, splitter='dot') for flat_dict in df.to_dict('records')]
     observations = [_convert_arrays(obs) for obs in observations]
     return observations
 
@@ -303,18 +297,16 @@ def _drop_observation_lists(observations: Iterable[Dict]) -> List[ResponseResult
     """Drop list fields, which can't easily be represented in CSV"""
 
     def _drop(obs):
-        photos = obs.get("photos", [])
-        obs["photo_url"] = photos[0]["url"] if photos else None
-        sounds = obs.get("sounds", [])
-        obs["sound_url"] = sounds[0]["file_url"] if sounds else None
+        photos = obs.get('photos', [])
+        obs['photo_url'] = photos[0]['url'] if photos else None
+        sounds = obs.get('sounds', [])
+        obs['sound_url'] = sounds[0]['file_url'] if sounds else None
 
-        taxon = obs["taxon"]
-        obs["taxon"]["parent_id"] = (
-            taxon["ancestor_ids"][-1] if taxon.get("ancestor_ids") else None
-        )
-        if obs.get("location"):
-            obs["latitude"] = obs["location"][0]
-            obs["longitude"] = obs["location"][1]
+        taxon = obs['taxon']
+        obs['taxon']['parent_id'] = taxon['ancestor_ids'][-1] if taxon.get('ancestor_ids') else None
+        if obs.get('location'):
+            obs['latitude'] = obs['location'][0]
+            obs['longitude'] = obs['location'][1]
         return {k: v for k, v in obs.items() if not isinstance(v, (list, tuple))}
 
     return [_drop(obs) for obs in observations]
@@ -334,40 +326,36 @@ def _flatten_observation_lists(observations: Iterable[Dict]) -> List[ResponseRes
     def _flatten(obs: Dict):
         # Reduce annotations to IDs and values
         obs = deepcopy(obs)
-        obs["annotations"] = [
-            {str(a["controlled_attribute_id"]): a["controlled_value_id"]}
-            for a in obs.get("annotations", [])
+        obs['annotations'] = [
+            {str(a['controlled_attribute_id']): a['controlled_value_id']}
+            for a in obs.get('annotations', [])
         ]
 
         # Reduce identifications to identification IDs and taxon IDs
-        obs["identifications"] = [
-            {str(i["id"]): i["taxon_id"]} for i in obs.get("identifications", [])
+        obs['identifications'] = [
+            {str(i['id']): i['taxon_id']} for i in obs.get('identifications', [])
         ]
 
         # Reduce comments to usernames and comment text
-        obs["comments"] = [
-            {c["user"]["login"]: c["body"]} for c in obs.get("comments", [])
-        ]
+        obs['comments'] = [{c['user']['login']: c['body']} for c in obs.get('comments', [])]
 
         # Reduce photos to IDs and URLs, and add first photo URL as a top-level field
-        photos = obs.get("photos", [])
-        obs["photos"] = [{str(p["id"]): p["url"]} for p in photos]
-        obs["photo_url"] = photos[0]["url"] if photos else None
+        photos = obs.get('photos', [])
+        obs['photos'] = [{str(p['id']): p['url']} for p in photos]
+        obs['photo_url'] = photos[0]['url'] if photos else None
 
         # Reduce sounds to IDs and URLs
-        sounds = obs.get("sounds", [])
-        obs["sounds"] = [{str(s["id"]): s["file_url"]} for s in sounds]
-        obs["sound_url"] = sounds[0]["file_url"] if sounds else None
+        sounds = obs.get('sounds', [])
+        obs['sounds'] = [{str(s['id']): s['file_url']} for s in sounds]
+        obs['sound_url'] = sounds[0]['file_url'] if sounds else None
 
         # Reduce observation field values to field IDs and values
-        obs["ofvs"] = {
-            str(ofv["field_id"]): ofv["value"] for ofv in obs.get("ofvs", [])
-        }
+        obs['ofvs'] = {str(ofv['field_id']): ofv['value'] for ofv in obs.get('ofvs', [])}
 
         # Drop some (typically) redundant collections
-        obs.pop("observation_photos", None)
-        obs.pop("observation_sounds", None)
-        obs.pop("non_owner_ids", None)
+        obs.pop('observation_photos', None)
+        obs.pop('observation_sounds', None)
+        obs.pop('non_owner_ids', None)
         return obs
 
     return [_flatten(obs) for obs in observations]
@@ -375,7 +363,7 @@ def _flatten_observation_lists(observations: Iterable[Dict]) -> List[ResponseRes
 
 def _fix_dimensions(flat_observations):
     """Add missing fields to ensure dimensions are consistent"""
-    optional_fields = ["taxon.complete_rank", "taxon.preferred_common_name"]
+    optional_fields = ['taxon.complete_rank', 'taxon.preferred_common_name']
     headers = list(set(flat_observations[0].keys()) | set(optional_fields))
     for obs in flat_observations:
         for field in headers:
