@@ -53,8 +53,6 @@ use cases, but at least provides a starting point.
 """
 
 # flake8: noqa: F401
-# TODO: Simplify converting between DB models and attrs models
-# TODO: If needed, this could be done with just the stdlib sqlite3 and no SQLAlchemy
 from itertools import chain
 from logging import getLogger
 from typing import TYPE_CHECKING, Iterable, Iterator, List, Optional

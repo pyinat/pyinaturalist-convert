@@ -1,3 +1,4 @@
+# TODO: Could conversion between ORM models and API (attrs) models be simplified?
 from dataclasses import dataclass, field
 from datetime import datetime
 from logging import getLogger
@@ -334,7 +335,9 @@ def _unflatten_annotations(
     return Annotation.from_json_list(flat_objs) if flat_objs else None
 
 
-def _flatten_comments(comments: Optional[List[Comment]] = None) -> Optional[List[JsonField]]:
+def _flatten_comments(
+    comments: Optional[List[Comment]] = None,
+) -> Optional[List[JsonField]]:
     return [_flatten_comment(c) for c in comments] if comments else None
 
 
@@ -347,7 +350,9 @@ def _flatten_comment(comment: Comment):
     }
 
 
-def _unflatten_comments(flat_objs: Optional[List[JsonField]] = None) -> Optional[List[Comment]]:
+def _unflatten_comments(
+    flat_objs: Optional[List[JsonField]] = None,
+) -> Optional[List[Comment]]:
     return Comment.from_json_list(flat_objs) if flat_objs else None
 
 
@@ -370,7 +375,9 @@ def _unflatten_identifications(
     return Identification.from_json_list(flat_objs) if flat_objs else None
 
 
-def _flatten_ofvs(ofvs: Optional[List[ObservationFieldValue]] = None) -> Optional[List[JsonField]]:
+def _flatten_ofvs(
+    ofvs: Optional[List[ObservationFieldValue]] = None,
+) -> Optional[List[JsonField]]:
     return [{'name': ofv.name, 'value': ofv.value} for ofv in ofvs] if ofvs else None
 
 
