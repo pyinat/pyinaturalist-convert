@@ -158,7 +158,7 @@ def load_table(
 def vacuum_analyze(
     table_names: List[str], db_path: PathOrStr = DB_PATH, show_spinner: bool = False
 ):
-    """Vacuum a SQLite database and analzy one or more tables. If loading multiple tables, this
+    """Vacuum a SQLite database and analyze one or more tables. If loading multiple tables, this
     should be done once after loading all of them.
     """
     spinner = get_progress_spinner('Final cleanup') if show_spinner else nullcontext()

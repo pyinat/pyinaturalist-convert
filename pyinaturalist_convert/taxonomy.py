@@ -198,12 +198,13 @@ def _aggregate_taxon_db(
     # Save all results back to the database, and a separate minimal taxon counts file for future use
     if counts_path:
         _save_taxon_counts(df, counts_path)
+    _save_taxon_df(df, f'{db_path}.backup')
     _save_taxon_df(df, db_path)
     return df
 
 
 def get_observation_taxon_counts(db_path: PathOrStr = DB_PATH) -> Dict[int, int]:
-    """Get taxon counts based on GBIF export (exact rank counts only, no aggregage counts)"""
+    """Get taxon counts based on GBIF export (exact rank counts only, no aggregate counts)"""
     if not Path(db_path).is_file():
         logger.warning(f'Observation database {db_path} not found')
         return {}

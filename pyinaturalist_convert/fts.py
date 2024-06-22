@@ -27,7 +27,7 @@ Build database with all taxa from GBIF archive::
     >>> aggregate_taxon_db()
 
     >>> # Load FTS table for all languages (Defaults to English names only):
-    >>> load_fts_taxa(language='all')
+    >>> load_fts_taxa(languages='all')
 
 .. note::
     Running :py:func:`.aggregate_taxon_db` will result in more accurate search rankings based
@@ -207,7 +207,7 @@ class TaxonAutocompleter:
 
 
 # TODO: Add observation short description (what/where/when) to FTS table?
-# TODO: Add iconic taxon ID to display emjoi in search results?
+# TODO: Add iconic taxon ID to display emoji in search results?
 class ObservationAutocompleter:
     """Observation autocomplete search. Runs full text search on observation descriptions, comments,
     identification comments, and place names.
@@ -232,7 +232,7 @@ class ObservationAutocompleter:
         Args:
             q: Search query
             fields: Specific text fields to search (description, comment, identification, and/or
-                place). If not specified, all fieldswill be searched.
+                place). If not specified, all fields will be searched.
 
         Returns:
             Tuples of ``(observation_id, truncated_matched_text)``
