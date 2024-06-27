@@ -12,4 +12,4 @@ from .geojson import to_geojson
 from .gpx import to_gpx
 from .odp import *
 from .sqlite import load_table
-from .taxonomy import *
+from .taxonomy import aggregate_taxon_db

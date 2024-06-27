@@ -33,7 +33,7 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple
 from pyinaturalist import Taxon
 from pyinaturalist.constants import ICONIC_TAXA, ROOT_TAXON_ID
 
-from .constants import DB_PATH, DWCA_TAXON_CSV_DIR, TAXON_COUNTS, PathOrStr
+from .constants import DB_PATH, DWCA_TAXON_CSV_DIR, TAXON_AGGREGATES_PATH, PathOrStr
 from .download import ParallelMultiProgress
 
 if TYPE_CHECKING:
@@ -57,11 +57,9 @@ PRECOMPUTED_COLUMNS = [
 logger = getLogger(__name__)
 
 
-# TODO: Save separate backup files for base taxon counts and aggregate taxon counts
-#   Use base taxon counts if available, allowing usage without full observation table
 def aggregate_taxon_db(
     db_path: PathOrStr = DB_PATH,
-    counts_path: PathOrStr = TAXON_COUNTS,
+    backup_path: PathOrStr = TAXON_AGGREGATES_PATH,
     common_names_path: PathOrStr = DEFAULT_LANG_CSV,
     progress_bars: bool = True,
 ) -> 'DataFrame':
@@ -78,7 +76,7 @@ def aggregate_taxon_db(
 
     Args:
         db_path: Path to SQLite database
-        counts_path: Path to optionally save a copy of observation taxon counts
+        backup_path: Path to save a minimal copy of aggregate values
         common_names_path: Path to a CSV file containing taxon common names.
             See the DwC-A taxonomy dataset for available languages.
         progress_bars: Show detailed progress bars in addition to log output
@@ -90,13 +88,13 @@ def aggregate_taxon_db(
     df = _get_taxon_df(db_path)
     taxon_counts_dict = get_observation_taxon_counts(db_path)
     taxon_counts = pd.DataFrame(taxon_counts_dict.items(), columns=['id', 'observations_count_rg'])
-    df = _join_taxon_counts(df, taxon_counts)
+    df = _join_taxon_agg(df, taxon_counts)
     n_phyla = len(df[(df['rank'] == 'phylum') & ~df['parent_id'].isin(EXCLUDE_IDS)])
-    n_kigndoms = len(df[(df['rank'] == 'kingdom')])
+    n_kingdoms = len(df[(df['rank'] == 'kingdom')])
 
     # Optionally run without fancy progress bars
     if not progress_bars:
-        df = _aggregate_taxon_db(df, db_path, counts_path, common_names_path)
+        df = _aggregate_taxon_db(df, db_path, backup_path, common_names_path)
         return df
 
     # Set up a separate process to manage progress updates via queues
@@ -104,7 +102,7 @@ def aggregate_taxon_db(
     progress_queue = manager.Queue()
     task_queue = manager.Queue()
     log_queue = manager.Queue()
-    progress_total = len(df) + n_phyla + n_kigndoms + 1
+    progress_total = len(df) + n_phyla + n_kingdoms + 1
     progress_proc = Process(
         target=_update_progress, args=(progress_queue, task_queue, log_queue, progress_total)
     )
@@ -112,7 +110,7 @@ def aggregate_taxon_db(
 
     try:
         _aggregate_taxon_db(
-            df, db_path, counts_path, common_names_path, progress_queue, task_queue, log_queue
+            df, db_path, backup_path, common_names_path, progress_queue, task_queue, log_queue
         )
         logger.info(f'Completed in {time()-start:.2f}s')
     except Exception as e:
@@ -125,7 +123,7 @@ def aggregate_taxon_db(
 def _aggregate_taxon_db(
     df: 'DataFrame',
     db_path: PathOrStr = DB_PATH,
-    counts_path: PathOrStr = TAXON_COUNTS,
+    backup_path: PathOrStr = TAXON_AGGREGATES_PATH,
     common_names_path: PathOrStr = DEFAULT_LANG_CSV,
     progress_queue: Optional[Queue] = None,
     task_queue: Optional[Queue] = None,
@@ -195,10 +193,8 @@ def _aggregate_taxon_db(
     # Process kingdoms
     df = _aggregate_kingdoms(combined_df, common_names, **q_kwargs)
 
-    # Save all results back to the database, and a separate minimal taxon counts file for future use
-    if counts_path:
-        _save_taxon_counts(df, counts_path)
-    _save_taxon_df(df, f'{db_path}.backup')
+    # Save all results back to the database, plus a minimal backup
+    _save_taxon_agg(df, backup_path)
     _save_taxon_df(df, db_path)
     return df
 
@@ -423,47 +419,51 @@ def _save_taxon_df(df: 'DataFrame', db_path: PathOrStr = DB_PATH):
             backup_path.unlink()
 
 
-def _join_taxon_counts(df: 'DataFrame', taxon_counts: 'DataFrame') -> 'DataFrame':
-    """Join taxon dataframe with updated taxon counts"""
+def update_taxon_agg(
+    db_path: PathOrStr = DB_PATH, agg_path: PathOrStr = TAXON_AGGREGATES_PATH
+) -> 'DataFrame':
+    """Update an existing taxon database with new aggregate values"""
+    import pandas as pd
+
+    agg_values = pd.read_parquet(agg_path)
+    df = _get_taxon_df(db_path)
+    df = _join_taxon_agg(df, agg_values)
+    _save_taxon_df(df, db_path)
+    return df
+
+
+def _join_taxon_agg(df: 'DataFrame', taxon_agg: 'DataFrame') -> 'DataFrame':
+    """Join taxon dataframe with updated taxon aggregate values"""
     from numpy import int64
 
-    df = df.drop('observations_count_rg', axis=1)
-    if 'leaf_taxa_count' in df:
-        df = df.drop('leaf_taxa_count', axis=1)
-    if 'leaf_taxa_count' not in taxon_counts:
-        taxon_counts['leaf_taxa_count'] = 0
+    # Drop columns to be updated
+    for col in PRECOMPUTED_COLUMNS:
+        if col in df and col in taxon_agg:
+            df = df.drop(col, axis=1)
+
+    # Join dataframes
     if 'id' in df:
         df = df.set_index('id')
-    if 'id' in taxon_counts:
-        taxon_counts = taxon_counts.set_index('id')
-    df = df.join(taxon_counts)
-    df['observations_count_rg'] = df['observations_count_rg'].fillna(0).astype(int64)
-    df['leaf_taxa_count'] = df['leaf_taxa_count'].fillna(0).astype(int64)
+    if 'id' in taxon_agg:
+        taxon_agg = taxon_agg.set_index('id')
+    df = df.join(taxon_agg)
+
+    # Default count columns to 0
+    for col in ['observations_count_rg', 'leaf_taxa_count']:
+        if col in df:
+            df[col] = df[col].fillna(0).astype(int64)
 
     return df.rename_axis('id').reset_index()
 
 
-def _save_taxon_counts(df: 'DataFrame', counts_path: PathOrStr = TAXON_COUNTS):
-    """Save a minimal copy of taxon observation counts + leaf taxon counts for future use"""
-    counts_path = Path(counts_path)
-    counts_path.parent.mkdir(parents=True, exist_ok=True)
+def _save_taxon_agg(df: 'DataFrame', agg_path: PathOrStr = TAXON_AGGREGATES_PATH):
+    """Save a minimal copy of taxon aggregate values"""
+    agg_path = Path(agg_path)
+    agg_path.parent.mkdir(parents=True, exist_ok=True)
     df2 = df.set_index('id')
-    df2 = df2[['leaf_taxa_count', 'observations_count_rg']]
+    df2 = df2[PRECOMPUTED_COLUMNS]
     df2 = df2.sort_values('observations_count_rg', ascending=False)
-    df2.to_parquet(counts_path)
-
-
-def _update_taxon_counts(
-    db_path: PathOrStr = DB_PATH, counts_path: PathOrStr = TAXON_COUNTS
-) -> 'DataFrame':
-    """Load previously saved taxon counts into the local taxon database"""
-    import pandas as pd
-
-    taxon_counts = pd.read_parquet(counts_path)
-    df = _get_taxon_df(db_path)
-    df = _join_taxon_counts(df, taxon_counts)
-    _save_taxon_df(df, db_path)
-    return df
+    df2.to_parquet(agg_path)
 
 
 def _update_progress(

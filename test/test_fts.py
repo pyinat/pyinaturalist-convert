@@ -1,4 +1,5 @@
 from logging import getLogger
+from test.conftest import SAMPLE_DATA_DIR
 from time import time
 
 from pyinaturalist import Comment, Identification, Observation
@@ -11,7 +12,6 @@ from pyinaturalist_convert.fts import (
     index_observation_text,
     load_fts_taxa,
 )
-from test.conftest import SAMPLE_DATA_DIR
 
 CSV_DIR = SAMPLE_DATA_DIR / 'inaturalist-taxonomy.dwca'
 COUNTS_PATH = SAMPLE_DATA_DIR / 'taxon_counts_fts.parquet'
@@ -20,7 +20,7 @@ logger = getLogger(__name__)
 
 def test_taxon_text_search(tmp_path):
     db_path = tmp_path / 'taxa.db'
-    load_fts_taxa(csv_dir=CSV_DIR, db_path=db_path, counts_path=COUNTS_PATH)
+    load_fts_taxa(csv_dir=CSV_DIR, db_path=db_path, agg_path=COUNTS_PATH)
     ta = TaxonAutocompleter(db_path=db_path)
 
     results = ta.search('ave')
@@ -36,7 +36,7 @@ def test_taxon_text_search(tmp_path):
 
 def test_taxon_text_search__limit(tmp_path):
     db_path = tmp_path / 'taxa.db'
-    load_fts_taxa(csv_dir=CSV_DIR, db_path=db_path, counts_path=COUNTS_PATH)
+    load_fts_taxa(csv_dir=CSV_DIR, db_path=db_path, agg_path=COUNTS_PATH)
     ta = TaxonAutocompleter(db_path=db_path)
 
     ta.limit = 2
