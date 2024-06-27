@@ -212,6 +212,7 @@ def get_observation_taxon_counts(db_path: PathOrStr = DB_PATH) -> Dict[int, int]
     logger.info(f'Getting base taxon counts from {db_path}')
     with sqlite3.connect(db_path) as conn:
         conn.row_factory = sqlite3.Row
+        conn.execute('PRAGMA journal_mode = WAL')
         rows = conn.execute(
             'SELECT taxon_id, COUNT(*) AS count FROM observation '
             'WHERE taxon_id IS NOT NULL '
@@ -390,30 +391,36 @@ def _get_taxon_df(db_path: PathOrStr = DB_PATH) -> 'DataFrame':
     import pandas as pd
 
     logger.info(f'Loading taxa from {db_path}')
-    df = pd.read_sql_query('SELECT * FROM taxon', sqlite3.connect(db_path))
+    with sqlite3.connect(db_path) as conn:
+        conn.execute('PRAGMA journal_mode = WAL')
+        df = pd.read_sql_query('SELECT * FROM taxon', conn)
     df['parent_id'] = df['parent_id'].astype(pd.Int64Dtype())
     return df
 
 
 def _save_taxon_df(df: 'DataFrame', db_path: PathOrStr = DB_PATH):
     """Save taxon dataframe back to SQLite; clear and reuse existing table to keep indexes"""
+    from pyinaturalist_convert.db import create_tables
+
     # Backup to CSV in the rare case that this fails
     db_path = Path(db_path)
     backup_path = db_path.parent / 'taxa_backup.csv'
     df.to_csv(backup_path)
 
     logger.info('Saving taxon counts to database')
+    create_tables(db_path)
     with sqlite3.connect(db_path) as conn:
-        conn.execute('DELETE FROM taxon')
-        conn.commit()
         try:
+            conn.execute('PRAGMA busy_timeout = 30000')
+            conn.execute('PRAGMA journal_mode = WAL')
+            conn.execute('DELETE FROM taxon')
+            conn.commit()
             df.to_sql('taxon', conn, if_exists='append', index=False)
         except (IOError, sqlite3.DatabaseError) as e:
             logger.exception(e)
             logger.warning(f'Failed writing to database; backup available at {backup_path}')
         else:
             backup_path.unlink()
-            conn.execute('VACUUM')
 
 
 def _join_taxon_counts(df: 'DataFrame', taxon_counts: 'DataFrame') -> 'DataFrame':
