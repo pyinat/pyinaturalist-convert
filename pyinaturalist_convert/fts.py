@@ -27,7 +27,7 @@ Build database with all taxa from GBIF archive::
     >>> aggregate_taxon_db()
 
     >>> # Load FTS table for all languages (Defaults to English names only):
-    >>> load_fts_taxa(language='all')
+    >>> load_fts_taxa(languages='all')
 
 .. note::
     Running :py:func:`.aggregate_taxon_db` will result in more accurate search rankings based
@@ -114,7 +114,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Union
 from pyinaturalist import Observation
 from pyinaturalist.models import Taxon
 
-from .constants import DB_PATH, DWCA_TAXON_CSV_DIR, TAXON_COUNTS, ParamList, PathOrStr
+from .constants import DB_PATH, DWCA_TAXON_CSV_DIR, TAXON_AGGREGATES_PATH, ParamList, PathOrStr
 from .download import CSVProgress, get_progress_spinner
 from .sqlite import load_table, vacuum_analyze
 
@@ -207,7 +207,7 @@ class TaxonAutocompleter:
 
 
 # TODO: Add observation short description (what/where/when) to FTS table?
-# TODO: Add iconic taxon ID to display emjoi in search results?
+# TODO: Add iconic taxon ID to display emoji in search results?
 class ObservationAutocompleter:
     """Observation autocomplete search. Runs full text search on observation descriptions, comments,
     identification comments, and place names.
@@ -232,7 +232,7 @@ class ObservationAutocompleter:
         Args:
             q: Search query
             fields: Specific text fields to search (description, comment, identification, and/or
-                place). If not specified, all fieldswill be searched.
+                place). If not specified, all fields will be searched.
 
         Returns:
             Tuples of ``(observation_id, truncated_matched_text)``
@@ -278,7 +278,7 @@ class ObservationAutocompleter:
 def load_fts_taxa(
     csv_dir: PathOrStr = DWCA_TAXON_CSV_DIR,
     db_path: PathOrStr = DB_PATH,
-    counts_path: PathOrStr = TAXON_COUNTS,
+    agg_path: PathOrStr = TAXON_AGGREGATES_PATH,
     languages: Iterable[str] = ('english',),
 ):
     """Create full text search tables for taxonomic names.
@@ -287,8 +287,7 @@ def load_fts_taxa(
     Args:
         csv_dir: Directory containing extracted CSV files
         db_path: Path to SQLite database
-        counts_path: Path to previously calculated taxon counts
-            (from :py:func:`.aggregate_taxon_db`)
+        agg_path: Path to previously calculated taxon counts (from :py:func:`.aggregate_taxon_db`)
         languages: List of common name languages to load, or 'all' to load everything
     """
     csv_dir = Path(csv_dir).expanduser()
@@ -296,7 +295,7 @@ def load_fts_taxa(
     common_name_csvs = _get_common_name_csvs(csv_dir, languages)
     progress = CSVProgress(main_csv, *common_name_csvs.values())
 
-    taxon_counts = _normalize_taxon_counts(counts_path)
+    taxon_counts = _normalize_taxon_counts(agg_path)
     transform = partial(_add_taxon_counts, taxon_counts=taxon_counts)
 
     def load_fts_table(csv_path, column_map):
@@ -427,17 +426,17 @@ def _add_taxon_counts(row: Dict[str, Union[int, str]], taxon_counts: Dict[int, i
 
 
 # TODO: Read from taxon table instead
-def _normalize_taxon_counts(counts_path: PathOrStr = TAXON_COUNTS) -> Dict[int, int]:
+def _normalize_taxon_counts(agg_path: PathOrStr = TAXON_AGGREGATES_PATH) -> Dict[int, int]:
     """Read previously calculated taxon counts, and normalize to a logarithmic distribution"""
     import numpy as np
     import pandas as pd
 
-    if not Path(counts_path).is_file():
-        logger.warning(f'Taxon counts file not found: {counts_path}')
+    if not Path(agg_path).is_file():
+        logger.warning(f'Taxon counts file not found: {agg_path}')
         return {}
 
-    logger.info(f'Reading taxon counts from {counts_path}')
-    df = pd.read_parquet(counts_path)
+    logger.info(f'Reading taxon counts from {agg_path}')
+    df = pd.read_parquet(agg_path)
 
     def normalize(series):
         with np.errstate(divide='ignore'):

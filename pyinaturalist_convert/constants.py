@@ -24,7 +24,7 @@ DWCA_TAXON_CSV_DIR = DATA_DIR / 'inaturalist-taxonomy.dwca'
 DWCA_TAXON_CSV = DWCA_TAXON_CSV_DIR / 'taxa.csv'
 DWCA_OBS_CSV_DIR = DATA_DIR / 'gbif-observations-dwca'
 DWCA_OBS_CSV = DWCA_OBS_CSV_DIR / 'observations.csv'
-TAXON_COUNTS = DATA_DIR / 'taxon_counts.parquet'
+TAXON_AGGREGATES_PATH = DATA_DIR / 'taxon_aggregates.parquet'
 
 ParamList = List[Union[str, int]]
 PathOrStr = Union[Path, str]

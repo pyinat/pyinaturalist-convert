@@ -14,6 +14,10 @@ from DwC-A to SQLite.
     ``~\\AppData\\Local\\`` on Windows, or ``~/.local/share/`` on Linux. Use the ``db_path``
     argument to use a different location.
 
+.. note::
+    As of 2024-06, this process will require about 105GB of free disk space while loading, and the
+    final database will be about 26GB.
+
 **Main functions:**
 
 .. autosummary::
@@ -75,9 +79,6 @@ logger = getLogger(__name__)
 
 def load_dwca_tables(db_path: PathOrStr = DB_PATH):
     """Download observation and taxonomy archives and load into a SQLite database.
-
-    As of 2022-05, this will require about 42GB of free disk space while loading, and the final
-    database will be around 8GB.
 
     Args:
         db_path: Path to SQLite database

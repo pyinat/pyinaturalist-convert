@@ -3,6 +3,7 @@ import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from csv import DictReader
 from logging import getLogger
+from test.conftest import SAMPLE_DATA_DIR
 from unittest.mock import patch
 
 from pytest_cov.embed import cleanup_on_sigterm
@@ -10,7 +11,6 @@ from pytest_cov.embed import cleanup_on_sigterm
 from pyinaturalist_convert.dwca import load_dwca_taxa
 from pyinaturalist_convert.sqlite import load_table
 from pyinaturalist_convert.taxonomy import aggregate_taxon_db
-from test.conftest import SAMPLE_DATA_DIR
 
 CSV_DIR = SAMPLE_DATA_DIR / 'inaturalist-taxonomy.dwca'
 
@@ -23,7 +23,7 @@ cleanup_on_sigterm()
     'pyinaturalist_convert.taxonomy.ProcessPoolExecutor', ThreadPoolExecutor
 )  # Can't get coverage to work with multiprocessing
 def test_aggregate_taxon_db(mock_sleep, tmp_path):
-    taxon_db_path = SAMPLE_DATA_DIR / 'taxon_counts.csv'
+    taxon_db_path = SAMPLE_DATA_DIR / 'taxon_aggregates.csv'
     common_names_path = SAMPLE_DATA_DIR / 'taxon_common_names.csv'
     db_path = tmp_path / 'observations.db'
     counts_path = tmp_path / 'taxon_counts.parquet'
@@ -56,7 +56,7 @@ def test_aggregate_taxon_db(mock_sleep, tmp_path):
     # Aggregate counts
     aggregate_taxon_db(
         db_path,
-        counts_path=counts_path,
+        backup_path=counts_path,
         common_names_path=common_names_path,
     )
 

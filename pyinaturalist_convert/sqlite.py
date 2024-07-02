@@ -137,7 +137,7 @@ def load_table(
 
     with sqlite3.connect(db_path) as conn, open(csv_path) as f:
         conn.execute('PRAGMA synchronous = 0')
-        conn.execute('PRAGMA journal_mode = MEMORY')
+        conn.execute('PRAGMA journal_mode = WAL')
         _create_table(conn, table_name, non_pk_cols, pk)
         stmt = f'INSERT OR REPLACE INTO {table_name} ({columns_str}) VALUES ({placeholders})'
 
@@ -158,7 +158,7 @@ def load_table(
 def vacuum_analyze(
     table_names: List[str], db_path: PathOrStr = DB_PATH, show_spinner: bool = False
 ):
-    """Vacuum a SQLite database and analzy one or more tables. If loading multiple tables, this
+    """Vacuum a SQLite database and analyze one or more tables. If loading multiple tables, this
     should be done once after loading all of them.
     """
     spinner = get_progress_spinner('Final cleanup') if show_spinner else nullcontext()
