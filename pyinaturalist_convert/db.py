@@ -53,6 +53,7 @@ use cases, but at least provides a starting point.
 """
 
 # flake8: noqa: F401
+from datetime import datetime
 from itertools import chain
 from logging import getLogger
 from typing import TYPE_CHECKING, Iterable, Iterator, List, Optional
@@ -81,10 +82,10 @@ def create_table(model, db_path: PathOrStr = DB_PATH):
     engine = _get_engine(db_path)
     table = model.__tablename__
     if inspect(engine).has_table(table):
-        logger.info(f'Table {table} already exists')
+        logger.debug(f'Table {table} already exists')
     else:
         model.__table__.create(engine)
-        logger.info(f'Table {table} created')
+        logger.debug(f'Table {table} created')
 
 
 def create_tables(db_path: PathOrStr = DB_PATH):
@@ -109,6 +110,11 @@ def _get_engine(db_path):
 def get_db_observations(
     db_path: PathOrStr = DB_PATH,
     ids: Optional[Iterable[int]] = None,
+    observed_on_min: Optional[datetime] = None,
+    observed_on_max: Optional[datetime] = None,
+    quality_grade: Optional[str] = None,
+    iconic_taxon_id: Optional[int] = None,
+    taxon_id: Optional[int] = None,
     username: Optional[str] = None,
     limit: Optional[int] = None,
     page: Optional[int] = None,
