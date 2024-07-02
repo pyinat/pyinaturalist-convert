@@ -229,13 +229,15 @@ class DbTaxon:
         )
 
     def update(self, taxon: Taxon):
-        """Update an existing record, without overriding non-null precomputed columns"""
+        """Update an existing record"""
         new_taxon = self.from_model(taxon)
         for col in [c.name for c in inspect(self).mapper.columns]:
-            new_val = getattr(new_taxon, col)
+            if not (new_val := getattr(new_taxon, col)):
+                continue
             if col not in PRECOMPUTED_COLUMNS:
                 setattr(self, col, new_val)
-            elif getattr(self, col) is None:
+            # Precomputed columns: Don't overwrite non-null values
+            elif getattr(self, col) in [None, 0]:
                 setattr(self, col, new_val)
 
 
