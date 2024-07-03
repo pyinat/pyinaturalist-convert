@@ -38,7 +38,9 @@ jobs:
           key: venv-${{ matrix.python-version }}-${{ hashFiles('poetry.lock') }}
       - name: Install dependencies
         if: steps.cache.outputs.cache-hit != 'true'
-        run: poetry install -v -E all
+        run: |
+          pip install -U pip setuptools virtualenv 'numpy==1.24.4'
+          poetry install -v -E all
 
       # Run tests with coverage report
       - name: Run tests
