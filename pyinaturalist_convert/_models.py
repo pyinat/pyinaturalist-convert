@@ -229,14 +229,18 @@ class DbTaxon:
         )
 
     def update(self, taxon: Taxon):
-        """Update an existing record"""
+        """Merge new values into an existing record"""
+        # Don't update a full taxon record with a partial one
+        if self.partial is False and taxon._partial is True:
+            return
+
         new_taxon = self.from_model(taxon)
         for col in [c.name for c in inspect(self).mapper.columns]:
-            if not (new_val := getattr(new_taxon, col)):
+            if (new_val := getattr(new_taxon, col)) is None:
                 continue
             if col not in PRECOMPUTED_COLUMNS:
                 setattr(self, col, new_val)
-            # Precomputed columns: Don't overwrite non-null values
+            # Precomputed columns: Only overwrite null values
             elif getattr(self, col) in [None, 0]:
                 setattr(self, col, new_val)
 
