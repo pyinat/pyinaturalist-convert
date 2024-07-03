@@ -195,26 +195,25 @@ def _cleanup_observations(db_path: PathOrStr = DB_PATH):
     """Run the following post-processing steps after loading observations:
     * Translate dwc:informationWithheld into standard geoprivacy values
     * Translate captive values into True/False
-    * Vacuum/analyze
     """
     spinner = get_progress_spinner('Post-processing')
     with spinner, sqlite3.connect(db_path) as conn:
-        logger.info('Finding observations with open geoprivacy')
+        logger.debug('Finding observations with open geoprivacy')
         conn.execute("UPDATE observation SET geoprivacy='open' " 'WHERE geoprivacy IS NULL')
 
-        logger.info('Finding observations with obscured geoprivacy')
+        logger.debug('Finding observations with obscured geoprivacy')
         conn.execute(
             "UPDATE observation SET geoprivacy='obscured' "
             "WHERE geoprivacy LIKE 'Coordinate uncertainty increased%'"
         )
 
-        logger.info('Finding observations with private geoprivacy')
+        logger.debug('Finding observations with private geoprivacy')
         conn.execute(
             "UPDATE observation SET geoprivacy='private' "
             "WHERE geoprivacy LIKE 'Coordinates hidden%'"
         )
 
-        logger.info('Formatting captive/wild status')
+        logger.debug('Formatting captive/wild status')
         conn.execute("UPDATE observation SET captive=FALSE WHERE captive='wild'")
         conn.execute('UPDATE observation SET captive=TRUE WHERE captive IS NOT FALSE')
 

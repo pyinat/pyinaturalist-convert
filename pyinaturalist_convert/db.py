@@ -81,10 +81,10 @@ def create_table(model, db_path: PathOrStr = DB_PATH):
     engine = _get_engine(db_path)
     table = model.__tablename__
     if inspect(engine).has_table(table):
-        logger.info(f'Table {table} already exists')
+        logger.debug(f'Table {table} already exists')
     else:
         model.__table__.create(engine)
-        logger.info(f'Table {table} created')
+        logger.debug(f'Table {table} created')
 
 
 def create_tables(db_path: PathOrStr = DB_PATH):
