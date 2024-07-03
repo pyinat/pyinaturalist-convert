@@ -38,7 +38,7 @@ jobs:
           poetry version $(poetry version -s).${{ env.pre-release-suffix }}${{ env.pre-release-version }}
           poetry version
 
-      - name: Build and publish to pypi
-        run: |
-          poetry build
-          poetry publish -u  __token__ -p ${{ secrets.PYPI_TOKEN }}
+      - name: Build package distributions
+        run: poetry build
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
