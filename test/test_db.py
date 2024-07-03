@@ -173,3 +173,28 @@ def test_save_taxa__preserve_precomputed_cols(tmp_path):
     assert results[0].observations_count == 18017625
     assert results[1].complete_species_count == 416
     assert results[1].observations_count == 218279
+
+
+def test_save_taxa__partial(tmp_path):
+    db_path = tmp_path / 'observations.db'
+    taxon_1 = Taxon(
+        id=3,
+        name='Aves',
+        rank='class',
+        preferred_common_name='Birds',
+        complete_species_count=10672,
+        observations_count=18017625,
+    )
+
+    create_tables(db_path)
+    save_taxa([taxon_1], db_path=db_path)
+
+    # Save with updated values for precomputed columns
+    taxon_1.preferred_common_name = 'updated!'
+    taxon_1._partial = True
+    save_taxa([taxon_1], db_path=db_path)
+
+    # Only previously null values (taxon_2.observations_count) in DB should be updated
+    results = list(get_db_taxa(db_path))
+    assert results[0].preferred_common_name == 'Birds'
+    assert results[0]._partial is False
