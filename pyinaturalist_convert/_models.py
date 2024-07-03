@@ -175,6 +175,8 @@ class DbTaxon:
     id: int = sa_field(Integer, primary_key=True)
     ancestor_ids: str = sa_field(String, default=None)
     child_ids: str = sa_field(String, default=None)
+    conservation_status: str = sa_field(String, default=None)
+    establishment_means: str = sa_field(String, default=None)
     iconic_taxon_id: int = sa_field(Integer, default=0)
     is_active: bool = sa_field(Boolean, default=None)
     leaf_taxa_count: int = sa_field(Integer, default=0)
@@ -182,11 +184,13 @@ class DbTaxon:
     observations_count_rg: int = sa_field(Integer, default=0)
     name: str = sa_field(String, default=None, index=True)
     parent_id: int = sa_field(ForeignKey('taxon.id'), default=None, index=True)
-    partial: int = sa_field(Boolean, default=False)
+    partial: bool = sa_field(Boolean, default=False)
     photo_urls: str = sa_field(String, default=None)
     preferred_common_name: str = sa_field(String, default=None)
     rank: str = sa_field(String, default=None)
     reference_url: str = sa_field(String, default=None)
+    wikipedia_summary: str = sa_field(String, default=None)
+    wikipedia_url: str = sa_field(String, default=None)
 
     @classmethod
     def from_model(cls, taxon: Taxon) -> 'DbTaxon':
@@ -195,6 +199,8 @@ class DbTaxon:
             id=taxon.id,
             ancestor_ids=_join_list(taxon.ancestor_ids),
             child_ids=_join_list(taxon.child_ids),
+            conservation_status=taxon.conservation_status,
+            establishment_means=taxon.establishment_means,
             iconic_taxon_id=taxon.iconic_taxon_id,
             is_active=taxon.is_active,
             leaf_taxa_count=taxon.complete_species_count,
@@ -206,6 +212,8 @@ class DbTaxon:
             rank=taxon.rank,
             reference_url=taxon.reference_url,
             photo_urls=photo_urls,
+            wikipedia_summary=taxon.wikipedia_summary,
+            wikipedia_url=taxon.wikipedia_url,
         )
 
     def to_model(self) -> Taxon:
@@ -214,6 +222,8 @@ class DbTaxon:
             id=self.id,
             ancestors=_get_taxa(self.ancestor_ids),
             children=_get_taxa(self.child_ids),
+            conservation_status=self.conservation_status,
+            establishment_means=self.establishment_means,
             default_photo=photos[0] if photos else None,
             iconic_taxon_id=self.iconic_taxon_id,
             is_active=self.is_active,
@@ -226,6 +236,8 @@ class DbTaxon:
             rank=self.rank,
             reference_url=self.reference_url,
             taxon_photos=photos,
+            wikipedia_summary=self.wikipedia_summary,
+            wikipedia_url=self.wikipedia_url,
         )
 
     def update(self, taxon: Taxon):
