@@ -132,17 +132,17 @@ msgpack = "*"
 
 [[package]]
 name = "boto3"
-version = "1.34.134"
+version = "1.34.140"
 description = "The AWS SDK for Python"
 optional = true
 python-versions = ">= 3.8"
 files = [
-    {file = "boto3-1.34.134-py3-none-any.whl", hash = "sha256:342782c02ff077aae118c9c61179eed95c585831fba666baacc5588ff04aa6e1"},
-    {file = "boto3-1.34.134.tar.gz", hash = "sha256:f6d6e5b0c9ab022a75373fa16c01f0cd54bc1bb64ef3b6ac64ac7cedd56cbe9c"},
+    {file = "boto3-1.34.140-py3-none-any.whl", hash = "sha256:23ca8d8f7a30c3bbd989808056b5fc5d68ff5121c02c722c6167b6b1bb7f8726"},
+    {file = "boto3-1.34.140.tar.gz", hash = "sha256:578bbd5e356005719b6b610d03edff7ea1b0824d078afe62d3fb8bea72f83a87"},
 ]
 
 [package.dependencies]
-botocore = ">=1.34.134,<1.35.0"
+botocore = ">=1.34.140,<1.35.0"
 jmespath = ">=0.7.1,<2.0.0"
 s3transfer = ">=0.10.0,<0.11.0"
 
@@ -151,13 +151,13 @@ crt = ["botocore[crt] (>=1.21.0,<2.0a0)"]
 
 [[package]]
 name = "botocore"
-version = "1.34.134"
+version = "1.34.140"
 description = "Low-level, data-driven core of boto 3."
 optional = true
 python-versions = ">= 3.8"
 files = [
-    {file = "botocore-1.34.134-py3-none-any.whl", hash = "sha256:45219e00639755f92569b29f8f279d5dde721494791412c1f7026a3779e8d9f4"},
-    {file = "botocore-1.34.134.tar.gz", hash = "sha256:e29c299599426ed16dd2d4c1e20eef784f96b15e1850ebbc59a3250959285b95"},
+    {file = "botocore-1.34.140-py3-none-any.whl", hash = "sha256:43940d3a67d946ba3301631ba4078476a75f1015d4fb0fb0272d0b754b2cf9de"},
+    {file = "botocore-1.34.140.tar.gz", hash = "sha256:86302b2226c743b9eec7915a4c6cfaffd338ae03989cd9ee181078ef39d1ab39"},
 ]
 
 [package.dependencies]
@@ -198,13 +198,13 @@ ujson = ["ujson (>=5.7.0)"]
 
 [[package]]
 name = "certifi"
-version = "2024.6.2"
+version = "2024.7.4"
 description = "Python package for providing Mozilla's CA Bundle."
 optional = false
 python-versions = ">=3.6"
 files = [
-    {file = "certifi-2024.6.2-py3-none-any.whl", hash = "sha256:ddc6c8ce995e6987e7faf5e3f1b02b302836a0e5d98ece18392cb1a36c72ad56"},
-    {file = "certifi-2024.6.2.tar.gz", hash = "sha256:3cd43f1c6fa7dedc5899d69d3ad0398fd018ad1a17fba83ddaf78aa46c747516"},
+    {file = "certifi-2024.7.4-py3-none-any.whl", hash = "sha256:c198e21b1289c2ab85ee4e67bb4b4ef3ead0892059901a8d5b622f24a1101e90"},
+    {file = "certifi-2024.7.4.tar.gz", hash = "sha256:5a1e7645bc0ec61a09e26c36f6106dd4cf40c6db3a1fb6352b0244e7fb057c7b"},
 ]
 
 [[package]]
@@ -1391,13 +1391,13 @@ defusedxml = "*"
 
 [[package]]
 name = "openpyxl"
-version = "3.1.4"
+version = "3.1.5"
 description = "A Python library to read/write Excel 2010 xlsx/xlsm files"
 optional = true
 python-versions = ">=3.8"
 files = [
-    {file = "openpyxl-3.1.4-py2.py3-none-any.whl", hash = "sha256:ec17f6483f2b8f7c88c57e5e5d3b0de0e3fb9ac70edc084d28e864f5b33bbefd"},
-    {file = "openpyxl-3.1.4.tar.gz", hash = "sha256:8d2c8adf5d20d6ce8f9bca381df86b534835e974ed0156dacefa76f68c1d69fb"},
+    {file = "openpyxl-3.1.5-py2.py3-none-any.whl", hash = "sha256:5282c12b107bffeef825f4617dc029afaf41d0ea60823bbb665ef3079dc79de2"},
+    {file = "openpyxl-3.1.5.tar.gz", hash = "sha256:cf0e3cf56142039133628b5acffe8ef0c12bc902d2aadd3e0fe5878dc08d1050"},
 ]
 
 [package.dependencies]
@@ -1875,13 +1875,13 @@ yaml = ["pyyaml (>=6.0.1)"]
 
 [[package]]
 name = "requests-ratelimiter"
-version = "0.6.0"
+version = "0.7.0"
 description = "Rate-limiting for the requests library"
 optional = false
 python-versions = ">=3.7,<4.0"
 files = [
-    {file = "requests_ratelimiter-0.6.0-py3-none-any.whl", hash = "sha256:0641ec7b3dd919a64a8e390358d416c7369f89eb61bec0cf6113ea8d2ec4f072"},
-    {file = "requests_ratelimiter-0.6.0.tar.gz", hash = "sha256:ad72f033323df3c1012a3ac4bb91be36606741f58ec9faede62b89b475ea99f6"},
+    {file = "requests_ratelimiter-0.7.0-py3-none-any.whl", hash = "sha256:1a7ef2faaa790272722db8539728690046237766fcc479f85b9591e5356a8185"},
+    {file = "requests_ratelimiter-0.7.0.tar.gz", hash = "sha256:a070c8a359a6f3a001b0ccb08f17228b7ae0a6e21d8df5b6f6bd58389cddde45"},
 ]
 
 [package.dependencies]
@@ -2529,4 +2529,4 @@ xlsx = ["openpyxl", "pandas"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "90680eef8f6e5b8a35a37e638b4fab108fb9b6f383b8c8e1440d586750eeee68"
+content-hash = "95650cdc6fa6a5dd4b13d2c1ed098764950053334ed008c89e4e8f00cb213b33"
