@@ -72,7 +72,7 @@ feather = ["pandas", "pyarrow"]
 geojson = ["geojson"]
 gpx = ["gpxpy"]
 hdf = ["pandas", "tables"]
-html = ["jinja", "markuppy", "tablib"]
+html = ["jinja", "markuppy"]
 odp = ["boto3"]
 parquet = ["pandas", "pyarrow"]
 xlsx = ["pandas", "openpyxl"]
@@ -88,7 +88,6 @@ all = [
     "pyyaml",
     "sqlalchemy",
     "tables",
-    "tablib",
     "tabulate",
     "xlrd",
     "xlwt",
