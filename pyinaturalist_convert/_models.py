@@ -8,6 +8,8 @@ from urllib.parse import quote_plus, unquote
 from pyinaturalist import (
     Annotation,
     Comment,
+    ConservationStatus,
+    EstablishmentMeans,
     IconPhoto,
     Identification,
     Observation,
@@ -199,8 +201,8 @@ class DbTaxon:
             id=taxon.id,
             ancestor_ids=_join_list(taxon.ancestor_ids),
             child_ids=_join_list(taxon.child_ids),
-            conservation_status=taxon.conservation_status,
-            establishment_means=taxon.establishment_means,
+            conservation_status=getattr(taxon.conservation_status, 'status_name', ''),
+            establishment_means=getattr(taxon.establishment_means, 'establishment_means', ''),
             iconic_taxon_id=taxon.iconic_taxon_id,
             is_active=taxon.is_active,
             leaf_taxa_count=taxon.complete_species_count,
@@ -218,12 +220,22 @@ class DbTaxon:
 
     def to_model(self) -> Taxon:
         photos = _split_photo_urls(self.photo_urls)
+        c_status = (
+            ConservationStatus(status_name=self.conservation_status)
+            if self.conservation_status
+            else None
+        )
+        est_means = (
+            EstablishmentMeans(establishment_means=self.establishment_means)
+            if self.establishment_means
+            else None
+        )
         return Taxon(
             id=self.id,
             ancestors=_get_taxa(self.ancestor_ids),
             children=_get_taxa(self.child_ids),
-            conservation_status=self.conservation_status,
-            establishment_means=self.establishment_means,
+            conservation_status=c_status,
+            establishment_means=est_means,
             default_photo=photos[0] if photos else None,
             iconic_taxon_id=self.iconic_taxon_id,
             is_active=self.is_active,
