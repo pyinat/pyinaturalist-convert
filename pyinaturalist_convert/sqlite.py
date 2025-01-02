@@ -81,7 +81,7 @@ class XFormChunkReader(ChunkReader):
 
 
 def get_fields(csv_path: PathOrStr, delimiter: str = ',') -> List[str]:
-    with open(csv_path) as f:
+    with open(csv_path, encoding='utf-8') as f:
         reader = csv_reader(f, delimiter=delimiter)
         return next(reader)
 
