@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyinaturalist-convert"
-version = "0.6.7"
+version = "0.7.0"
 description = "Data conversion tools for iNaturalist observations and taxonomy"
 authors = ["Jordan Cook"]
 license = "MIT"
@@ -34,7 +34,7 @@ include = [
 ]
 
 [tool.poetry.dependencies]
-python                      = "^3.8"
+python                      = "^3.10"
 pyinaturalist               = ">=0.18"
 flatten-dict                = ">=0.4"
 tablib                      = ">=3.0"
@@ -44,7 +44,7 @@ boto3                       = {optional=true, version=">=1.20"}
 geojson                     = {optional=true, version=">=2.5"}
 gpxpy                       = {optional=true, version=">=1.4"}
 markuppy                    = {optional=true, version=">=1.12"}
-numpy                       = {optional=true, version="<2.0"}
+numpy                       = {optional=true, version=">=1.21"}
 odfpy                       = {optional=true, version=">=1.4"}
 openpyxl                    = {optional=true, version=">=2.6"}
 pandas                      = {optional=true, version=">=1.2"}
