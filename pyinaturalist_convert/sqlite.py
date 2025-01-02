@@ -135,7 +135,7 @@ def load_table(
     if progress:
         progress.start_job(csv_path)
 
-    with sqlite3.connect(db_path) as conn, open(csv_path) as f:
+    with sqlite3.connect(db_path) as conn, open(csv_path, encoding='utf-8') as f:
         conn.execute('PRAGMA synchronous = 0')
         conn.execute('PRAGMA journal_mode = WAL')
         _create_table(conn, table_name, non_pk_cols, pk)
