@@ -126,7 +126,7 @@ def is_csv_export(file_path: PathOrStr) -> bool:
     """Check if a file is a CSV export from the iNaturalist export tool (to distinguish from
     converted API results)
     """
-    with open(file_path) as f:
+    with open(file_path, encoding='utf-8') as f:
         reader = DictReader(f)
         fields = next(reader).keys()
     # Just check for a field name that's only in the export and not in API results

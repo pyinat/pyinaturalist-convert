@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyinaturalist-convert"
-version = "0.6.5"
+version = "0.6.6"
 description = "Data conversion tools for iNaturalist observations and taxonomy"
 authors = ["Jordan Cook"]
 license = "MIT"
@@ -58,7 +58,7 @@ xlwt                        = {optional=true, version="*"}
 xmltodict                   = {optional=true, version=">=0.12"}
 
 # Documentation dependencies
-furo                        = { optional = true, version = "^2024.5" }
+furo                        = { optional = true, version = "^2024.8" }
 myst-parser                 = { optional = true, version = ">1.0" }
 sphinx                      = { optional = true, version = "^6.2" }
 sphinx-autodoc-typehints    = { optional = true, version = "1.20" }
