@@ -136,27 +136,27 @@ class DbObservation:
     def to_model(self) -> Observation:
         return Observation(
             id=self.id,
-            annotations=_unflatten_annotations(self.annotations),
+            annotations=self.annotations or None,
             captive=self.captive,
-            comments=_unflatten_comments(self.comments),
+            comments=self.comments or None,
             created_at=self.created_at,
             description=self.description,
             geoprivacy=self.geoprivacy,
-            identifications=_unflatten_identifications(self.identifications),
+            identifications=self.identifications or None,
             identifications_count=self.identifications_count,
             location=(self.latitude, self.longitude),
             license_code=self.license_code,
             observed_on=self.observed_on,
-            ofvs=_unflatten_ofvs(self.ofvs),
+            ofvs=self.ofvs or None,
             place_guess=self.place_guess,
             place_ids=_split_int_list(self.place_ids),
             positional_accuracy=self.positional_accuracy,
             quality_grade=self.quality_grade,
             photos=self.sorted_photos,
             tags=_split_list(self.tags),
-            taxon=self.taxon.to_model() if self.taxon else None,
+            taxon=self.taxon.to_model().to_dict() if self.taxon else None,
             updated_at=self.updated_at,
-            user=self.user.to_model() if self.user else User(id=self.user_id),
+            user=self.user.to_model() if self.user else {'id': self.user_id},
             uuid=self.uuid,
         )
 
@@ -358,13 +358,6 @@ def _flatten_annotation(annotation: Annotation) -> JsonField:
     return {k: v for k, v in annotation_dict.items() if v is not None}
 
 
-def _unflatten_annotations(
-    flat_objs: Optional[List[JsonField]] = None,
-) -> Optional[List[Annotation]]:
-    """Initialize Annotations from either term/value labels (if available) or IDs"""
-    return Annotation.from_json_list(flat_objs) if flat_objs else None
-
-
 def _flatten_comments(
     comments: Optional[List[Comment]] = None,
 ) -> Optional[List[JsonField]]:
@@ -380,12 +373,6 @@ def _flatten_comment(comment: Comment):
     }
 
 
-def _unflatten_comments(
-    flat_objs: Optional[List[JsonField]] = None,
-) -> Optional[List[Comment]]:
-    return Comment.from_json_list(flat_objs) if flat_objs else None
-
-
 def _flatten_identifications(
     identifications: Optional[List[Identification]] = None,
 ) -> Optional[List[JsonField]]:
@@ -399,22 +386,10 @@ def _flatten_identification(identification: Identification) -> JsonField:
     return id_json
 
 
-def _unflatten_identifications(
-    flat_objs: Optional[List[JsonField]] = None,
-) -> Optional[List[Identification]]:
-    return Identification.from_json_list(flat_objs) if flat_objs else None
-
-
 def _flatten_ofvs(
     ofvs: Optional[List[ObservationFieldValue]] = None,
 ) -> Optional[List[JsonField]]:
     return [{'name': ofv.name, 'value': ofv.value} for ofv in ofvs] if ofvs else None
-
-
-def _unflatten_ofvs(
-    flat_objs: Optional[List[JsonField]] = None,
-) -> Optional[List[ObservationFieldValue]]:
-    return ObservationFieldValue.from_json_list(flat_objs) if flat_objs else None
 
 
 def _get_taxa(id_str: str) -> List[Taxon]:
