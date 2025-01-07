@@ -421,9 +421,10 @@ def _get_taxa(id_str: str) -> List[Taxon]:
     return [Taxon(id=id, partial=True) for id in _split_int_list(id_str)]
 
 
-def _get_db_obs_photos(obs: Observation) -> Optional[List[DbPhoto]]:
+def _get_db_obs_photos(obs: Observation) -> List[DbPhoto]:
     if not obs.photos:
-        return None
+        return []
+
     photos = []
     for i, photo in enumerate(obs.photos):
         photos.append(
