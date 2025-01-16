@@ -35,10 +35,10 @@ jobs:
           pre-release-suffix: ${{ github.event.inputs.pre-release-suffix || 'dev' }}
           pre-release-version: ${{ github.event.inputs.pre-release-version || github.run_number }}
         run: |
-          PKG_VERSION=$(grep '^version =' pyproject.toml | sed -E 's/version = [\'"](.*)[\'"]/\1/')
+          PKG_VERSION=$(uvx --from=toml-cli toml get --toml-path=pyproject.toml project.version)
           DEV_VERSION=$PKG_VERSION.${{ env.pre-release-suffix }}${{ env.pre-release-version }}
           echo "Setting pre-release version to $DEV_VERSION"
-          sed -i "s/^version = .*/version = \"$DEV_VERSION\"/" pyproject.toml
+          uvx --from=toml-cli toml set --toml-path=pyproject.toml project.version $DEV_VERSION
 
       - name: Build package distributions
         run: uv build
