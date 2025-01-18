@@ -8,7 +8,6 @@ from os.path import join
 from shutil import rmtree
 
 import nox
-from nox_poetry import session
 
 nox.options.reuse_existing_virtualenvs = True
 nox.options.sessions = ['lint', 'cov']
@@ -17,15 +16,26 @@ CLEAN_DIRS = ['dist', 'build', join('docs', '_build')]
 DEFAULT_COVERAGE_FORMATS = ['html', 'term']
 
 
-@session(python=['3.10', '3.11', '3.12', '3.13'])
+def install_deps(session):
+    """Install project and test dependencies into a nox session using uv"""
+    session.env['UV_PROJECT_ENVIRONMENT'] = session.virtualenv.location
+    session.run_install(
+        'uv',
+        'sync',
+        '--frozen',
+        '--all-extras',
+    )
+
+
+@nox.session(python=['3.10', '3.11', '3.12', '3.13'], venv_backend='uv')
 def test(session):
     """Run tests for a specific python version"""
     test_paths = session.posargs or ['test']
-    session.install('.', 'pytest', 'pytest-xdist')
+    install_deps(session)
     session.run('pytest', '-n', 'auto', *test_paths)
 
 
-@session(python=False)
+@nox.session(python=False)
 def clean(session):
     """Clean up temporary build + documentation files"""
     for dir in CLEAN_DIRS:
@@ -33,7 +43,7 @@ def clean(session):
         rmtree(dir, ignore_errors=True)
 
 
-@session(python=False, name='cov')
+@nox.session(python=False, name='cov')
 def coverage(session):
     """Run tests and generate coverage report"""
     cmd = ['pytest', '-n', 'auto', '--cov']
@@ -44,14 +54,14 @@ def coverage(session):
     session.run(*cmd)
 
 
-@session(python=False)
+@nox.session(python=False)
 def docs(session):
     """Build Sphinx documentation"""
     cmd = 'sphinx-build docs docs/_build/html -j auto'
     session.run(*cmd.split(' '))
 
 
-@session(python=False)
+@nox.session(python=False)
 def lint(session):
     """Run linters and code formatters via pre-commit"""
     cmd = 'pre-commit run --all-files'
