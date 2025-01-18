@@ -16,11 +16,22 @@ CLEAN_DIRS = ['dist', 'build', join('docs', '_build')]
 DEFAULT_COVERAGE_FORMATS = ['html', 'term']
 
 
-@nox.session(python=['3.10', '3.11', '3.12', '3.13'])
+def install_deps(session):
+    """Install project and test dependencies into a nox session using uv"""
+    session.env['UV_PROJECT_ENVIRONMENT'] = session.virtualenv.location
+    session.run_install(
+        'uv',
+        'sync',
+        '--frozen',
+        '--all-extras',
+    )
+
+
+@nox.session(python=['3.10', '3.11', '3.12', '3.13'], venv_backend='uv')
 def test(session):
     """Run tests for a specific python version"""
     test_paths = session.posargs or ['test']
-    session.install('.', 'pytest', 'pytest-xdist')
+    install_deps(session)
     session.run('pytest', '-n', 'auto', *test_paths)
 
 
