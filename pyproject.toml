@@ -1,6 +1,6 @@
 [project]
 name = 'pyinaturalist-convert'
-version = '0.7.0'
+version = '0.7.1'
 description = 'Data conversion tools for iNaturalist observations and taxonomy'
 authors = [
     { name = "Jordan Cook" }

@@ -13,8 +13,6 @@ on:
         description: 'Version number for pre-releases; defaults to build number'
         required: false
         default: ''
-env:
-  LATEST_PY_VERSION: '3.13'
 
 # Deploy stable builds on tags only, and pre-release builds from manual trigger ("workflow_dispatch")
 jobs:
@@ -26,8 +24,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.LATEST_PY_VERSION }}
-      - uses: yezz123/setup-uv@v4
+          python-version:  '3.13'
+      - uses: astral-sh/setup-uv@v5
 
       - name: Set pre-release version
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}

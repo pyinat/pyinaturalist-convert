@@ -21,22 +21,17 @@ jobs:
       fail-fast: false
 
     steps:
+          # Install prereqs and dependencies, with caching
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - uses: yezz123/setup-uv@v4
-
-      # Cache packages per python version, and reuse until lockfile changes
-      - name: Cache python packages
-        id: cache
-        uses: actions/cache@v4
+      - uses: astral-sh/setup-uv@v5
         with:
-          path: .venv
-          key: venv-${{ matrix.python-version }}-${{ hashFiles('uv.lock') }}
+          enable-cache: true
+          cache-dependency-glob: uv.lock
       - name: Install dependencies
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: uv sync --all-extras
+        run: uv sync  --all-extras
 
       # Run tests with coverage report
       - name: Run tests
