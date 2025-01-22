@@ -1,5 +1,5 @@
 # pyinaturalist-convert
-[![Build status](https://github.com/pyinat/pyinaturalist-convert/workflows/Build/badge.svg?branch=main)](https://github.com/pyinat/pyinaturalist-convert/actions)
+[![Build status](https://github.com/pyinat/pyinaturalist-convert/actions/workflows/build.yml/badge.svg)](https://github.com/pyinat/pyinaturalist-convert/actions)
 [![codecov](https://codecov.io/gh/pyinat/pyinaturalist-convert/branch/main/graph/badge.svg?token=Mt3V5H409C)](https://codecov.io/gh/pyinat/pyinaturalist-convert)
 [![Docs](https://img.shields.io/readthedocs/pyinaturalist-convert/stable)](https://pyinaturalist-convert.readthedocs.io)
 [![PyPI](https://img.shields.io/pypi/v/pyinaturalist-convert?color=blue)](https://pypi.org/project/pyinaturalist-convert)
