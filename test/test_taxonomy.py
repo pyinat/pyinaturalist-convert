@@ -3,7 +3,6 @@ import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from csv import DictReader
 from logging import getLogger
-from test.conftest import SAMPLE_DATA_DIR
 from unittest.mock import patch
 
 from pytest_cov.embed import cleanup_on_sigterm
@@ -11,6 +10,7 @@ from pytest_cov.embed import cleanup_on_sigterm
 from pyinaturalist_convert.dwca import load_dwca_taxa
 from pyinaturalist_convert.sqlite import load_table
 from pyinaturalist_convert.taxonomy import aggregate_taxon_db
+from test.conftest import SAMPLE_DATA_DIR
 
 CSV_DIR = SAMPLE_DATA_DIR / 'inaturalist-taxonomy.dwca'
 

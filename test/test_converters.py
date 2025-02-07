@@ -1,11 +1,11 @@
 from csv import DictReader
 from datetime import datetime
-from test.conftest import SAMPLE_DATA_DIR, load_sample_data
 
 import pytest
 from pyinaturalist import Observation, Taxon, User
 
 from pyinaturalist_convert.converters import read, to_csv, to_dataframe, to_dataset
+from test.conftest import SAMPLE_DATA_DIR, load_sample_data
 
 
 @pytest.mark.parametrize('file_type', ['.csv', '_export.csv', '.feather', '.parquet', '.hdf'])

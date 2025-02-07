@@ -107,7 +107,7 @@ exclude = ['examples/']
 quote-style = 'single'
 
 [tool.ruff.lint]
-select = ['B', 'C4', 'C90', 'E', 'F']
+select = ['B', 'C4', 'C90', 'E', 'F', 'I']
 ignore = ['B023']
 
 [tool.ruff.lint.isort]

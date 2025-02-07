@@ -1,5 +1,4 @@
 from logging import getLogger
-from test.conftest import SAMPLE_DATA_DIR
 from time import time
 
 from pyinaturalist import Comment, Identification, Observation
@@ -12,6 +11,7 @@ from pyinaturalist_convert.fts import (
     index_observation_text,
     load_fts_taxa,
 )
+from test.conftest import SAMPLE_DATA_DIR
 
 CSV_DIR = SAMPLE_DATA_DIR / 'inaturalist-taxonomy.dwca'
 COUNTS_PATH = SAMPLE_DATA_DIR / 'taxon_counts_fts.parquet'
