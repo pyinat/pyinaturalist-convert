@@ -78,7 +78,7 @@ requires = ['hatchling>=1.0.0']
 build-backend = 'hatchling.build'
 
 [tool.hatch.build]
-packages =  ['pyinaturalist-convert']
+packages =  ['pyinaturalist_convert']
 force-include = {'README.md' = 'pyinaturalist_convert/README.md'}
 
 [tool.coverage.html]
