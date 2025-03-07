@@ -2,7 +2,9 @@
 Build and search a full text search tables for taxa and observations using
 `FTS5 <https://www.sqlite.org/fts5.html>`_.
 
-**Extra dependencies**: ``sqlalchemy`` (only for building the database; not required for searches)
+**Extra dependencies**: (only for building the database; not required for searches)
+* ``polars``
+* ``sqlalchemy``
 
 Taxon Autocomplete
 ------------------
@@ -425,30 +427,34 @@ def _add_taxon_counts(row: Dict[str, Union[int, str]], taxon_counts: Dict[int, i
     return row
 
 
-# TODO: Read from taxon table instead
 def _normalize_taxon_counts(agg_path: PathOrStr = TAXON_AGGREGATES_PATH) -> Dict[int, int]:
     """Read previously calculated taxon counts, and normalize to a logarithmic distribution"""
-    import numpy as np
-    import pandas as pd
+    import polars as pl
+    from polars import col
 
     if not Path(agg_path).is_file():
         logger.warning(f'Taxon counts file not found: {agg_path}')
         return {}
 
     logger.info(f'Reading taxon counts from {agg_path}')
-    df = pd.read_parquet(agg_path)
 
-    def normalize(series):
-        with np.errstate(divide='ignore'):
-            series = np.log(series.copy())
-        series[np.isneginf(series)] = 0
-        return (series - series.mean()) / series.std()
-
-    logger.info('Normalizing taxon counts')
-    df['count_rank'] = normalize(df['observations_count_rg']).fillna(-1)
-    df['count_rank'] = df['count_rank'] * TAXON_COUNT_RANK_FACTOR
-    df = df.sort_values(by='count_rank', ascending=False)
-    return df['count_rank'].to_dict()
+    # Apply log transform and z-score normalization
+    cols = (
+        pl.when(col('observations_count_rg') <= 0)
+        .then(0)
+        .otherwise(col('observations_count_rg').log())
+        .pipe(lambda x: (x - x.mean()) / x.std())
+        .fill_null(-1)
+        .mul(TAXON_COUNT_RANK_FACTOR)
+        .alias('count_rank')
+    )
+    return dict(
+        pl.read_parquet(agg_path)
+        .with_columns([cols])
+        .sort('count_rank', descending=True)
+        .select(['id', 'count_rank'])
+        .iter_rows()
+    )
 
 
 def _load_taxon_ranks(db_path: PathOrStr = DB_PATH):

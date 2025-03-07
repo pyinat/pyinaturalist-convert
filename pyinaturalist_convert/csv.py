@@ -35,7 +35,7 @@ from pyinaturalist.converters import try_datetime
 from .converters import PathOrStr, to_dataframe
 
 if TYPE_CHECKING:
-    from pandas import DataFrame
+    from polars import DataFrame
 
 # Explicit datatypes for columns loaded from CSV
 DTYPES = {
@@ -103,14 +103,13 @@ PHOTO_ID_PATTERN = re.compile(r'.*photos/(.*)/.*\.(\w+)')
 logger = getLogger(__name__)
 
 
-# TODO: Use pandas if installed, otherwise fallback to tablib?
 def load_csv_exports(*file_paths: PathOrStr) -> 'DataFrame':
     """Read one or more CSV files from ithe Nat export tool into a dataframe
 
     Args:
         file_paths: One or more file paths or glob patterns to load
     """
-    import pandas as pd
+    import polars as pl
 
     resolved_paths = _resolve_file_paths(*file_paths)
     logger.info(
@@ -118,7 +117,9 @@ def load_csv_exports(*file_paths: PathOrStr) -> 'DataFrame':
         + '\n'.join([f'\t{basename(f)}' for f in resolved_paths])
     )
 
-    df = pd.concat((pd.read_csv(f) for f in resolved_paths), ignore_index=True)
+    # Read and concatenate all CSV files
+    dfs = [pl.read_csv(str(f)) for f in resolved_paths]
+    df = pl.concat(dfs, how='vertical')
     return _format_export(df)
 
 
@@ -144,14 +145,30 @@ def _resolve_file_paths(*file_paths: PathOrStr) -> List[Path]:
 
 def _format_columns(df: 'DataFrame') -> 'DataFrame':
     """Some datatype conversions that apply to both CSV exports and API response data"""
-    # Convert to expected datatypes
-    for col, dtype in DTYPES.items():
-        if col in df:
-            df[col] = df[col].fillna(dtype()).astype(dtype)
+    import polars as pl
+    from polars import col
 
-    # Drop any empty columns
-    df = df.dropna(axis=1, how='all')
-    return df.fillna('')
+    # Map Python types to polars types, with appropriate null values
+    type_map = {
+        bool: (pl.Boolean, False),
+        int: (pl.Int64, 0),
+        float: (pl.Float64, 0),
+        str: (pl.Utf8, ''),
+    }
+
+    # Build type conversion expressions for existing columns
+    type_conversions = [
+        col(column).fill_null(type_map[dtype][1]).cast(type_map[dtype][0]).alias(column)
+        for column, dtype in DTYPES.items()
+        if column in df.columns
+    ]
+
+    # Apply type conversions and handle empty columns
+    return (
+        df.with_columns(type_conversions)
+        .select([col for col in df.columns if not df.select(pl.col(col)).is_empty()])
+        .with_columns(pl.all().fill_null(''))
+    )
 
 
 def _format_response(response: JsonResponse) -> 'DataFrame':
@@ -165,30 +182,56 @@ def _format_response(response: JsonResponse) -> 'DataFrame':
 
 def _format_export(df: 'DataFrame') -> 'DataFrame':
     """Format an exported CSV file to be more consistent with API response format"""
+    import polars as pl
+    from polars import col
+
     logger.info(f'Formatting {len(df)} observation records')
 
-    # Rename, convert, and drop selected columns
-    df = df.rename(columns={col: _rename_column(col) for col in sorted(df.columns)})
+    # Rename and convert selected columns
+    df = df.rename({col: _rename_column(col) for col in df.columns})
     df = _format_columns(df)
 
     # Convert datetimes
-    df['observed_on'] = df['observed_on_string'].apply(lambda x: try_datetime(x) or x)
-    df['created_at'] = df['created_at'].apply(lambda x: try_datetime(x) or x)
-    df['updated_at'] = df['updated_at'].apply(lambda x: try_datetime(x) or x)
+    df = df.with_columns(
+        [
+            col('observed_on_string').map_elements(try_datetime).alias('observed_on'),
+            col('created_at').map_elements(try_datetime),
+            col('updated_at').map_elements(try_datetime),
+        ]
+    )
 
     # Fill out taxon name and rank
-    df['taxon.rank'] = df.apply(_get_min_rank, axis=1)
-    df['taxon.name'] = df.apply(lambda x: x.get(f"taxon.{x['taxon.rank']}"), axis=1)
+    available_ranks = [rank for rank in RANKS if f'taxon.{rank}' in df.columns]
+    df = df.with_columns(
+        [
+            pl.fold(
+                acc=pl.lit(''),
+                function=lambda acc, x: pl.when(x.is_null() | (x == '')).then(acc).otherwise(x),
+                exprs=[col(f'taxon.{rank}') for rank in available_ranks],
+            ).alias('taxon.name'),
+            pl.fold(
+                acc=pl.lit(''),
+                function=lambda acc, x: pl.when(
+                    col(f'taxon.{x}').is_null() | (col(f'taxon.{x}') == '')
+                )
+                .then(acc)
+                .otherwise(pl.lit(x)),
+                exprs=[pl.lit(rank) for rank in available_ranks],
+            ).alias('taxon.rank'),
+        ]
+    )
 
     # Format coordinates
-    df['location'] = df.apply(lambda x: [x['latitude'], x['longitude']], axis=1)
-    df = df.drop(columns=['latitude', 'longitude'])
+    df = df.with_columns([pl.struct(['latitude', 'longitude']).alias('location')])
+    df = df.drop(['latitude', 'longitude'])
 
-    # Add some other missing columns
-    df['photo.id'] = df['photo.url'].apply(_get_photo_id)
+    # Add photo ID from URL
+    df = df.with_columns(
+        [col('photo.url').map_elements(_get_photo_id, return_dtype=pl.Utf8).alias('photo.id')]
+    )
 
     # Drop unused columns
-    df = df.drop(columns=[k for k in DROP_COLUMNS if k in df])
+    df = df.drop([col for col in DROP_COLUMNS if col in df.columns])
     return df
 
 
@@ -205,7 +248,8 @@ def _get_photo_id(image_url):
     return match.group(1) if match else ''
 
 
-def _rename_column(col):
+def _rename_column(col_name: str) -> str:
+    """Rename a column according to the RENAME_COLUMNS mapping"""
     for str_1, str_2 in RENAME_COLUMNS.items():
-        col = col.replace(str_1, str_2)
-    return col
+        col_name = col_name.replace(str_1, str_2)
+    return col_name
