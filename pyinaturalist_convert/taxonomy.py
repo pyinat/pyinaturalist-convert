@@ -42,8 +42,8 @@ if TYPE_CHECKING:
 DEFAULT_LANG_CSV = DWCA_TAXON_CSV_DIR / 'VernacularNames-english.csv'
 # Bacteria, viruses, etc.
 EXCLUDE_IDS = [67333, 131236, 151817, 1228707, 1285874]
-# Most populous phylum IDs to start processing first
-LOAD_FIRST_IDS = [47120, 211194, 2]
+# Branch size limit for parallel processing
+MAX_BRANCH_SIZE = 50000
 # All columns computed by aggregate_taxon_db
 PRECOMPUTED_COLUMNS = [
     'ancestor_ids',
@@ -89,8 +89,6 @@ def aggregate_taxon_db(
     taxon_counts_dict = get_observation_taxon_counts(db_path)
     taxon_counts = pd.DataFrame(taxon_counts_dict.items(), columns=['id', 'observations_count_rg'])
     df = _join_taxon_agg(df, taxon_counts)
-    n_phyla = len(df[(df['rank'] == 'phylum') & ~df['parent_id'].isin(EXCLUDE_IDS)])
-    n_kingdoms = len(df[(df['rank'] == 'kingdom')])
 
     # Optionally run without fancy progress bars
     if not progress_bars:
@@ -102,21 +100,59 @@ def aggregate_taxon_db(
     progress_queue = manager.Queue()
     task_queue = manager.Queue()
     log_queue = manager.Queue()
-    progress_total = len(df) + n_phyla + n_kingdoms + 1
+
+    # Find branches to process
+    branches = _find_branches(df)
+    branch_ids = [root_id for root_id, _ in branches]
+    progress_total = len(df) + len(branches) + 1  # Total taxa + branches + final aggregation
+
     progress_proc = Process(
         target=_update_progress, args=(progress_queue, task_queue, log_queue, progress_total)
     )
     progress_proc.start()
 
     try:
-        _aggregate_taxon_db(
-            df, db_path, backup_path, common_names_path, progress_queue, task_queue, log_queue
-        )
+        # Get common names from CSV
+        common_names = _get_common_names(common_names_path, progress_queue, task_queue)
+
+        # Process branches in parallel
+        with ProcessPoolExecutor() as executor:
+            futures_to_branch = {
+                executor.submit(
+                    _aggregate_branch,
+                    df[df['id'].isin(subtree_ids)],
+                    root_id,
+                    df[df['id'] == root_id]['name'].iloc[0],
+                    get_ancestor_ids(root_id, df),
+                    common_names,
+                    progress_queue=progress_queue,
+                    task_queue=task_queue,
+                ): (root_id, subtree_ids)
+                for root_id, subtree_ids in branches
+            }
+
+            # Collect results
+            processed_df = df.copy()
+            for future in as_completed(futures_to_branch):
+                branch_df = future.result()
+                processed_df.update(branch_df)
+
+        # Final aggregation using pre-calculated branch values
+        if task_queue:
+            task_queue.put(('final', 'Final aggregation', 1))
+        df = _finish_aggregations(processed_df, branch_ids, common_names)
+        if progress_queue:
+            progress_queue.put(('final', 1))
+
         logger.info(f'Completed in {time()-start:.2f}s')
     except Exception as e:
         logger.exception(e)
     finally:
         progress_proc.terminate()
+
+    # Save results
+    _save_taxon_df(df, db_path)
+    _save_taxon_agg(df, backup_path)
     return df
 
 
@@ -232,10 +268,6 @@ def _get_descendant_ids(
     """Recursively get all descendant taxon IDs (down to leaf taxa) for the given taxon"""
     import pandas as pd
 
-    task_name = f'phylum {taxon_name}'
-    if task_queue:
-        task_queue.put((task_name, 'Finding descendants of', 1))
-
     if df is None:
         df = _get_taxon_df(db_path)
 
@@ -245,8 +277,6 @@ def _get_descendant_ids(
         return combined
 
     descendant_ids = [taxon_id] + list(_get_descendants_rec(taxon_id))
-    if progress_queue:
-        progress_queue.put((task_name, 1))
     return descendant_ids
 
 
@@ -360,10 +390,6 @@ def _get_common_names(
     """Get common names for the specified language from DwC-A taxonomy files"""
     import pandas as pd
 
-    # Arbitrary value to advance progress bar
-    if task_queue:
-        task_queue.put(('common names', 'Loading', 1))
-
     csv_path = Path(common_names_path).expanduser()
     if not csv_path.is_file():
         logger.warning(f'File not found: {csv_path}; common names will not be loaded')
@@ -377,8 +403,6 @@ def _get_common_names(
     df = df.set_index('id')
     df = df['vernacularName'].to_dict()
 
-    if progress_queue:
-        progress_queue.put(('common names', 1))
     return df
 
 
@@ -500,3 +524,122 @@ def _update_progress(
                     pending.append((task_name, n_completed))
 
             sleep(1 / refresh_rate)
+
+
+def _find_branches(df: 'DataFrame', root_id: int = ROOT_TAXON_ID) -> List[Tuple[int, List[int]]]:
+    """Find taxonomy branches of ≤ MAX_BRANCH_SIZE taxa and all their subtree IDs.
+    A branch is a taxon and all its descendants that together contain ≤ MAX_BRANCH_SIZE taxa.
+    When a suitable branch is found, its descendants are not checked for additional branches.
+
+    Args:
+        df: DataFrame containing taxonomy data with 'id' and 'parent_id' columns
+        root_id: ID of the taxon to start searching from (default: ROOT_TAXON_ID)
+
+    Returns:
+        List of tuples: (branch_root_id, [subtree_ids])
+        where subtree_ids includes the branch root and all its descendants.
+
+    Example:
+        [(1, [1,3,4]), (5, [5,6,7])]
+        Means:
+        - First branch starts at taxon 1 and includes taxa 1,3,4
+        - Second branch starts at taxon 5 and includes taxa 5,6,7
+    """
+
+    def _process_taxon(taxon_id: int) -> Tuple[List[int], List[Tuple[int, List[int]]]]:
+        """Recursive helper that returns (all_subtree_ids, discovered_branches)"""
+        # Get immediate children
+        child_ids = list(df[df['parent_id'] == taxon_id]['id'])
+
+        # Base case: no children
+        if not child_ids:
+            return ([taxon_id], [(taxon_id, [taxon_id])])
+
+        # Recurse to get all descendant info
+        child_results = [_process_taxon(child_id) for child_id in child_ids]
+        all_descendant_ids = [taxon_id] + [id for ids, _ in child_results for id in ids]
+        all_branches = [b for _, branches in child_results for b in branches]
+
+        # If this subtree is small enough, make it a branch
+        if len(all_descendant_ids) <= MAX_BRANCH_SIZE:
+            return (all_descendant_ids, [(taxon_id, all_descendant_ids)])
+
+        # Otherwise return all descendant info for parent to consider
+        return (all_descendant_ids, all_branches)
+
+    # Start recursion at root
+    _, branches = _process_taxon(root_id)
+    return branches
+
+
+def get_ancestor_ids(taxon_id: int, df: 'DataFrame') -> List[int]:
+    """Get all ancestor IDs for a taxon by following parent_id references up the tree.
+
+    Args:
+        taxon_id: ID of the taxon to get ancestors for
+        df: DataFrame containing taxonomy data with 'id' and 'parent_id' columns
+
+    Returns:
+        List of ancestor IDs, starting from the immediate parent up to the root
+    """
+    import pandas as pd
+
+    ancestors = []
+    current_id = df[df['id'] == taxon_id]['parent_id'].iloc[0]
+
+    while current_id is not None and not pd.isna(current_id):
+        ancestors.append(int(current_id))
+        current_id = df[df['id'] == current_id]['parent_id'].iloc[0]
+
+    return ancestors
+
+
+def _finish_aggregations(
+    df: 'DataFrame',
+    branch_ids: List[int],
+    common_names: Optional[Dict[int, str]] = None,
+    root_id: int = ROOT_TAXON_ID,
+) -> 'DataFrame':
+    """Aggregate taxonomy values up the tree, using pre-calculated branch values.
+    When a branch root is encountered, use its pre-calculated values instead of
+    recursing into its descendants.
+
+    Args:
+        df: DataFrame containing taxonomy data
+        branch_ids: List of taxon IDs that are branch roots
+        common_names: Optional mapping of taxon ID to common name
+        root_id: ID of the taxon to start aggregating from (default: ROOT_TAXON_ID)
+
+    Returns:
+        DataFrame with fully aggregated values
+    """
+    common_names = common_names or {}
+
+    def _aggregate_recursive(taxon_id: int) -> None:
+        # If this is a branch root, its values are already calculated
+        if taxon_id in branch_ids:
+            return
+
+        # Get immediate children
+        children = df[df['parent_id'] == taxon_id]
+
+        # Process children first
+        for child_id in children['id']:
+            _aggregate_recursive(child_id)
+
+        # Aggregate children's values up to this taxon
+        mask = df['id'] == taxon_id
+        df.loc[mask] = df.loc[mask].apply(
+            lambda row: _update_taxon(
+                row,
+                get_ancestor_ids(taxon_id, df),
+                list(children['id']),
+                children['observations_count_rg'].sum(),
+                children['leaf_taxa_count'].sum(),
+                common_names.get(taxon_id),
+            ),
+            axis=1,
+        )
+
+    _aggregate_recursive(root_id)
+    return df
