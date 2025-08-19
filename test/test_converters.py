@@ -4,7 +4,12 @@ from datetime import datetime
 import pytest
 from pyinaturalist import Observation, Taxon, User
 
-from pyinaturalist_convert.converters import read, to_csv, to_dataframe, to_dataset
+from pyinaturalist_convert.converters import (
+    read,
+    to_csv,
+    to_dataframe,
+    to_dataset,
+)
 from test.conftest import SAMPLE_DATA_DIR, load_sample_data
 
 
@@ -35,7 +40,8 @@ def test_to_dataframe():
 
     assert df['id'][0] == 117511016
     assert df['taxon.id'][0] == 48662
-    assert df['annotations'][0] == []
+    assert df['annotations'][0][0] == {'Life Stage': 'Adult'}
+    assert df['annotations'][0][1] == {'17': 18}
     assert df['comments'][0] == []
     assert df['identifications'][0] == [{'261377245': 48662}]
     assert df['photos'][0][0]['198465145'].startswith(
