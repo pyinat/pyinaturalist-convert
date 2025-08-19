@@ -199,7 +199,7 @@ def _cleanup_observations(db_path: PathOrStr = DB_PATH):
     spinner = get_progress_spinner('Post-processing')
     with spinner, sqlite3.connect(db_path) as conn:
         logger.debug('Finding observations with open geoprivacy')
-        conn.execute("UPDATE observation SET geoprivacy='open' " 'WHERE geoprivacy IS NULL')
+        conn.execute("UPDATE observation SET geoprivacy='open' WHERE geoprivacy IS NULL")
 
         logger.debug('Finding observations with obscured geoprivacy')
         conn.execute(

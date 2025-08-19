@@ -112,7 +112,7 @@ def aggregate_taxon_db(
         _aggregate_taxon_db(
             df, db_path, backup_path, common_names_path, progress_queue, task_queue, log_queue
         )
-        logger.info(f'Completed in {time()-start:.2f}s')
+        logger.info(f'Completed in {time() - start:.2f}s')
     except Exception as e:
         logger.exception(e)
     finally:

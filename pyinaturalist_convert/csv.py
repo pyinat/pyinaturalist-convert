@@ -178,7 +178,7 @@ def _format_export(df: 'DataFrame') -> 'DataFrame':
 
     # Fill out taxon name and rank
     df['taxon.rank'] = df.apply(_get_min_rank, axis=1)
-    df['taxon.name'] = df.apply(lambda x: x.get(f"taxon.{x['taxon.rank']}"), axis=1)
+    df['taxon.name'] = df.apply(lambda x: x.get(f'taxon.{x["taxon.rank"]}'), axis=1)
 
     # Format coordinates
     df['location'] = df.apply(lambda x: [x['latitude'], x['longitude']], axis=1)

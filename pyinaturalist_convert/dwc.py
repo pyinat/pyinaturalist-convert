@@ -266,7 +266,7 @@ def _add_taxon_ancestors(observation):
 
     # Simplify ancestor records into genus=xxxx, family=xxxx, etc.
     for ancestor in taxon['ancestors']:
-        observation[f"taxon.{ancestor['rank']}"] = ancestor['name']
+        observation[f'taxon.{ancestor["rank"]}'] = ancestor['name']
 
     return observation
 
@@ -371,7 +371,7 @@ def get_dwc_lookup() -> Dict[str, str]:
     lookup = {}
     for k, v in OBSERVATION_FIELDS.items():
         if isinstance(v, list):
-            lookup.update({subval: k for subval in v})
+            lookup.update(dict.fromkeys(v, k))
         else:
             lookup[v] = k
     lookup['dwc:captive'] = 'captive'

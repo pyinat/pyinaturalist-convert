@@ -1,6 +1,6 @@
 [project]
 name = 'pyinaturalist-convert'
-version = '0.7.1'
+version = '0.7.2'
 description = 'Data conversion tools for iNaturalist observations and taxonomy'
 authors = [
     { name = "Jordan Cook" }
@@ -54,8 +54,8 @@ xlsx        = ['pandas>=1.2', 'openpyxl>=2.6']
 # Dev dependencies
 dev = [
     'coverage~=7.0',
-    'nox~=2024.4',
-    'pre-commit~=3.5',
+    'nox~=2025.05',
+    'pre-commit~=4.2',
     'pyparsing~=3.0',
     'pytest~=8.0',
     'pytest-cov>=5.0',

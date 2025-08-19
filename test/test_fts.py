@@ -159,4 +159,4 @@ def benchmark():
     elapsed = time() - start
 
     logger.info(f'Total: {elapsed:.2f}s')
-    logger.info(f'Avg per query: {(elapsed/iterations)*1000:2f}ms')
+    logger.info(f'Avg per query: {(elapsed / iterations) * 1000:2f}ms')
