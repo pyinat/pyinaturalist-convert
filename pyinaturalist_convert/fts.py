@@ -448,7 +448,8 @@ def _normalize_taxon_counts(agg_path: PathOrStr = TAXON_AGGREGATES_PATH) -> Dict
     df['count_rank'] = normalize(df['observations_count_rg']).fillna(-1)
     df['count_rank'] = df['count_rank'] * TAXON_COUNT_RANK_FACTOR
     df = df.sort_values(by='count_rank', ascending=False)
-    return df['count_rank'].to_dict()
+    result_dict = df['count_rank'].to_dict()
+    return dict(sorted(result_dict.items()))
 
 
 def _load_taxon_ranks(db_path: PathOrStr = DB_PATH):
