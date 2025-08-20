@@ -316,13 +316,17 @@ def _flatten_observation_lists(observations: Iterable[Dict]) -> List[ResponseRes
     * sounds
     """
 
+    def _flatten_annotation(a: Dict) -> Dict:
+        try:
+            return {a['controlled_attribute']['label']: a['controlled_value']['label']}
+        except KeyError:
+            return {str(a['controlled_attribute_id']): a['controlled_value_id']}
+
     def _flatten(obs: Dict):
-        # Reduce annotations to IDs and values
         obs = deepcopy(obs)
-        obs['annotations'] = [
-            {str(a['controlled_attribute_id']): a['controlled_value_id']}
-            for a in obs.get('annotations', [])
-        ]
+
+        # Reduce annotations to IDs and values; use labels if available, otherwise IDs
+        obs['annotations'] = [_flatten_annotation(a) for a in obs.get('annotations', [])]
 
         # Reduce identifications to identification IDs and taxon IDs
         obs['identifications'] = [
