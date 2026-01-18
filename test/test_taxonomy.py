@@ -5,8 +5,6 @@ from csv import DictReader
 from logging import getLogger
 from unittest.mock import patch
 
-from pytest_cov.embed import cleanup_on_sigterm
-
 from pyinaturalist_convert.dwca import load_dwca_taxa
 from pyinaturalist_convert.sqlite import load_table
 from pyinaturalist_convert.taxonomy import aggregate_taxon_db
@@ -15,7 +13,6 @@ from test.conftest import SAMPLE_DATA_DIR
 CSV_DIR = SAMPLE_DATA_DIR / 'inaturalist-taxonomy.dwca'
 
 logger = getLogger(__name__)
-cleanup_on_sigterm()
 
 
 @patch('pyinaturalist_convert.taxonomy.sleep')
