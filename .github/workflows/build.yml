@@ -8,7 +8,7 @@ on:
     branches: [main]
   workflow_dispatch:
 env:
-  LATEST_PY_VERSION: '3.14'
+  LATEST_PY_VERSION: '3.13'
 
 
 jobs:
@@ -29,12 +29,18 @@ jobs:
           cache-dependency-glob: uv.lock
       # HDF5 headers are required to compile pytables (no wheel yet released for python 3.14)
       - name: Install system dependencies
-        if: ${{ matrix.python-version >= '3.14' }}
+        if: ${{ matrix.python-version == '3.14' }}
         run: sudo apt-get update && sudo apt-get install -y libhdf5-dev
       - name: Install dependencies
         run: |
           uv python install ${{ matrix.python-version }}
-          uv sync --all-extras
+          # For pytables on python 3.14, use unreleased fixes from repo required for compilation
+          if [ "${{ matrix.python-version }}" = "3.14" ]; then
+            uv sync --all-extras --no-extra hdf
+            uv pip install "tables @ git+https://github.com/PyTables/PyTables.git@5582fe2d"
+          else
+            uv sync --all-extras
+          fi
 
       # Run tests with coverage report
       - name: Run tests
