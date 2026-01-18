@@ -8,7 +8,7 @@ on:
     branches: [main]
   workflow_dispatch:
 env:
-  LATEST_PY_VERSION: '3.13'
+  LATEST_PY_VERSION: '3.14'
 
 
 jobs:
@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.10', '3.11', '3.12', '3.13']
+        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
       fail-fast: false
 
     steps:
@@ -27,6 +27,10 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: uv.lock
+      # HDF5 headers are required to compile pytables (no wheel yet released for python 3.14)
+      - name: Install system dependencies
+        if: ${{ matrix.python-version >= '3.14' }}
+        run: sudo apt-get update && sudo apt-get install -y libhdf5-dev
       - name: Install dependencies
         run: |
           uv python install ${{ matrix.python-version }}
