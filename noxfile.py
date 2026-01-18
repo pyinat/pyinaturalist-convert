@@ -13,7 +13,10 @@ nox.options.reuse_existing_virtualenvs = True
 nox.options.sessions = ['lint', 'cov']
 
 CLEAN_DIRS = ['dist', 'build', join('docs', '_build')]
+LIVE_DOCS_PORT = 8181
+LIVE_DOCS_IGNORE = ['*.csv', '*.ipynb', '*.pyc', '*.tmp', '**/modules/*']
 DEFAULT_COVERAGE_FORMATS = ['html', 'term']
+DOC_BUILD_DIR = join('docs', '_build', 'html')
 
 
 def install_deps(session):
@@ -59,6 +62,25 @@ def docs(session):
     """Build Sphinx documentation"""
     cmd = 'sphinx-build docs docs/_build/html -j auto'
     session.run(*cmd.split(' '))
+
+
+@nox.session(python=False)
+def livedocs(session):
+    """Auto-build docs with live reload in browser.
+    Add `-- open` to also open the browser after starting.
+    """
+    cmd = ['sphinx-autobuild', 'docs', DOC_BUILD_DIR]
+    cmd += ['-a']
+    cmd += ['--host', '0.0.0.0']
+    cmd += ['--port', str(LIVE_DOCS_PORT), '-j', 'auto']
+    cmd += ['--watch', 'pyinaturalist_convert']
+    for pattern in LIVE_DOCS_IGNORE:
+        cmd += ['--ignore', pattern]
+    if session.posargs == ['open']:
+        cmd.append('--open-browser')
+
+    clean(session)
+    session.run(*cmd)
 
 
 @nox.session(python=False)
