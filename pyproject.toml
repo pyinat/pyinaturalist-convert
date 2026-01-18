@@ -1,6 +1,6 @@
 [project]
 name = 'pyinaturalist-convert'
-version = '0.7.2'
+version = '0.7.3'
 description = 'Data conversion tools for iNaturalist observations and taxonomy'
 authors = [
     { name = "Jordan Cook" }
@@ -65,12 +65,12 @@ dev = [
 
 # Documentation dependencies for Readthedocs builds
 docs = [
-    'furo~=2024.5',
-    'myst-parser>=1.0',
-    'sphinx~=6.2',
-    'sphinx-autodoc-typehints==1.20',
-    'sphinx-copybutton>=0.5',
-    'sphinx-design>=0.5',
+    'furo~=2025.12; python_version>="3.12"',
+    'myst-parser>=5.0; python_version>="3.12"',
+    'sphinx~=8.2; python_version>="3.12"',
+    'sphinx-autodoc-typehints>=2.0; python_version>="3.12"',
+    'sphinx-copybutton>=0.5; python_version>="3.12"',
+    'sphinx-design>=0.5; python_version>="3.12"',
 ]
 
 [build-system]
