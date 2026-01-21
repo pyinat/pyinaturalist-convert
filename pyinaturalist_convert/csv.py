@@ -105,7 +105,7 @@ logger = getLogger(__name__)
 
 # TODO: Use pandas if installed, otherwise fallback to tablib?
 def load_csv_exports(*file_paths: PathOrStr) -> 'DataFrame':
-    """Read one or more CSV files from ithe Nat export tool into a dataframe
+    """Read one or more CSV files from the Nat export tool into a dataframe
 
     Args:
         file_paths: One or more file paths or glob patterns to load

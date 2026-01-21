@@ -103,24 +103,24 @@ class DbObservation:
             annotations=_flatten_annotations(obs.annotations),
             captive=obs.captive,
             comments=_flatten_comments(obs.comments),
-            created_at=obs.created_at.isoformat() if obs.created_at else None,
+            created_at=obs.created_at.isoformat() if obs.created_at else None,  # type: ignore [arg-type]
             description=obs.description,
             geoprivacy=obs.geoprivacy,
             identifications=_flatten_identifications(obs.identifications),
             identifications_count=obs.identifications_count,
-            latitude=obs.location[0] if obs.location else None,
-            longitude=obs.location[1] if obs.location else None,
+            latitude=obs.location[0] if obs.location else None,  # type: ignore [arg-type]
+            longitude=obs.location[1] if obs.location else None,  # type: ignore [arg-type]
             license_code=obs.license_code,
-            observed_on=obs.observed_on.isoformat() if obs.observed_on else None,
+            observed_on=obs.observed_on.isoformat() if obs.observed_on else None,  # type: ignore [arg-type]
             ofvs=_flatten_ofvs(obs.ofvs),
             place_guess=obs.place_guess,
             place_ids=_join_list(obs.place_ids),
             positional_accuracy=obs.positional_accuracy,
             quality_grade=obs.quality_grade,
             tags=_join_list(obs.tags),
-            taxon_id=obs.taxon.id if obs.taxon else None,
-            updated_at=obs.updated_at.isoformat() if obs.updated_at else None,
-            user_id=obs.user.id if obs.user else None,
+            taxon_id=obs.taxon.id if obs.taxon else None,  # type: ignore [arg-type]
+            updated_at=obs.updated_at.isoformat() if obs.updated_at else None,  # type: ignore [arg-type]
+            user_id=obs.user.id if obs.user else None,  # type: ignore [arg-type]
             uuid=obs.uuid,
         )
 

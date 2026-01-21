@@ -141,7 +141,7 @@ def to_dicts(value: InputTypes) -> Iterable[Dict]:
     elif isinstance(value, Sequence):
         return value
     else:
-        return [value]
+        return [value]  # type: ignore [list-item]
 
 
 def to_csv(observations: AnyObservations, filename: Optional[str] = None):
@@ -260,9 +260,9 @@ def flatten_observations(
     """Flatten nested dict attributes, for example ``{"taxon": {"id": 1}} -> {"taxon.id": 1}``
 
     Args:
+        tabular: Drop all collections that can't be flattened (for CSV)
         semitabular: Accept one level of nested collections, for formats that can handle them
             (like parquet)
-        tabular: Drop all collections that can't be flattened (for CSV)
     """
     observations = to_dicts(observations)
     if tabular:
