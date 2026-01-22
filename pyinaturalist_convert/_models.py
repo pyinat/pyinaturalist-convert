@@ -274,17 +274,19 @@ class DbTaxon:
 @Base.mapped
 @dataclass
 class DbPhoto:
-    """Intermediate data model for persisting Photo metadata to a relational database"""
+    """Intermediate data model for persisting Photo data to a relational database"""
 
     __tablename__ = 'photo'
     __sa_dataclass_metadata_key__ = 'sa'
 
     id: int = sa_field(Integer, primary_key=True)
     extension: str = sa_field(String, default=None)
+    file_path: str = sa_field(String, default=None)  # current/last known local file path (if any)
     height: int = sa_field(Integer, default=None)
     license: str = sa_field(String, default=None)
     observation_id: int = sa_field(ForeignKey('observation.id'), default=None, index=True)
     observation_uuid: str = sa_field(ForeignKey('observation.uuid'), default=None, index=True)
+    original_filename: str = sa_field(String, default=None)  # name when originally uploaded to iNat
     position: int = sa_field(Integer, default=None)
     url: str = sa_field(String, default=None)
     user_id: int = sa_field(ForeignKey('user.id'), default=None)
@@ -297,9 +299,12 @@ class DbPhoto:
 
     @classmethod
     def from_model(cls, photo: Photo, **kwargs) -> 'DbPhoto':
+        extension = photo.original_filename.split('.')[-1] if photo.original_filename else None
         return cls(
             id=photo.id,
+            extension=extension,  # type: ignore [arg-type]
             license=photo.license_code,
+            original_filename=photo.original_filename,
             url=photo.url,
             uuid=photo.uuid,
             **kwargs,
@@ -310,6 +315,7 @@ class DbPhoto:
             id=self.id,
             license_code=self.license,
             observation_id=self.observation_id,
+            original_filename=self.original_filename,
             user_id=self.user_id,
             url=self.url,
             uuid=self.uuid,
