@@ -15,8 +15,8 @@ from DwC-A to SQLite.
     argument to use a different location.
 
 .. note::
-    As of 2024-06, this process will require about 105GB of free disk space while loading, and the
-    final database will be about 26GB.
+    As of 2026, this process will require about 200GB of free disk space while loading, and the
+    final database will be about 37GB.
 
 **Main functions:**
 
@@ -29,7 +29,6 @@ from DwC-A to SQLite.
 """
 
 # TODO: Lookup and replace user_login with user_id
-# TODO: Translate DwC lifeStage and sex to iNat annotations
 import sqlite3
 import subprocess
 from logging import getLogger
