@@ -212,14 +212,17 @@ class TestChildIds:
 class TestIconicTaxonId:
     """Tests for iconic_taxon_id assignment."""
 
-    def test_iconic_taxon_propagation(self, db_path, common_names_path, tmp_path):
-        """Test that iconic_taxon_id is correctly propagated from ancestors."""
+    @pytest.fixture
+    def iconic_results(self, db_path, common_names_path, tmp_path):
+        """Run aggregation on iconic taxa tree and return results."""
         taxonomy = generate_tree_with_iconic_taxa()
-
         _load_synthetic_to_db(taxonomy, db_path)
         aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
+        return _get_results(db_path), taxonomy
 
-        results = _get_results(db_path)
+    def test_iconic_taxon_propagation(self, iconic_results):
+        """Test that iconic_taxon_id is correctly propagated from ancestors."""
+        results, taxonomy = iconic_results
 
         for node in taxonomy.nodes.values():
             actual = results[node.id]['iconic_taxon_id']
@@ -228,14 +231,9 @@ class TestIconicTaxonId:
                 f'Taxon {node.id} ({node.name}): expected iconic={expected}, got {actual}'
             )
 
-    def test_nested_iconic_taxa(self, db_path, common_names_path, tmp_path):
+    def test_nested_iconic_taxa(self, iconic_results):
         """Test that nested iconic taxa use the most specific (deepest) iconic ancestor."""
-        taxonomy = generate_tree_with_iconic_taxa()
-
-        _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
-
-        results = _get_results(db_path)
+        results, _ = iconic_results
 
         # Aves (id=3) is under Animalia (id=1), both are iconic
         # Aves should have iconic_taxon_id=3 (itself), not 1 (parent)
@@ -245,14 +243,9 @@ class TestIconicTaxonId:
         assert results[100]['iconic_taxon_id'] == 3, 'Bird species should use Aves as iconic taxon'
         assert results[101]['iconic_taxon_id'] == 3, 'Bird species should use Aves as iconic taxon'
 
-    def test_non_iconic_inherits_from_ancestor(self, db_path, common_names_path, tmp_path):
+    def test_non_iconic_inherits_from_ancestor(self, iconic_results):
         """Test that non-iconic taxa inherit iconic_taxon_id from nearest iconic ancestor."""
-        taxonomy = generate_tree_with_iconic_taxa()
-
-        _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
-
-        results = _get_results(db_path)
+        results, _ = iconic_results
 
         # NonIconicClass (id=50) is under Animalia (id=1)
         # It should inherit iconic_taxon_id=1 from Animalia
@@ -263,14 +256,9 @@ class TestIconicTaxonId:
             'Species under non-iconic class should inherit from Animalia'
         )
 
-    def test_no_iconic_ancestor(self, db_path, common_names_path, tmp_path):
+    def test_no_iconic_ancestor(self, iconic_results):
         """Test that taxa with no iconic ancestors have iconic_taxon_id=None."""
-        taxonomy = generate_tree_with_iconic_taxa()
-
-        _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
-
-        results = _get_results(db_path)
+        results, _ = iconic_results
 
         # Bacteria (id=200) and its descendants have no iconic ancestors
         assert results[200]['iconic_taxon_id'] is None, 'Bacteria should have no iconic taxon'
@@ -278,14 +266,9 @@ class TestIconicTaxonId:
             'Bacteria species should have no iconic taxon'
         )
 
-    def test_root_has_no_iconic_taxon(self, db_path, common_names_path, tmp_path):
+    def test_root_has_no_iconic_taxon(self, iconic_results):
         """Test that root taxon has no iconic_taxon_id."""
-        taxonomy = generate_tree_with_iconic_taxa()
-
-        _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
-
-        results = _get_results(db_path)
+        results, taxonomy = iconic_results
 
         root_id = taxonomy.root_id
         assert results[root_id]['iconic_taxon_id'] is None, 'Root should have no iconic taxon'
@@ -394,3 +377,49 @@ class TestTreeVariants:
             assert actual_leaf == expected_leaf, (
                 f'Taxon {node.id}: expected leaf_count={expected_leaf}, got {actual_leaf}'
             )
+
+
+class TestProgressCallback:
+    """Tests for progress callback functionality."""
+
+    def test_progress_callback_called(self, db_path, common_names_path, tmp_path):
+        """Test that progress callback is called during aggregation."""
+        taxonomy = generate_synthetic_taxonomy(depth=3, branching_factor=2, seed=42)
+
+        _load_synthetic_to_db(taxonomy, db_path)
+
+        progress_calls = []
+
+        def track_progress(step_name: str, current: int, total: int):
+            progress_calls.append((step_name, current, total))
+
+        aggregate_taxon_db(
+            db_path,
+            tmp_path / 'backup.parquet',
+            common_names_path,
+            progress_callback=track_progress,
+        )
+
+        # Should have calls for computing ancestors, loading counts, and aggregating levels
+        assert len(progress_calls) > 0, 'Progress callback should be called'
+
+        step_names = {call[0] for call in progress_calls}
+        assert 'Computing ancestors' in step_names
+        assert 'Loading observation counts' in step_names
+        assert 'Aggregating levels' in step_names
+
+    def test_progress_callback_none(self, db_path, common_names_path, tmp_path):
+        """Test that aggregation works with no progress callback."""
+        taxonomy = generate_synthetic_taxonomy(depth=2, branching_factor=2, seed=42)
+
+        _load_synthetic_to_db(taxonomy, db_path)
+
+        # Should not raise an error
+        result = aggregate_taxon_db(
+            db_path,
+            tmp_path / 'backup.parquet',
+            common_names_path,
+            progress_callback=None,
+        )
+
+        assert len(result) == len(taxonomy.nodes)

@@ -113,6 +113,7 @@ def generate_taxonomy_for_size(target_size: int, seed: int = 42) -> SyntheticTax
         else:
             break
 
+    assert best_taxonomy is not None  # Loop always runs at least once
     return best_taxonomy
 
 

@@ -11,7 +11,10 @@ Generates tree structures with configurable properties:
 from dataclasses import dataclass, field
 from pathlib import Path
 from random import Random
-from typing import Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+
+if TYPE_CHECKING:
+    from pandas import DataFrame
 
 # Standard taxonomic ranks in order from root to leaf
 RANKS = [
