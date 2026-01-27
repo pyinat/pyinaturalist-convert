@@ -48,73 +48,70 @@ PRECOMPUTED_COLUMNS = [
     'leaf_taxa_count',
     'preferred_common_name',
 ]
+PARALLEL_THRESHOLD = 10000  # Partition size over which parallelization should be used
+CHUNK_SIZE = 2000  # Chunk size per parallel worker
 
 logger = getLogger(__name__)
 
-# Parallelization settings
-PARALLEL_THRESHOLD = 10000  # Minimum taxa at a level to use parallel processing
-CHUNK_SIZE = 2000  # Taxa per chunk for parallel processing
-
-# Type alias for progress callback: callback(step_name, current, total)
 ProgressCallback = Callable[[str, int, int], None]
 
 
-def _process_taxa_chunk(args: tuple) -> list:
-    """Worker function to process a chunk of taxa in parallel.
+def aggregate_taxon_db_with_progress(
+    db_path: PathOrStr = DB_PATH,
+    backup_path: PathOrStr = TAXON_AGGREGATES_PATH,
+    common_names_path: PathOrStr = DEFAULT_LANG_CSV,
+    max_workers: Optional[int] = None,
+) -> 'DataFrame':
+    """Run taxonomy aggregation with rich progress display.
 
-    Must be at module level for pickling.
+    This wrapper runs aggregation with visual progress bars showing:
+    - Overall progress across levels
+    - Per-level progress for parallel processing
+    - Log messages from workers
+
+    Uses multiprocessing queues so parallel workers can report their progress.
 
     Args:
-        args: Tuple of (chunk_data, iconic_taxa_set, task_name, progress_queue) where:
-              - chunk_data is a list of (taxon_id, child_ids, own_obs, child_obs_sum,
-                child_leaf_sum, ancestor_str)
-              - iconic_taxa_set is the set of iconic taxon IDs
-              - task_name is the name of the task for progress reporting (e.g., "Level 6")
-              - progress_queue is optional queue for progress updates
+        db_path: Path to SQLite database
+        backup_path: Path to save a minimal copy of aggregate values
+        common_names_path: Path to a CSV file containing taxon common names
+        max_workers: Max worker processes for parallel aggregation
 
     Returns:
-        List of (taxon_id, total_obs, leaf_count, child_ids_str, iconic_taxon_id)
+        DataFrame with aggregated taxonomy data
     """
-    chunk_data, iconic_taxa_set, task_name, progress_queue = args
-    results = []
-    total = len(chunk_data)
-    report_interval = max(1, total // 10)  # Report ~10 times per chunk
+    # Create progress queues
+    queues = ProgressQueues()
 
-    for i, (taxon_id, child_ids, own_obs, child_obs_sum, child_leaf_sum, ancestor_str) in enumerate(
-        chunk_data
-    ):
-        # Compute aggregates
-        if child_ids:
-            child_ids_str = ','.join(map(str, child_ids))
-            total_obs = own_obs + child_obs_sum
-            leaf_count = child_leaf_sum
-        else:
-            child_ids_str = None
-            total_obs = own_obs
-            leaf_count = 1
+    # Estimate total work (will be refined once we know the tree depth)
+    queues.start(total=100)
 
-        # Compute iconic_taxon_id
-        iconic_taxon_id = None
-        if isinstance(ancestor_str, str):
-            ancestor_ids = [int(x) for x in ancestor_str.split(',')] + [taxon_id]
-            for ancestor_id in reversed(ancestor_ids):
-                if ancestor_id in iconic_taxa_set:
-                    iconic_taxon_id = ancestor_id
-                    break
+    try:
+        # Create a callback that uses the queues for main-process progress
+        current_task: Dict[str, Optional[str]] = {'name': None}
 
-        results.append((taxon_id, total_obs, leaf_count, child_ids_str, iconic_taxon_id))
+        def progress_callback(step_name: str, current: int, total: int) -> None:
+            """Update progress via queues."""
+            if step_name != current_task['name']:
+                current_task['name'] = step_name
+                queues.start_task(step_name, total, step_name)
+            if current > 0:
+                queues.advance(step_name, 1)
 
-        # Report progress periodically
-        if progress_queue is not None and (i + 1) % report_interval == 0:
-            progress_queue.put((task_name, report_interval))
+        # Pass queues so parallel workers can report progress directly
+        result = aggregate_taxon_db(
+            db_path=db_path,
+            backup_path=backup_path,
+            common_names_path=common_names_path,
+            progress_callback=progress_callback,
+            max_workers=max_workers,
+            progress_queue=queues.progress_queue,
+            task_queue=queues.task_queue,
+        )
+    finally:
+        queues.stop()
 
-    # Report any remaining progress
-    if progress_queue is not None:
-        remaining = total % report_interval
-        if remaining > 0:
-            progress_queue.put((task_name, remaining))
-
-    return results
+    return result
 
 
 def aggregate_taxon_db(
@@ -532,6 +529,64 @@ def _aggregate_level_parallel(
     return df
 
 
+def _process_taxa_chunk(args: tuple) -> list:
+    """Worker function to process a chunk of taxa in parallel.
+
+    Must be at module level for pickling.
+
+    Args:
+        args: Tuple of (chunk_data, iconic_taxa_set, task_name, progress_queue) where:
+              - chunk_data is a list of (taxon_id, child_ids, own_obs, child_obs_sum,
+                child_leaf_sum, ancestor_str)
+              - iconic_taxa_set is the set of iconic taxon IDs
+              - task_name is the name of the task for progress reporting (e.g., "Level 6")
+              - progress_queue is optional queue for progress updates
+
+    Returns:
+        List of (taxon_id, total_obs, leaf_count, child_ids_str, iconic_taxon_id)
+    """
+    chunk_data, iconic_taxa_set, task_name, progress_queue = args
+    results = []
+    total = len(chunk_data)
+    report_interval = max(1, total // 10)  # Report ~10 times per chunk
+
+    for i, (taxon_id, child_ids, own_obs, child_obs_sum, child_leaf_sum, ancestor_str) in enumerate(
+        chunk_data
+    ):
+        # Compute aggregates
+        if child_ids:
+            child_ids_str = ','.join(map(str, child_ids))
+            total_obs = own_obs + child_obs_sum
+            leaf_count = child_leaf_sum
+        else:
+            child_ids_str = None
+            total_obs = own_obs
+            leaf_count = 1
+
+        # Compute iconic_taxon_id
+        iconic_taxon_id = None
+        if isinstance(ancestor_str, str):
+            ancestor_ids = [int(x) for x in ancestor_str.split(',')] + [taxon_id]
+            for ancestor_id in reversed(ancestor_ids):
+                if ancestor_id in iconic_taxa_set:
+                    iconic_taxon_id = ancestor_id
+                    break
+
+        results.append((taxon_id, total_obs, leaf_count, child_ids_str, iconic_taxon_id))
+
+        # Report progress periodically
+        if progress_queue is not None and (i + 1) % report_interval == 0:
+            progress_queue.put((task_name, report_interval))
+
+    # Report any remaining progress
+    if progress_queue is not None:
+        remaining = total % report_interval
+        if remaining > 0:
+            progress_queue.put((task_name, remaining))
+
+    return results
+
+
 def _get_iconic_taxon_id(taxon_id: int, ancestor_ids_str: Optional[str]) -> Optional[int]:
     """Get the most specific iconic taxon for a given taxon"""
     # Check ancestors + self in reverse order (most specific first)
@@ -556,8 +611,8 @@ class ProgressQueues:
     def start(self, total: int):
         """Start the progress display process."""
         self._progress_proc = Process(
-            target=_update_progress,
-            args=(self.progress_queue, self.task_queue, self.log_queue, total),
+            target=self._update_progress,
+            args=(total,),
         )
         self._progress_proc.start()
 
@@ -583,122 +638,58 @@ class ProgressQueues:
         """Advance progress for a task."""
         self.progress_queue.put((name, amount))
 
+    def _update_progress(self, total: int):
+        """Pull from multiprocessing queues and update progress display.
 
-def _update_progress(
-    progress_queue: MPQueue,
-    task_queue: MPQueue,
-    log_queue: MPQueue,
-    total: int,
-):  # pragma: no cover
-    """Pull from multiprocessing queues and update progress display.
+        Runs in a separate process to handle progress updates from parallel workers.
 
-    Runs in a separate process to handle progress updates from parallel workers.
+        Args:
+            progress_queue: Queue for (task_name, n_completed) progress updates
+            task_queue: Queue for (task_name, task_desc, total) new tasks, or None to stop
+            log_queue: Queue for log messages to display
+            total: Total for the overall progress bar
+        """
+        progress = ParallelMultiProgress(total=total)
+        pending: List[Tuple[str, int]] = []
+        refresh_rate = 10  # ticks per second
 
-    Args:
-        progress_queue: Queue for (task_name, n_completed) progress updates
-        task_queue: Queue for (task_name, task_desc, total) new tasks, or None to stop
-        log_queue: Queue for log messages to display
-        total: Total for the overall progress bar
-    """
-    progress = ParallelMultiProgress(total=total)
-    pending: List[Tuple[str, int]] = []
-    refresh_rate = 10  # ticks per second
+        with progress:
+            while True:
+                # Show any log messages
+                while not self.log_queue.empty():
+                    try:
+                        msg = self.log_queue.get_nowait()
+                        progress.log(msg)
+                    except Exception:
+                        break
 
-    with progress:
-        while True:
-            # Show any log messages
-            while not log_queue.empty():
-                try:
-                    msg = log_queue.get_nowait()
-                    progress.log(msg)
-                except Exception:
-                    break
+                # Check for new tasks or stop signal
+                while not self.task_queue.empty():
+                    try:
+                        item = self.task_queue.get_nowait()
+                        if item is None:
+                            # Stop signal received
+                            return
+                        task_name, task_desc, task_total = item
+                        progress.start_job(task_name, task_total, task_desc)
+                    except Exception:
+                        break
 
-            # Check for new tasks or stop signal
-            while not task_queue.empty():
-                try:
-                    item = task_queue.get_nowait()
-                    if item is None:
-                        # Stop signal received
-                        return
-                    task_name, task_desc, task_total = item
-                    progress.start_job(task_name, task_total, task_desc)
-                except Exception:
-                    break
+                # Collect progress updates
+                while not self.progress_queue.empty():
+                    try:
+                        pending.append(self.progress_queue.get_nowait())
+                    except Exception:
+                        break
 
-            # Collect progress updates
-            while not progress_queue.empty():
-                try:
-                    pending.append(progress_queue.get_nowait())
-                except Exception:
-                    break
+                # Apply progress updates
+                completed = pending.copy()
+                pending = []
+                for task_name, n_completed in completed:
+                    if task_name in progress.job_names:
+                        progress.advance(task_name, n_completed)
+                    else:
+                        # Task not registered yet; retry next iteration
+                        pending.append((task_name, n_completed))
 
-            # Apply progress updates
-            completed = pending.copy()
-            pending = []
-            for task_name, n_completed in completed:
-                if task_name in progress.job_names:
-                    progress.advance(task_name, n_completed)
-                else:
-                    # Task not registered yet; retry next iteration
-                    pending.append((task_name, n_completed))
-
-            sleep(1 / refresh_rate)
-
-
-def aggregate_taxon_db_with_progress(
-    db_path: PathOrStr = DB_PATH,
-    backup_path: PathOrStr = TAXON_AGGREGATES_PATH,
-    common_names_path: PathOrStr = DEFAULT_LANG_CSV,
-    max_workers: Optional[int] = None,
-) -> 'DataFrame':
-    """Run taxonomy aggregation with rich progress display.
-
-    This wrapper runs aggregation with visual progress bars showing:
-    - Overall progress across levels
-    - Per-level progress for parallel processing
-    - Log messages from workers
-
-    Uses multiprocessing queues so parallel workers can report their progress.
-
-    Args:
-        db_path: Path to SQLite database
-        backup_path: Path to save a minimal copy of aggregate values
-        common_names_path: Path to a CSV file containing taxon common names
-        max_workers: Max worker processes for parallel aggregation
-
-    Returns:
-        DataFrame with aggregated taxonomy data
-    """
-    # Create progress queues
-    queues = ProgressQueues()
-
-    # Estimate total work (will be refined once we know the tree depth)
-    queues.start(total=100)
-
-    try:
-        # Create a callback that uses the queues for main-process progress
-        current_task: Dict[str, Optional[str]] = {'name': None}
-
-        def progress_callback(step_name: str, current: int, total: int) -> None:
-            """Update progress via queues."""
-            if step_name != current_task['name']:
-                current_task['name'] = step_name
-                queues.start_task(step_name, total, step_name)
-            if current > 0:
-                queues.advance(step_name, 1)
-
-        # Pass queues so parallel workers can report progress directly
-        result = aggregate_taxon_db(
-            db_path=db_path,
-            backup_path=backup_path,
-            common_names_path=common_names_path,
-            progress_callback=progress_callback,
-            max_workers=max_workers,
-            progress_queue=queues.progress_queue,
-            task_queue=queues.task_queue,
-        )
-    finally:
-        queues.stop()
-
-    return result
+                sleep(1 / refresh_rate)
