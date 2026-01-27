@@ -3,7 +3,7 @@
 Benchmark harness for taxonomy aggregation performance.
 
 Usage:
-    python -m test.benchmark_taxonomy [--sizes 100,1000,10000] [--implementations old,new]
+    python -m test.benchmark_taxonomy [--sizes 100,1000,10000]
 
 Measures:
     - Wall-clock time for full aggregation
@@ -18,16 +18,14 @@ import gc
 import sqlite3
 import sys
 import tracemalloc
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from time import perf_counter
-from typing import Callable, List, Optional
-from unittest.mock import patch
+from typing import List
 
 from pyinaturalist_convert.db import create_tables
-from pyinaturalist_convert.taxonomy import aggregate_taxon_db, aggregate_taxon_db_v2
+from pyinaturalist_convert.taxonomy import aggregate_taxon_db
 from test.synthetic_taxonomy import (
     SyntheticTaxonomy,
     generate_synthetic_taxonomy,
@@ -38,7 +36,6 @@ from test.synthetic_taxonomy import (
 class BenchmarkResult:
     """Results from a single benchmark run."""
 
-    implementation: str
     num_taxa: int
     wall_time_seconds: float
     peak_memory_mb: float
@@ -46,7 +43,7 @@ class BenchmarkResult:
 
     def __str__(self) -> str:
         return (
-            f'{self.implementation:12} | {self.num_taxa:>8} taxa | '
+            f'{self.num_taxa:>8} taxa | '
             f'{self.wall_time_seconds:>8.3f}s | '
             f'{self.peak_memory_mb:>8.1f} MB | '
             f'{self.time_per_taxon_us:>8.1f} µs/taxon'
@@ -119,17 +116,9 @@ def generate_taxonomy_for_size(target_size: int, seed: int = 42) -> SyntheticTax
     return best_taxonomy
 
 
-def run_benchmark(
-    taxonomy: SyntheticTaxonomy,
-    implementation: str = 'current',
-    aggregate_func: Optional[Callable] = None,
-) -> BenchmarkResult:
+def run_benchmark(taxonomy: SyntheticTaxonomy) -> BenchmarkResult:
     """Run a single benchmark iteration."""
-    if aggregate_func is None:
-        aggregate_func = aggregate_taxon_db
-
     num_taxa = len(taxonomy.nodes)
-    is_v2 = implementation in ('new', 'v2')
 
     with TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
@@ -149,19 +138,7 @@ def run_benchmark(
 
         # Time the aggregation
         start_time = perf_counter()
-
-        if is_v2:
-            # v2 doesn't use ProcessPoolExecutor
-            aggregate_func(db_path, backup_path, common_names_path)
-        else:
-            # Patch ProcessPoolExecutor to ThreadPoolExecutor for more consistent timing
-            # (avoids process startup overhead in benchmarks)
-            with (
-                patch('pyinaturalist_convert.taxonomy.ProcessPoolExecutor', ThreadPoolExecutor),
-                patch('pyinaturalist_convert.taxonomy.sleep'),
-            ):
-                aggregate_func(db_path, backup_path, common_names_path, progress_bars=False)
-
+        aggregate_taxon_db(db_path, backup_path, common_names_path)
         end_time = perf_counter()
 
         # Get peak memory
@@ -173,7 +150,6 @@ def run_benchmark(
         time_per_taxon_us = (wall_time / num_taxa) * 1_000_000
 
         return BenchmarkResult(
-            implementation=implementation,
             num_taxa=num_taxa,
             wall_time_seconds=wall_time,
             peak_memory_mb=peak_memory_mb,
@@ -181,12 +157,8 @@ def run_benchmark(
         )
 
 
-def run_benchmarks(
-    sizes: List[int],
-    implementations: List[str],
-    num_iterations: int = 3,
-) -> List[BenchmarkResult]:
-    """Run benchmarks for all sizes and implementations."""
+def run_benchmarks(sizes: List[int], num_iterations: int = 3) -> List[BenchmarkResult]:
+    """Run benchmarks for all sizes."""
     results = []
 
     for size in sizes:
@@ -195,46 +167,34 @@ def run_benchmarks(
         actual_size = len(taxonomy.nodes)
         print(f'  Actual size: {actual_size} taxa', file=sys.stderr)
 
-        for impl in implementations:
-            print(f'  Benchmarking {impl}...', file=sys.stderr)
+        print('  Benchmarking...', file=sys.stderr)
 
-            # Get the appropriate function
-            if impl == 'current' or impl == 'v1':
-                func = aggregate_taxon_db
-            elif impl == 'new' or impl == 'v2':
-                func = aggregate_taxon_db_v2
-            else:
-                print(f'    Unknown implementation: {impl}', file=sys.stderr)
-                continue
+        # Run multiple iterations and take the best (least affected by noise)
+        best_result = None
+        for i in range(num_iterations):
+            result = run_benchmark(taxonomy)
+            if best_result is None or result.wall_time_seconds < best_result.wall_time_seconds:
+                best_result = result
+            print(f'    Iteration {i + 1}: {result.wall_time_seconds:.3f}s', file=sys.stderr)
 
-            # Run multiple iterations and take the best (least affected by noise)
-            best_result = None
-            for i in range(num_iterations):
-                result = run_benchmark(taxonomy, impl, func)
-                if best_result is None or result.wall_time_seconds < best_result.wall_time_seconds:
-                    best_result = result
-                print(f'    Iteration {i + 1}: {result.wall_time_seconds:.3f}s', file=sys.stderr)
-
-            if best_result:
-                results.append(best_result)
+        if best_result:
+            results.append(best_result)
 
     return results
 
 
 def print_results(results: List[BenchmarkResult]) -> None:
     """Print benchmark results as a formatted table."""
-    print('\n' + '=' * 80)
+    print('\n' + '=' * 60)
     print('BENCHMARK RESULTS')
-    print('=' * 80)
-    print(
-        f'{"Implementation":12} | {"Size":>12} | {"Time":>10} | {"Memory":>10} | {"Per Taxon":>14}'
-    )
-    print('-' * 80)
+    print('=' * 60)
+    print(f'{"Size":>12} | {"Time":>10} | {"Memory":>10} | {"Per Taxon":>14}')
+    print('-' * 60)
 
     for result in results:
         print(result)
 
-    print('=' * 80)
+    print('=' * 60)
 
 
 def main():
@@ -246,12 +206,6 @@ def main():
         help='Comma-separated list of target taxonomy sizes',
     )
     parser.add_argument(
-        '--implementations',
-        type=str,
-        default='current',
-        help='Comma-separated list of implementations to benchmark (current, new)',
-    )
-    parser.add_argument(
         '--iterations',
         type=int,
         default=3,
@@ -261,13 +215,11 @@ def main():
     args = parser.parse_args()
 
     sizes = [int(s.strip()) for s in args.sizes.split(',')]
-    implementations = [s.strip() for s in args.implementations.split(',')]
 
     print(f'Benchmarking sizes: {sizes}')
-    print(f'Implementations: {implementations}')
     print(f'Iterations per benchmark: {args.iterations}')
 
-    results = run_benchmarks(sizes, implementations, args.iterations)
+    results = run_benchmarks(sizes, args.iterations)
     print_results(results)
 
 

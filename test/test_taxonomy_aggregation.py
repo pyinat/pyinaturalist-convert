@@ -4,20 +4,18 @@ Unit tests for taxonomy aggregation correctness using synthetic datasets.
 Tests verify that aggregate_taxon_db correctly computes:
 - ancestor_ids: path from root to each taxon
 - child_ids: direct children of each taxon
-- iconic_taxon_id: first iconic taxon in ancestry
+- iconic_taxon_id: most specific iconic taxon in ancestry
 - observations_count_rg: sum of observations in subtree
 - leaf_taxa_count: count of leaf taxa in subtree
 """
 
 import sqlite3
-from concurrent.futures import ThreadPoolExecutor
 from typing import Dict
-from unittest.mock import patch
 
 import pytest
 
 from pyinaturalist_convert.db import create_tables
-from pyinaturalist_convert.taxonomy import aggregate_taxon_db, aggregate_taxon_db_v2
+from pyinaturalist_convert.taxonomy import aggregate_taxon_db
 from test.synthetic_taxonomy import (
     SyntheticTaxonomy,
     generate_imbalanced_tree,
@@ -97,78 +95,44 @@ def common_names_path(tmp_path):
 class TestObservationCountAggregation:
     """Tests for observations_count_rg aggregation."""
 
-    @patch('pyinaturalist_convert.taxonomy.sleep')
-    @patch('pyinaturalist_convert.taxonomy.ProcessPoolExecutor', ThreadPoolExecutor)
-    def test_simple_tree(self, mock_sleep, db_path, common_names_path, tmp_path):
+    def test_simple_tree(self, db_path, common_names_path, tmp_path):
         """Test observation count aggregation on a simple balanced tree."""
         taxonomy = generate_synthetic_taxonomy(
             depth=3,
             branching_factor=2,
-            observation_count_range=(1, 1),  # 1 observation per taxon
+            observation_count_range=(1, 1),
             seed=42,
         )
 
         _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path, use_legacy=True)
+        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
 
         results = _get_results(db_path)
 
         for node in taxonomy.nodes.values():
-            actual = results[node.id]['observations_count_rg']
-            expected = node.expected_obs_count
-            assert actual == expected, (
-                f'Taxon {node.id} ({node.name}): expected obs_count={expected}, got {actual}'
+            actual_obs = results[node.id]['observations_count_rg']
+            expected_obs = node.expected_obs_count
+            assert actual_obs == expected_obs, (
+                f'Taxon {node.id}: expected obs_count={expected_obs}, got {actual_obs}'
             )
 
-    @patch('pyinaturalist_convert.taxonomy.sleep')
-    @patch('pyinaturalist_convert.taxonomy.ProcessPoolExecutor', ThreadPoolExecutor)
-    def test_linear_chain(self, mock_sleep, db_path, common_names_path, tmp_path):
-        """Test aggregation on a linear chain (each node has one child)."""
-        taxonomy = generate_linear_chain(length=5, seed=42)
-
-        _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path, use_legacy=True)
-
-        results = _get_results(db_path)
-
-        for node in taxonomy.nodes.values():
-            actual = results[node.id]['observations_count_rg']
-            expected = node.expected_obs_count
-            assert actual == expected, (
-                f'Taxon {node.id}: expected obs_count={expected}, got {actual}'
+            actual_leaf = results[node.id]['leaf_taxa_count']
+            expected_leaf = node.expected_leaf_count
+            assert actual_leaf == expected_leaf, (
+                f'Taxon {node.id}: expected leaf_count={expected_leaf}, got {actual_leaf}'
             )
 
-    @patch('pyinaturalist_convert.taxonomy.sleep')
-    @patch('pyinaturalist_convert.taxonomy.ProcessPoolExecutor', ThreadPoolExecutor)
-    def test_wide_shallow_tree(self, mock_sleep, db_path, common_names_path, tmp_path):
-        """Test aggregation on a wide, shallow tree."""
-        taxonomy = generate_wide_shallow_tree(width=10, depth=2, seed=42)
-
-        _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path, use_legacy=True)
-
-        results = _get_results(db_path)
-
-        for node in taxonomy.nodes.values():
-            actual = results[node.id]['observations_count_rg']
-            expected = node.expected_obs_count
-            assert actual == expected, (
-                f'Taxon {node.id}: expected obs_count={expected}, got {actual}'
-            )
-
-    @patch('pyinaturalist_convert.taxonomy.sleep')
-    @patch('pyinaturalist_convert.taxonomy.ProcessPoolExecutor', ThreadPoolExecutor)
-    def test_zero_observations(self, mock_sleep, db_path, common_names_path, tmp_path):
+    def test_zero_observations(self, db_path, common_names_path, tmp_path):
         """Test that taxa with no observations still aggregate correctly."""
         taxonomy = generate_synthetic_taxonomy(
             depth=3,
             branching_factor=2,
-            observation_count_range=(0, 0),  # No observations
+            observation_count_range=(0, 0),
             seed=42,
         )
 
         _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path, use_legacy=True)
+        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
 
         results = _get_results(db_path)
 
@@ -177,78 +141,15 @@ class TestObservationCountAggregation:
             assert actual == 0, f'Taxon {node.id}: expected 0 observations, got {actual}'
 
 
-class TestLeafTaxaCountAggregation:
-    """Tests for leaf_taxa_count aggregation."""
-
-    @patch('pyinaturalist_convert.taxonomy.sleep')
-    @patch('pyinaturalist_convert.taxonomy.ProcessPoolExecutor', ThreadPoolExecutor)
-    def test_simple_tree(self, mock_sleep, db_path, common_names_path, tmp_path):
-        """Test leaf count aggregation on a simple balanced tree."""
-        taxonomy = generate_synthetic_taxonomy(depth=3, branching_factor=2, seed=42)
-
-        _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path, use_legacy=True)
-
-        results = _get_results(db_path)
-
-        for node in taxonomy.nodes.values():
-            actual = results[node.id]['leaf_taxa_count']
-            expected = node.expected_leaf_count
-            assert actual == expected, (
-                f'Taxon {node.id} ({node.name}): expected leaf_count={expected}, got {actual}'
-            )
-
-    @patch('pyinaturalist_convert.taxonomy.sleep')
-    @patch('pyinaturalist_convert.taxonomy.ProcessPoolExecutor', ThreadPoolExecutor)
-    def test_mid_tree_leaves(self, mock_sleep, db_path, common_names_path, tmp_path):
-        """Test leaf count with mid-tree leaves (genera with no species)."""
-        taxonomy = generate_tree_with_mid_leaves(
-            depth=4,
-            branching_factor=3,
-            leaf_probability=0.3,
-            seed=42,
-        )
-
-        _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path, use_legacy=True)
-
-        results = _get_results(db_path)
-
-        for node in taxonomy.nodes.values():
-            actual = results[node.id]['leaf_taxa_count']
-            expected = node.expected_leaf_count
-            assert actual == expected, (
-                f'Taxon {node.id} ({node.name}, rank={node.rank}): '
-                f'expected leaf_count={expected}, got {actual}'
-            )
-
-    @pytest.mark.xfail(reason='Current implementation bug: single root node not processed as leaf')
-    @patch('pyinaturalist_convert.taxonomy.sleep')
-    @patch('pyinaturalist_convert.taxonomy.ProcessPoolExecutor', ThreadPoolExecutor)
-    def test_single_node(self, mock_sleep, db_path, common_names_path, tmp_path):
-        """Test that a single root node counts as 1 leaf."""
-        taxonomy = generate_synthetic_taxonomy(depth=0, branching_factor=0, seed=42)
-
-        _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path, use_legacy=True)
-
-        results = _get_results(db_path)
-        root_id = taxonomy.root_id
-
-        assert results[root_id]['leaf_taxa_count'] == 1
-
-
 class TestAncestorIds:
     """Tests for ancestor_ids computation."""
 
-    @patch('pyinaturalist_convert.taxonomy.sleep')
-    @patch('pyinaturalist_convert.taxonomy.ProcessPoolExecutor', ThreadPoolExecutor)
-    def test_ancestor_path(self, mock_sleep, db_path, common_names_path, tmp_path):
+    def test_ancestor_path(self, db_path, common_names_path, tmp_path):
         """Test that ancestor_ids contains correct path from root."""
         taxonomy = generate_linear_chain(length=5, seed=42)
 
         _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path, use_legacy=True)
+        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
 
         results = _get_results(db_path)
 
@@ -259,14 +160,12 @@ class TestAncestorIds:
                 f'Taxon {node.id}: expected ancestors={expected}, got {actual}'
             )
 
-    @patch('pyinaturalist_convert.taxonomy.sleep')
-    @patch('pyinaturalist_convert.taxonomy.ProcessPoolExecutor', ThreadPoolExecutor)
-    def test_root_has_no_ancestors(self, mock_sleep, db_path, common_names_path, tmp_path):
+    def test_root_has_no_ancestors(self, db_path, common_names_path, tmp_path):
         """Test that root taxon has empty ancestor_ids."""
         taxonomy = generate_synthetic_taxonomy(depth=2, branching_factor=2, seed=42)
 
         _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path, use_legacy=True)
+        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
 
         results = _get_results(db_path)
         root_id = taxonomy.root_id
@@ -278,14 +177,12 @@ class TestAncestorIds:
 class TestChildIds:
     """Tests for child_ids computation."""
 
-    @patch('pyinaturalist_convert.taxonomy.sleep')
-    @patch('pyinaturalist_convert.taxonomy.ProcessPoolExecutor', ThreadPoolExecutor)
-    def test_child_ids(self, mock_sleep, db_path, common_names_path, tmp_path):
+    def test_child_ids(self, db_path, common_names_path, tmp_path):
         """Test that child_ids contains direct children."""
         taxonomy = generate_synthetic_taxonomy(depth=3, branching_factor=2, seed=42)
 
         _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path, use_legacy=True)
+        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
 
         results = _get_results(db_path)
 
@@ -296,18 +193,15 @@ class TestChildIds:
                 f'Taxon {node.id}: expected children={expected}, got {actual}'
             )
 
-    @patch('pyinaturalist_convert.taxonomy.sleep')
-    @patch('pyinaturalist_convert.taxonomy.ProcessPoolExecutor', ThreadPoolExecutor)
-    def test_leaf_has_no_children(self, mock_sleep, db_path, common_names_path, tmp_path):
+    def test_leaf_has_no_children(self, db_path, common_names_path, tmp_path):
         """Test that leaf taxa have empty child_ids."""
         taxonomy = generate_synthetic_taxonomy(depth=3, branching_factor=2, seed=42)
 
         _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path, use_legacy=True)
+        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
 
         results = _get_results(db_path)
 
-        # Find all leaves (nodes with no children)
         leaves = [n for n in taxonomy.nodes.values() if not n.expected_child_ids]
 
         for leaf in leaves:
@@ -318,14 +212,12 @@ class TestChildIds:
 class TestIconicTaxonId:
     """Tests for iconic_taxon_id assignment."""
 
-    @patch('pyinaturalist_convert.taxonomy.sleep')
-    @patch('pyinaturalist_convert.taxonomy.ProcessPoolExecutor', ThreadPoolExecutor)
-    def test_iconic_taxon_propagation(self, mock_sleep, db_path, common_names_path, tmp_path):
+    def test_iconic_taxon_propagation(self, db_path, common_names_path, tmp_path):
         """Test that iconic_taxon_id is correctly propagated from ancestors."""
         taxonomy = generate_tree_with_iconic_taxa()
 
         _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path, use_legacy=True)
+        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
 
         results = _get_results(db_path)
 
@@ -333,17 +225,15 @@ class TestIconicTaxonId:
             actual = results[node.id]['iconic_taxon_id']
             expected = node.expected_iconic_taxon_id
             assert actual == expected, (
-                f'Taxon {node.id} ({node.name}): expected iconic_taxon_id={expected}, got {actual}'
+                f'Taxon {node.id} ({node.name}): expected iconic={expected}, got {actual}'
             )
 
-    @patch('pyinaturalist_convert.taxonomy.sleep')
-    @patch('pyinaturalist_convert.taxonomy.ProcessPoolExecutor', ThreadPoolExecutor)
-    def test_nested_iconic_taxa(self, mock_sleep, db_path, common_names_path, tmp_path):
+    def test_nested_iconic_taxa(self, db_path, common_names_path, tmp_path):
         """Test that nested iconic taxa use the most specific (deepest) iconic ancestor."""
         taxonomy = generate_tree_with_iconic_taxa()
 
         _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path, use_legacy=True)
+        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
 
         results = _get_results(db_path)
 
@@ -355,16 +245,12 @@ class TestIconicTaxonId:
         assert results[100]['iconic_taxon_id'] == 3, 'Bird species should use Aves as iconic taxon'
         assert results[101]['iconic_taxon_id'] == 3, 'Bird species should use Aves as iconic taxon'
 
-    @patch('pyinaturalist_convert.taxonomy.sleep')
-    @patch('pyinaturalist_convert.taxonomy.ProcessPoolExecutor', ThreadPoolExecutor)
-    def test_non_iconic_inherits_from_ancestor(
-        self, mock_sleep, db_path, common_names_path, tmp_path
-    ):
+    def test_non_iconic_inherits_from_ancestor(self, db_path, common_names_path, tmp_path):
         """Test that non-iconic taxa inherit iconic_taxon_id from nearest iconic ancestor."""
         taxonomy = generate_tree_with_iconic_taxa()
 
         _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path, use_legacy=True)
+        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
 
         results = _get_results(db_path)
 
@@ -377,14 +263,12 @@ class TestIconicTaxonId:
             'Species under non-iconic class should inherit from Animalia'
         )
 
-    @patch('pyinaturalist_convert.taxonomy.sleep')
-    @patch('pyinaturalist_convert.taxonomy.ProcessPoolExecutor', ThreadPoolExecutor)
-    def test_no_iconic_ancestor(self, mock_sleep, db_path, common_names_path, tmp_path):
+    def test_no_iconic_ancestor(self, db_path, common_names_path, tmp_path):
         """Test that taxa with no iconic ancestors have iconic_taxon_id=None."""
         taxonomy = generate_tree_with_iconic_taxa()
 
         _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path, use_legacy=True)
+        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
 
         results = _get_results(db_path)
 
@@ -394,14 +278,12 @@ class TestIconicTaxonId:
             'Bacteria species should have no iconic taxon'
         )
 
-    @patch('pyinaturalist_convert.taxonomy.sleep')
-    @patch('pyinaturalist_convert.taxonomy.ProcessPoolExecutor', ThreadPoolExecutor)
-    def test_root_has_no_iconic_taxon(self, mock_sleep, db_path, common_names_path, tmp_path):
+    def test_root_has_no_iconic_taxon(self, db_path, common_names_path, tmp_path):
         """Test that root taxon has no iconic_taxon_id."""
         taxonomy = generate_tree_with_iconic_taxa()
 
         _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path, use_legacy=True)
+        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
 
         results = _get_results(db_path)
 
@@ -409,63 +291,10 @@ class TestIconicTaxonId:
         assert results[root_id]['iconic_taxon_id'] is None, 'Root should have no iconic taxon'
 
 
-class TestImbalancedTree:
-    """Tests specifically for imbalanced trees (Arthropoda-like scenarios)."""
+class TestTreeVariants:
+    """Tests for various tree structures."""
 
-    @patch('pyinaturalist_convert.taxonomy.sleep')
-    @patch('pyinaturalist_convert.taxonomy.ProcessPoolExecutor', ThreadPoolExecutor)
-    def test_imbalanced_observation_counts(self, mock_sleep, db_path, common_names_path, tmp_path):
-        """Test correct aggregation on heavily imbalanced tree."""
-        taxonomy = generate_imbalanced_tree(
-            depth=5,
-            branching_factor=3,
-            heavy_branch_multiplier=2.0,
-            seed=42,
-        )
-
-        _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path, use_legacy=True)
-
-        results = _get_results(db_path)
-
-        for node in taxonomy.nodes.values():
-            actual = results[node.id]['observations_count_rg']
-            expected = node.expected_obs_count
-            assert actual == expected, (
-                f'Taxon {node.id}: expected obs_count={expected}, got {actual}'
-            )
-
-    @patch('pyinaturalist_convert.taxonomy.sleep')
-    @patch('pyinaturalist_convert.taxonomy.ProcessPoolExecutor', ThreadPoolExecutor)
-    def test_imbalanced_leaf_counts(self, mock_sleep, db_path, common_names_path, tmp_path):
-        """Test correct leaf count on heavily imbalanced tree."""
-        taxonomy = generate_imbalanced_tree(
-            depth=5,
-            branching_factor=3,
-            heavy_branch_multiplier=2.0,
-            seed=42,
-        )
-
-        _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path, use_legacy=True)
-
-        results = _get_results(db_path)
-
-        for node in taxonomy.nodes.values():
-            actual = results[node.id]['leaf_taxa_count']
-            expected = node.expected_leaf_count
-            assert actual == expected, (
-                f'Taxon {node.id}: expected leaf_count={expected}, got {actual}'
-            )
-
-
-class TestEdgeCases:
-    """Tests for edge cases and boundary conditions."""
-
-    @pytest.mark.xfail(reason='Current implementation bug: single root node not processed as leaf')
-    @patch('pyinaturalist_convert.taxonomy.sleep')
-    @patch('pyinaturalist_convert.taxonomy.ProcessPoolExecutor', ThreadPoolExecutor)
-    def test_single_node_tree(self, mock_sleep, db_path, common_names_path, tmp_path):
+    def test_single_node_tree(self, db_path, common_names_path, tmp_path):
         """Test aggregation on a tree with only root node."""
         taxonomy = generate_synthetic_taxonomy(
             depth=0,
@@ -475,7 +304,7 @@ class TestEdgeCases:
         )
 
         _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path, use_legacy=True)
+        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
 
         results = _get_results(db_path)
         root_id = taxonomy.root_id
@@ -485,14 +314,12 @@ class TestEdgeCases:
         assert _parse_id_list(results[root_id]['ancestor_ids']) == []
         assert _parse_id_list(results[root_id]['child_ids']) == []
 
-    @patch('pyinaturalist_convert.taxonomy.sleep')
-    @patch('pyinaturalist_convert.taxonomy.ProcessPoolExecutor', ThreadPoolExecutor)
-    def test_deep_narrow_tree(self, mock_sleep, db_path, common_names_path, tmp_path):
-        """Test aggregation on a very deep, narrow tree."""
+    def test_linear_chain(self, db_path, common_names_path, tmp_path):
+        """Test aggregation on a linear chain (each node has one child)."""
         taxonomy = generate_linear_chain(length=10, seed=42)
 
         _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path, use_legacy=True)
+        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
 
         results = _get_results(db_path)
 
@@ -504,138 +331,24 @@ class TestEdgeCases:
         # Root should have leaf_count of 1 (only one path to leaf)
         assert results[root_id]['leaf_taxa_count'] == 1
 
-
-# =============================================================================
-# Tests for new v2 implementation
-# =============================================================================
-
-
-class TestDefaultImplementation:
-    """Tests that the default implementation uses v2."""
-
-    def test_default_uses_v2(self, db_path, common_names_path, tmp_path):
-        """Test that aggregate_taxon_db uses v2 by default and handles single-node trees."""
-        # Single node tree - v1 fails this, v2 passes
-        taxonomy = generate_synthetic_taxonomy(
-            depth=0,
-            branching_factor=0,
-            observation_count_range=(5, 5),
-            seed=42,
-        )
+    def test_wide_shallow_tree(self, db_path, common_names_path, tmp_path):
+        """Test aggregation on a wide, shallow tree."""
+        taxonomy = generate_wide_shallow_tree(width=10, depth=2, seed=42)
 
         _load_synthetic_to_db(taxonomy, db_path)
-        # No use_legacy=True, should use v2 by default
         aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
 
         results = _get_results(db_path)
-        root_id = taxonomy.root_id
-
-        # v2 correctly sets leaf_taxa_count=1 for single node, v1 would set it to 0
-        assert results[root_id]['leaf_taxa_count'] == 1, (
-            'Default implementation should use v2 which handles single-node correctly'
-        )
-
-
-class TestAggregateV2:
-    """Tests for the new depth-level based implementation (v2)."""
-
-    def test_simple_tree_v2(self, db_path, common_names_path, tmp_path):
-        """Test v2 implementation on a simple balanced tree."""
-        taxonomy = generate_synthetic_taxonomy(
-            depth=3,
-            branching_factor=2,
-            observation_count_range=(1, 1),
-            seed=42,
-        )
-
-        _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db_v2(db_path, tmp_path / 'backup.parquet', common_names_path)
-
-        results = _get_results(db_path)
 
         for node in taxonomy.nodes.values():
-            actual_obs = results[node.id]['observations_count_rg']
-            expected_obs = node.expected_obs_count
-            assert actual_obs == expected_obs, (
-                f'Taxon {node.id}: expected obs_count={expected_obs}, got {actual_obs}'
-            )
-
-            actual_leaf = results[node.id]['leaf_taxa_count']
-            expected_leaf = node.expected_leaf_count
-            assert actual_leaf == expected_leaf, (
-                f'Taxon {node.id}: expected leaf_count={expected_leaf}, got {actual_leaf}'
-            )
-
-    def test_ancestor_ids_v2(self, db_path, common_names_path, tmp_path):
-        """Test that v2 computes ancestor_ids correctly."""
-        taxonomy = generate_linear_chain(length=5, seed=42)
-
-        _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db_v2(db_path, tmp_path / 'backup.parquet', common_names_path)
-
-        results = _get_results(db_path)
-
-        for node in taxonomy.nodes.values():
-            actual = _parse_id_list(results[node.id]['ancestor_ids'])
-            expected = node.expected_ancestor_ids
+            actual = results[node.id]['observations_count_rg']
+            expected = node.expected_obs_count
             assert actual == expected, (
-                f'Taxon {node.id}: expected ancestors={expected}, got {actual}'
+                f'Taxon {node.id}: expected obs_count={expected}, got {actual}'
             )
 
-    def test_child_ids_v2(self, db_path, common_names_path, tmp_path):
-        """Test that v2 computes child_ids correctly."""
-        taxonomy = generate_synthetic_taxonomy(depth=3, branching_factor=2, seed=42)
-
-        _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db_v2(db_path, tmp_path / 'backup.parquet', common_names_path)
-
-        results = _get_results(db_path)
-
-        for node in taxonomy.nodes.values():
-            actual = set(_parse_id_list(results[node.id]['child_ids']))
-            expected = set(node.expected_child_ids)
-            assert actual == expected, (
-                f'Taxon {node.id}: expected children={expected}, got {actual}'
-            )
-
-    def test_iconic_taxon_v2(self, db_path, common_names_path, tmp_path):
-        """Test that v2 computes iconic_taxon_id correctly."""
-        taxonomy = generate_tree_with_iconic_taxa()
-
-        _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db_v2(db_path, tmp_path / 'backup.parquet', common_names_path)
-
-        results = _get_results(db_path)
-
-        for node in taxonomy.nodes.values():
-            actual = results[node.id]['iconic_taxon_id']
-            expected = node.expected_iconic_taxon_id
-            assert actual == expected, (
-                f'Taxon {node.id} ({node.name}): expected iconic={expected}, got {actual}'
-            )
-
-    def test_single_node_v2(self, db_path, common_names_path, tmp_path):
-        """Test v2 handles single root node correctly (fixes v1 bug)."""
-        taxonomy = generate_synthetic_taxonomy(
-            depth=0,
-            branching_factor=0,
-            observation_count_range=(5, 5),
-            seed=42,
-        )
-
-        _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db_v2(db_path, tmp_path / 'backup.parquet', common_names_path)
-
-        results = _get_results(db_path)
-        root_id = taxonomy.root_id
-
-        assert results[root_id]['observations_count_rg'] == 5
-        assert results[root_id]['leaf_taxa_count'] == 1
-        assert _parse_id_list(results[root_id]['ancestor_ids']) == []
-        assert _parse_id_list(results[root_id]['child_ids']) == []
-
-    def test_mid_tree_leaves_v2(self, db_path, common_names_path, tmp_path):
-        """Test v2 handles mid-tree leaves correctly."""
+    def test_mid_tree_leaves(self, db_path, common_names_path, tmp_path):
+        """Test leaf count with mid-tree leaves (genera with no species)."""
         taxonomy = generate_tree_with_mid_leaves(
             depth=4,
             branching_factor=3,
@@ -644,7 +357,7 @@ class TestAggregateV2:
         )
 
         _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db_v2(db_path, tmp_path / 'backup.parquet', common_names_path)
+        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
 
         results = _get_results(db_path)
 
@@ -655,8 +368,8 @@ class TestAggregateV2:
                 f'Taxon {node.id}: expected leaf_count={expected_leaf}, got {actual_leaf}'
             )
 
-    def test_imbalanced_tree_v2(self, db_path, common_names_path, tmp_path):
-        """Test v2 handles imbalanced trees correctly."""
+    def test_imbalanced_tree(self, db_path, common_names_path, tmp_path):
+        """Test correct aggregation on heavily imbalanced tree (Arthropoda-like scenario)."""
         taxonomy = generate_imbalanced_tree(
             depth=5,
             branching_factor=3,
@@ -665,7 +378,7 @@ class TestAggregateV2:
         )
 
         _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db_v2(db_path, tmp_path / 'backup.parquet', common_names_path)
+        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
 
         results = _get_results(db_path)
 
@@ -674,4 +387,10 @@ class TestAggregateV2:
             expected_obs = node.expected_obs_count
             assert actual_obs == expected_obs, (
                 f'Taxon {node.id}: expected obs_count={expected_obs}, got {actual_obs}'
+            )
+
+            actual_leaf = results[node.id]['leaf_taxa_count']
+            expected_leaf = node.expected_leaf_count
+            assert actual_leaf == expected_leaf, (
+                f'Taxon {node.id}: expected leaf_count={expected_leaf}, got {actual_leaf}'
             )
