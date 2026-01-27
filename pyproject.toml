@@ -45,6 +45,7 @@ documentation = 'https://pyinaturalist-convert.readthedocs.io'
 
 # Optional dependencies for specific data formats
 [project.optional-dependencies]
+aggregate   = ['polars>=1.30', 'sqlalchemy>=2.0']
 db          = ['sqlalchemy>=2.0']
 dwc         = ['xmltodict>=0.12']
 feather     = ['pandas>=1.2', 'pyarrow>=10.0']

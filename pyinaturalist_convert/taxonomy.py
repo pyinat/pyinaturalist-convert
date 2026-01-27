@@ -23,13 +23,16 @@ information to it.
 
 import sqlite3
 from logging import getLogger
+from multiprocessing import Manager, Process
 from pathlib import Path
-from time import time
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional
+from queue import Queue
+from time import sleep, time
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 from pyinaturalist.constants import ICONIC_TAXA
 
 from .constants import DB_PATH, DWCA_TAXON_CSV_DIR, TAXON_AGGREGATES_PATH, PathOrStr
+from .download import ParallelMultiProgress
 
 if TYPE_CHECKING:
     from pandas import DataFrame
@@ -52,7 +55,6 @@ def aggregate_taxon_db(
     db_path: PathOrStr = DB_PATH,
     backup_path: PathOrStr = TAXON_AGGREGATES_PATH,
     common_names_path: PathOrStr = DEFAULT_LANG_CSV,
-    progress_callback: Optional[Callable[[str, int, int], None]] = None,
 ) -> 'DataFrame':
     """Add aggregate and hierarchical values to the taxon database:
 
@@ -70,42 +72,29 @@ def aggregate_taxon_db(
         backup_path: Path to save a minimal copy of aggregate values
         common_names_path: Path to a CSV file containing taxon common names.
             See the DwC-A taxonomy dataset for available languages.
-        progress_callback: Optional callback(stage, current, total) for progress updates
     """
     start = time()
     logger.info('Starting taxonomy aggregation')
 
-    # Step 1: Compute depth and ancestors
+    # Compute depth and ancestors
     logger.info('Computing depth and ancestor paths...')
     df = _compute_ancestors(db_path)
-    if progress_callback:
-        progress_callback('depth_ancestors', 1, 5)
 
-    # Step 2: Get observation counts from observations table
+    # Get observation counts from observations table
     logger.info('Getting observation taxon counts...')
     taxon_counts_dict = get_observation_taxon_counts(db_path)
     df['observations_count_rg'] = df['id'].map(taxon_counts_dict).fillna(0).astype('int64')
-    if progress_callback:
-        progress_callback('obs_counts', 2, 5)
 
-    # Step 3: Build children index for O(1) lookups
+    # Aggregate bottom-up by level
     logger.info('Building children index...')
     children_index = _build_children_index(df)
-    if progress_callback:
-        progress_callback('children_index', 3, 5)
-
-    # Step 4: Aggregate bottom-up by level
     logger.info('Aggregating by level...')
     df = _aggregate_by_level(df, children_index)
-    if progress_callback:
-        progress_callback('aggregation', 4, 5)
 
-    # Step 5: Load common names
+    # Load common names
     logger.info('Loading common names...')
     common_names = _get_common_names(common_names_path)
     df['preferred_common_name'] = df['id'].map(common_names)
-    if progress_callback:
-        progress_callback('common_names', 5, 5)
 
     df = df.drop(columns=['depth'])
     _save_taxon_agg(df, backup_path)
@@ -308,52 +297,34 @@ def _aggregate_by_level(
     df: 'DataFrame',
     children_index: Dict[int, List[int]],
 ) -> 'DataFrame':
-    """Aggregate observation counts and leaf counts bottom-up by tree level.
-
-    Processes from max_depth to 0, using vectorized operations per level.
-    All nodes at the same depth are independent and can be processed in parallel.
-    """
-
+    """Aggregate values from the bottom up, starting with leaf nodes"""
     max_depth = df['depth'].max()
     logger.info(f'Aggregating {len(df)} taxa across {max_depth + 1} levels')
 
-    # Initialize columns
     df['leaf_taxa_count'] = 0
     df['child_ids'] = None
     df['iconic_taxon_id'] = None
-
-    # Create id-to-index mapping for fast lookups
     df = df.set_index('id')
 
     # Process from leaves to root
     for depth in range(max_depth, -1, -1):
-        level_mask = df['depth'] == depth
-        level_ids = df.index[level_mask].tolist()
+        level_ids = df.index[df['depth'] == depth].tolist()
 
-        if not level_ids:
-            continue
-
-        # For each taxon at this level
+        # Aggregate all taxa at this level
         for taxon_id in level_ids:
             child_ids = children_index.get(taxon_id, [])
-
-            # Set child_ids string
             if child_ids:
                 df.at[taxon_id, 'child_ids'] = ','.join(map(str, child_ids))
-
-                # Aggregate from children
                 child_obs_sum = df.loc[child_ids, 'observations_count_rg'].sum()
                 child_leaf_sum = df.loc[child_ids, 'leaf_taxa_count'].sum()
-
                 df.at[taxon_id, 'observations_count_rg'] += child_obs_sum
                 df.at[taxon_id, 'leaf_taxa_count'] = child_leaf_sum
+            # Leaf taxon
             else:
-                # Leaf taxon
                 df.at[taxon_id, 'leaf_taxa_count'] = 1
 
-            # Compute iconic_taxon_id
             ancestor_str = df.at[taxon_id, 'ancestor_ids']
-            df.at[taxon_id, 'iconic_taxon_id'] = _compute_iconic_taxon_id(taxon_id, ancestor_str)
+            df.at[taxon_id, 'iconic_taxon_id'] = _get_iconic_taxon_id(taxon_id, ancestor_str)
 
         if depth % 5 == 0:
             logger.debug(f'  Processed level {depth} ({len(level_ids)} taxa)')
@@ -361,24 +332,28 @@ def _aggregate_by_level(
     return df.reset_index()
 
 
-def _compute_iconic_taxon_id(taxon_id: int, ancestor_ids_str: Optional[str]) -> Optional[int]:
-    """Compute the most specific iconic taxon for a given taxon.
-
-    Checks current taxon first, then ancestors in reverse order (deepest first).
-    """
-    # Check if current taxon is iconic
-    if taxon_id in ICONIC_TAXA:
-        return taxon_id
-
-    # Check ancestors in reverse order (most specific first)
-    # ancestor_ids_str is None for root, or a comma-separated string
+def _get_iconic_taxon_id(taxon_id: int, ancestor_ids_str: Optional[str]) -> Optional[int]:
+    """Get the most specific iconic taxon for a given taxon"""
+    # Check ancestors + self in reverse order (most specific first)
     if isinstance(ancestor_ids_str, str):
-        ancestor_ids = [int(x) for x in ancestor_ids_str.split(',')]
+        ancestor_ids = [int(x) for x in ancestor_ids_str.split(',')] + [taxon_id]
         for ancestor_id in reversed(ancestor_ids):
             if ancestor_id in ICONIC_TAXA:
                 return ancestor_id
-
     return None
+
+
+def _create_progress_queues(progress_total: int):
+    """Set up a separate process to manage progress updates via queues"""
+    manager = Manager()
+    progress_queue = manager.Queue()
+    task_queue = manager.Queue()
+    log_queue = manager.Queue()
+    progress_proc = Process(
+        target=_update_progress, args=(progress_queue, task_queue, log_queue, progress_total)
+    )
+    progress_proc.start()
+    return progress_proc
 
 
 def _update_progress(
@@ -413,4 +388,5 @@ def _update_progress(
                 # Received progress for a task that hasn't been added yet; check next iteration
                 else:
                     pending.append((task_name, n_completed))
+
             sleep(1 / refresh_rate)
