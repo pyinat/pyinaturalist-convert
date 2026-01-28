@@ -3,14 +3,14 @@
 Benchmark harness for taxonomy aggregation performance.
 
 Usage:
-    python -m test.benchmark_taxonomy [--sizes 100,1000,10000]
+    python -m test.benchmark_taxonomy [--iterations 5]
 
 Measures:
     - Wall-clock time for full aggregation
     - Peak memory usage
     - Time per taxon
 
-Outputs results as a table for comparison.
+Uses the real taxonomy sample data (~1683 taxa) for realistic benchmarking.
 """
 
 import argparse
@@ -22,14 +22,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from time import perf_counter
-from typing import List
 
 from pyinaturalist_convert.db import create_tables
 from pyinaturalist_convert.taxonomy import aggregate_taxon_db
-from test.synthetic_taxonomy import (
-    SyntheticTaxonomy,
-    generate_synthetic_taxonomy,
-)
+from test.synthetic_taxonomy import TestTaxon, load_taxonomy_from_csv
 
 
 @dataclass
@@ -50,26 +46,24 @@ class BenchmarkResult:
         )
 
 
-def load_taxonomy_to_db(taxonomy: SyntheticTaxonomy, db_path: Path) -> None:
-    """Load synthetic taxonomy into SQLite database."""
+def load_taxonomy_to_db(taxonomy: list[TestTaxon], db_path: Path) -> None:
+    """Load taxonomy into SQLite database."""
     create_tables(db_path)
 
     with sqlite3.connect(db_path) as conn:
         conn.execute('DELETE FROM taxon')
         conn.execute('DELETE FROM observation')
 
-        # Insert taxa
-        for node in taxonomy.nodes.values():
+        for node in taxonomy:
             conn.execute(
                 """INSERT INTO taxon (id, parent_id, name, rank, observations_count_rg, leaf_taxa_count)
                    VALUES (?, ?, ?, ?, ?, ?)""",
                 (node.id, node.parent_id, node.name, node.rank, 0, 0),
             )
 
-        # Insert observations
         obs_id = 1
-        for node in taxonomy.nodes.values():
-            for _ in range(node.observation_count):
+        for node in taxonomy:
+            for _ in range(2):
                 conn.execute(
                     'INSERT INTO observation (id, taxon_id) VALUES (?, ?)',
                     (obs_id, node.id),
@@ -79,47 +73,9 @@ def load_taxonomy_to_db(taxonomy: SyntheticTaxonomy, db_path: Path) -> None:
         conn.commit()
 
 
-def generate_taxonomy_for_size(target_size: int, seed: int = 42) -> SyntheticTaxonomy:
-    """Generate a taxonomy with approximately the target number of taxa."""
-    # Estimate branching factor needed for target size
-    # For a balanced tree: size ≈ (b^(d+1) - 1) / (b - 1)
-    # Use depth=6 and solve for branching factor
-    depth = 6
-
-    # Binary search for branching factor
-    low, high = 2, 20
-    best_taxonomy = None
-    best_diff = float('inf')
-
-    while low <= high:
-        mid = (low + high) // 2
-        taxonomy = generate_synthetic_taxonomy(
-            depth=depth,
-            branching_factor=mid,
-            observation_count_range=(0, 5),
-            seed=seed,
-        )
-        size = len(taxonomy.nodes)
-        diff = abs(size - target_size)
-
-        if diff < best_diff:
-            best_diff = diff
-            best_taxonomy = taxonomy
-
-        if size < target_size:
-            low = mid + 1
-        elif size > target_size:
-            high = mid - 1
-        else:
-            break
-
-    assert best_taxonomy is not None  # Loop always runs at least once
-    return best_taxonomy
-
-
-def run_benchmark(taxonomy: SyntheticTaxonomy) -> BenchmarkResult:
+def run_benchmark(taxonomy: list[TestTaxon]) -> BenchmarkResult:
     """Run a single benchmark iteration."""
-    num_taxa = len(taxonomy.nodes)
+    num_taxa = len(taxonomy)
 
     with TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
@@ -128,21 +84,15 @@ def run_benchmark(taxonomy: SyntheticTaxonomy) -> BenchmarkResult:
         common_names_path = tmp_path / 'common_names.csv'
         common_names_path.write_text('id,vernacularName\n')
 
-        # Load data
         load_taxonomy_to_db(taxonomy, db_path)
 
-        # Force garbage collection before measuring
         gc.collect()
-
-        # Start memory tracking
         tracemalloc.start()
 
-        # Time the aggregation
         start_time = perf_counter()
         aggregate_taxon_db(db_path, backup_path, common_names_path)
         end_time = perf_counter()
 
-        # Get peak memory
         _, peak_memory = tracemalloc.get_traced_memory()
         tracemalloc.stop()
 
@@ -158,69 +108,57 @@ def run_benchmark(taxonomy: SyntheticTaxonomy) -> BenchmarkResult:
         )
 
 
-def run_benchmarks(sizes: List[int], num_iterations: int = 3) -> List[BenchmarkResult]:
-    """Run benchmarks for all sizes."""
+def run_benchmarks(taxonomy: list[TestTaxon], num_iterations: int = 5) -> list[BenchmarkResult]:
+    """Run benchmarks for multiple iterations."""
     results = []
 
-    for size in sizes:
-        print(f'\nGenerating taxonomy with ~{size} taxa...', file=sys.stderr)
-        taxonomy = generate_taxonomy_for_size(size)
-        actual_size = len(taxonomy.nodes)
-        print(f'  Actual size: {actual_size} taxa', file=sys.stderr)
+    print(f'Taxonomy size: {len(taxonomy)} taxa', file=sys.stderr)
+    print(f'Running {num_iterations} iterations...', file=sys.stderr)
 
-        print('  Benchmarking...', file=sys.stderr)
-
-        # Run multiple iterations and take the best (least affected by noise)
-        best_result = None
-        for i in range(num_iterations):
-            result = run_benchmark(taxonomy)
-            if best_result is None or result.wall_time_seconds < best_result.wall_time_seconds:
-                best_result = result
-            print(f'    Iteration {i + 1}: {result.wall_time_seconds:.3f}s', file=sys.stderr)
-
-        if best_result:
-            results.append(best_result)
+    for i in range(num_iterations):
+        result = run_benchmark(taxonomy)
+        results.append(result)
+        print(f'  Iteration {i + 1}: {result.wall_time_seconds:.3f}s', file=sys.stderr)
 
     return results
 
 
-def print_results(results: List[BenchmarkResult]) -> None:
+def print_results(results: list[BenchmarkResult]) -> None:
     """Print benchmark results as a formatted table."""
+    if not results:
+        print('No results to display')
+        return
+
     print('\n' + '=' * 60)
     print('BENCHMARK RESULTS')
     print('=' * 60)
-    print(f'{"Size":>12} | {"Time":>10} | {"Memory":>10} | {"Per Taxon":>14}')
+
+    best = min(results, key=lambda r: r.wall_time_seconds)
+    worst = max(results, key=lambda r: r.wall_time_seconds)
+    avg_time = sum(r.wall_time_seconds for r in results) / len(results)
+    avg_memory = sum(r.peak_memory_mb for r in results) / len(results)
+
+    print(f'Taxa count:     {best.num_taxa}')
+    print(f'Iterations:     {len(results)}')
     print('-' * 60)
-
-    for result in results:
-        print(result)
-
+    print(f'Best time:      {best.wall_time_seconds:.3f}s ({best.time_per_taxon_us:.1f} µs/taxon)')
+    print(f'Worst time:     {worst.wall_time_seconds:.3f}s')
+    print(f'Average time:   {avg_time:.3f}s')
+    print(f'Average memory: {avg_memory:.1f} MB')
     print('=' * 60)
 
 
 def main():
     parser = argparse.ArgumentParser(description='Benchmark taxonomy aggregation')
     parser.add_argument(
-        '--sizes',
-        type=str,
-        default='100,500,1000,5000',
-        help='Comma-separated list of target taxonomy sizes',
-    )
-    parser.add_argument(
         '--iterations',
         type=int,
-        default=3,
-        help='Number of iterations per benchmark (takes best result)',
+        default=5,
+        help='Number of benchmark iterations (default: 5)',
     )
-
     args = parser.parse_args()
-
-    sizes = [int(s.strip()) for s in args.sizes.split(',')]
-
-    print(f'Benchmarking sizes: {sizes}')
-    print(f'Iterations per benchmark: {args.iterations}')
-
-    results = run_benchmarks(sizes, args.iterations)
+    taxonomy = load_taxonomy_from_csv()
+    results = run_benchmarks(taxonomy, args.iterations)
     print_results(results)
 
 

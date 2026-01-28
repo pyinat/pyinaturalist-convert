@@ -203,11 +203,12 @@ def get_observation_taxon_counts(db_path: PathOrStr = DB_PATH) -> Dict[int, int]
             'WHERE taxon_id IS NOT NULL '
             'GROUP BY taxon_id;'
         ).fetchall()
-
-        return {
+        results = {
             int(row['taxon_id']): int(row['count'])
             for row in sorted(rows, key=lambda r: r['count'], reverse=True)
         }
+
+    return results
 
 
 def _get_common_names(common_names_path: PathOrStr = DEFAULT_LANG_CSV) -> Dict[int, str]:

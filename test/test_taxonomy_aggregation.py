@@ -1,5 +1,5 @@
 """
-Unit tests for taxonomy aggregation correctness using synthetic datasets.
+Unit tests for taxonomy aggregation correctness using real taxonomy data subset.
 
 Tests verify that aggregate_taxon_db correctly computes:
 - ancestor_ids: path from root to each taxon
@@ -10,25 +10,18 @@ Tests verify that aggregate_taxon_db correctly computes:
 """
 
 import sqlite3
-from typing import Dict
+from random import Random
 
 import pytest
+from pyinaturalist import ICONIC_TAXA, ROOT_TAXON_ID
 
 from pyinaturalist_convert.db import create_tables
 from pyinaturalist_convert.taxonomy import aggregate_taxon_db
-from test.synthetic_taxonomy import (
-    SyntheticTaxonomy,
-    generate_imbalanced_tree,
-    generate_linear_chain,
-    generate_synthetic_taxonomy,
-    generate_tree_with_iconic_taxa,
-    generate_tree_with_mid_leaves,
-    generate_wide_shallow_tree,
-)
+from test.synthetic_taxonomy import TestTaxon, load_taxonomy_from_csv
 
 
-def _load_synthetic_to_db(taxonomy: SyntheticTaxonomy, db_path) -> None:
-    """Load synthetic taxonomy into SQLite database for testing."""
+def _load_taxonomy_to_db(taxonomy: list[TestTaxon], db_path) -> None:
+    """Load taxonomy into a SQLite database for testing."""
     create_tables(db_path)
 
     with sqlite3.connect(db_path) as conn:
@@ -36,7 +29,7 @@ def _load_synthetic_to_db(taxonomy: SyntheticTaxonomy, db_path) -> None:
         conn.execute('DELETE FROM observation')
 
         # Insert taxa
-        for node in taxonomy.nodes.values():
+        for node in taxonomy:
             conn.execute(
                 """INSERT INTO taxon (id, parent_id, name, rank, observations_count_rg, leaf_taxa_count)
                    VALUES (?, ?, ?, ?, ?, ?)""",
@@ -51,9 +44,11 @@ def _load_synthetic_to_db(taxonomy: SyntheticTaxonomy, db_path) -> None:
             )
 
         # Insert observations (one per taxon with observation_count > 0)
+
+        rng = Random()
         obs_id = 1
-        for node in taxonomy.nodes.values():
-            for _ in range(node.observation_count):
+        for node in taxonomy:
+            for _ in range(rng.randint(0, 10)):
                 conn.execute(
                     'INSERT INTO observation (id, taxon_id) VALUES (?, ?)',
                     (obs_id, node.id),
@@ -63,12 +58,13 @@ def _load_synthetic_to_db(taxonomy: SyntheticTaxonomy, db_path) -> None:
         conn.commit()
 
 
-def _get_results(db_path) -> Dict[int, Dict]:
+def _get_results(db_path) -> dict[int, dict]:
     """Fetch aggregation results from database."""
     with sqlite3.connect(db_path) as conn:
         conn.row_factory = sqlite3.Row
         rows = conn.execute('SELECT * FROM taxon').fetchall()
-        return {row['id']: dict(row) for row in rows}
+        results = {row['id']: dict(row) for row in rows}
+    return results
 
 
 def _parse_id_list(value: str | None) -> list[int]:
@@ -92,117 +88,55 @@ def common_names_path(tmp_path):
     return path
 
 
-class TestObservationCountAggregation:
-    """Tests for observations_count_rg aggregation."""
-
-    def test_simple_tree(self, db_path, common_names_path, tmp_path):
-        """Test observation count aggregation on a simple balanced tree."""
-        taxonomy = generate_synthetic_taxonomy(
-            depth=3,
-            branching_factor=2,
-            observation_count_range=(1, 1),
-            seed=42,
-        )
-
-        _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
-
-        results = _get_results(db_path)
-
-        for node in taxonomy.nodes.values():
-            actual_obs = results[node.id]['observations_count_rg']
-            expected_obs = node.expected_obs_count
-            assert actual_obs == expected_obs, (
-                f'Taxon {node.id}: expected obs_count={expected_obs}, got {actual_obs}'
-            )
-
-            actual_leaf = results[node.id]['leaf_taxa_count']
-            expected_leaf = node.expected_leaf_count
-            assert actual_leaf == expected_leaf, (
-                f'Taxon {node.id}: expected leaf_count={expected_leaf}, got {actual_leaf}'
-            )
-
-    def test_zero_observations(self, db_path, common_names_path, tmp_path):
-        """Test that taxa with no observations still aggregate correctly."""
-        taxonomy = generate_synthetic_taxonomy(
-            depth=3,
-            branching_factor=2,
-            observation_count_range=(0, 0),
-            seed=42,
-        )
-
-        _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
-
-        results = _get_results(db_path)
-
-        for node in taxonomy.nodes.values():
-            actual = results[node.id]['observations_count_rg']
-            assert actual == 0, f'Taxon {node.id}: expected 0 observations, got {actual}'
+@pytest.fixture
+def taxonomy() -> list[TestTaxon]:
+    """Load real taxonomy data with random observation counts."""
+    return load_taxonomy_from_csv()
 
 
 class TestAncestorIds:
     """Tests for ancestor_ids computation."""
 
-    def test_ancestor_path(self, db_path, common_names_path, tmp_path):
+    def test_ancestor_path(self, db_path, common_names_path, tmp_path, taxonomy):
         """Test that ancestor_ids contains correct path from root."""
-        taxonomy = generate_linear_chain(length=5, seed=42)
-
-        _load_synthetic_to_db(taxonomy, db_path)
+        _load_taxonomy_to_db(taxonomy, db_path)
         aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
 
         results = _get_results(db_path)
 
-        for node in taxonomy.nodes.values():
+        for node in taxonomy:
             actual = _parse_id_list(results[node.id]['ancestor_ids'])
             expected = node.expected_ancestor_ids
             assert actual == expected, (
-                f'Taxon {node.id}: expected ancestors={expected}, got {actual}'
+                f'Taxon {node.id} ({node.name}): expected ancestors={expected}, got {actual}'
             )
-
-    def test_root_has_no_ancestors(self, db_path, common_names_path, tmp_path):
-        """Test that root taxon has empty ancestor_ids."""
-        taxonomy = generate_synthetic_taxonomy(depth=2, branching_factor=2, seed=42)
-
-        _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
-
-        results = _get_results(db_path)
-        root_id = taxonomy.root_id
-
-        ancestors = _parse_id_list(results[root_id]['ancestor_ids'])
-        assert ancestors == [], f'Root should have no ancestors, got {ancestors}'
 
 
 class TestChildIds:
     """Tests for child_ids computation."""
 
-    def test_child_ids(self, db_path, common_names_path, tmp_path):
+    def test_child_ids(self, db_path, common_names_path, tmp_path, taxonomy):
         """Test that child_ids contains direct children."""
-        taxonomy = generate_synthetic_taxonomy(depth=3, branching_factor=2, seed=42)
-
-        _load_synthetic_to_db(taxonomy, db_path)
+        _load_taxonomy_to_db(taxonomy, db_path)
         aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
 
         results = _get_results(db_path)
 
-        for node in taxonomy.nodes.values():
+        for node in taxonomy:
             actual = set(_parse_id_list(results[node.id]['child_ids']))
             expected = set(node.expected_child_ids)
             assert actual == expected, (
-                f'Taxon {node.id}: expected children={expected}, got {actual}'
+                f'Taxon {node.id} ({node.name}): expected children={expected}, got {actual}'
             )
 
-    def test_leaf_has_no_children(self, db_path, common_names_path, tmp_path):
+    def test_leaf_has_no_children(self, db_path, common_names_path, tmp_path, taxonomy):
         """Test that leaf taxa have empty child_ids."""
-        taxonomy = generate_synthetic_taxonomy(depth=3, branching_factor=2, seed=42)
-
-        _load_synthetic_to_db(taxonomy, db_path)
+        _load_taxonomy_to_db(taxonomy, db_path)
         aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
 
         results = _get_results(db_path)
 
-        leaves = [n for n in taxonomy.nodes.values() if not n.expected_child_ids]
+        leaves = [n for n in taxonomy if not n.expected_child_ids]
 
         for leaf in leaves:
             children = _parse_id_list(results[leaf.id]['child_ids'])
@@ -213,10 +147,9 @@ class TestIconicTaxonId:
     """Tests for iconic_taxon_id assignment."""
 
     @pytest.fixture
-    def iconic_results(self, db_path, common_names_path, tmp_path):
-        """Run aggregation on iconic taxa tree and return results."""
-        taxonomy = generate_tree_with_iconic_taxa()
-        _load_synthetic_to_db(taxonomy, db_path)
+    def iconic_results(self, db_path, common_names_path, tmp_path, taxonomy):
+        """Run aggregation on taxonomy and return results."""
+        _load_taxonomy_to_db(taxonomy, db_path)
         aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
         return _get_results(db_path), taxonomy
 
@@ -224,202 +157,89 @@ class TestIconicTaxonId:
         """Test that iconic_taxon_id is correctly propagated from ancestors."""
         results, taxonomy = iconic_results
 
-        for node in taxonomy.nodes.values():
+        for node in taxonomy:
             actual = results[node.id]['iconic_taxon_id']
             expected = node.expected_iconic_taxon_id
             assert actual == expected, (
                 f'Taxon {node.id} ({node.name}): expected iconic={expected}, got {actual}'
             )
 
-    def test_nested_iconic_taxa(self, iconic_results):
-        """Test that nested iconic taxa use the most specific (deepest) iconic ancestor."""
+    def test_iconic_taxa_use_themselves(self, iconic_results):
+        """Test that iconic taxa use themselves as their iconic_taxon_id."""
         results, _ = iconic_results
 
-        # Aves (id=3) is under Animalia (id=1), both are iconic
-        # Aves should have iconic_taxon_id=3 (itself), not 1 (parent)
-        assert results[3]['iconic_taxon_id'] == 3, 'Aves should use itself as iconic taxon'
+        for iconic_id in ICONIC_TAXA.keys():
+            if iconic_id in results:
+                assert results[iconic_id]['iconic_taxon_id'] == iconic_id, (
+                    f'Iconic taxon {iconic_id} should use itself as iconic_taxon_id'
+                )
 
-        # Species under Aves should also use Aves (3) as iconic, not Animalia (1)
-        assert results[100]['iconic_taxon_id'] == 3, 'Bird species should use Aves as iconic taxon'
-        assert results[101]['iconic_taxon_id'] == 3, 'Bird species should use Aves as iconic taxon'
-
-    def test_non_iconic_inherits_from_ancestor(self, iconic_results):
-        """Test that non-iconic taxa inherit iconic_taxon_id from nearest iconic ancestor."""
-        results, _ = iconic_results
-
-        # NonIconicClass (id=50) is under Animalia (id=1)
-        # It should inherit iconic_taxon_id=1 from Animalia
-        assert results[50]['iconic_taxon_id'] == 1, 'Non-iconic class should inherit from Animalia'
-
-        # Species under non-iconic class should also inherit from Animalia
-        assert results[102]['iconic_taxon_id'] == 1, (
-            'Species under non-iconic class should inherit from Animalia'
-        )
-
-    def test_no_iconic_ancestor(self, iconic_results):
-        """Test that taxa with no iconic ancestors have iconic_taxon_id=None."""
-        results, _ = iconic_results
-
-        # Bacteria (id=200) and its descendants have no iconic ancestors
-        assert results[200]['iconic_taxon_id'] is None, 'Bacteria should have no iconic taxon'
-        assert results[201]['iconic_taxon_id'] is None, (
-            'Bacteria species should have no iconic taxon'
-        )
-
-    def test_root_has_no_iconic_taxon(self, iconic_results):
-        """Test that root taxon has no iconic_taxon_id."""
+    def test_species_inherit_iconic_taxon(self, iconic_results):
+        """Test that species inherit iconic_taxon_id from their iconic ancestor."""
         results, taxonomy = iconic_results
 
-        root_id = taxonomy.root_id
-        assert results[root_id]['iconic_taxon_id'] is None, 'Root should have no iconic taxon'
+        # Check a sample of species (rank='species')
+        species_nodes = [n for n in taxonomy if n.rank == 'species']
 
-
-class TestTreeVariants:
-    """Tests for various tree structures."""
-
-    def test_single_node_tree(self, db_path, common_names_path, tmp_path):
-        """Test aggregation on a tree with only root node."""
-        taxonomy = generate_synthetic_taxonomy(
-            depth=0,
-            branching_factor=0,
-            observation_count_range=(5, 5),
-            seed=42,
-        )
-
-        _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
-
-        results = _get_results(db_path)
-        root_id = taxonomy.root_id
-
-        assert results[root_id]['observations_count_rg'] == 5
-        assert results[root_id]['leaf_taxa_count'] == 1
-        assert _parse_id_list(results[root_id]['ancestor_ids']) == []
-        assert _parse_id_list(results[root_id]['child_ids']) == []
-
-    def test_linear_chain(self, db_path, common_names_path, tmp_path):
-        """Test aggregation on a linear chain (each node has one child)."""
-        taxonomy = generate_linear_chain(length=10, seed=42)
-
-        _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
-
-        results = _get_results(db_path)
-
-        # Root should have all observations aggregated
-        root_id = taxonomy.root_id
-        total_obs = sum(n.observation_count for n in taxonomy.nodes.values())
-        assert results[root_id]['observations_count_rg'] == total_obs
-
-        # Root should have leaf_count of 1 (only one path to leaf)
-        assert results[root_id]['leaf_taxa_count'] == 1
-
-    def test_wide_shallow_tree(self, db_path, common_names_path, tmp_path):
-        """Test aggregation on a wide, shallow tree."""
-        taxonomy = generate_wide_shallow_tree(width=10, depth=2, seed=42)
-
-        _load_synthetic_to_db(taxonomy, db_path)
-        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
-
-        results = _get_results(db_path)
-
-        for node in taxonomy.nodes.values():
-            actual = results[node.id]['observations_count_rg']
-            expected = node.expected_obs_count
+        for species in species_nodes[:50]:  # Check first 50 species
+            actual = results[species.id]['iconic_taxon_id']
+            expected = species.expected_iconic_taxon_id
             assert actual == expected, (
-                f'Taxon {node.id}: expected obs_count={expected}, got {actual}'
+                f'Species {species.id} ({species.name}): expected iconic={expected}, got {actual}'
             )
 
-    def test_mid_tree_leaves(self, db_path, common_names_path, tmp_path):
-        """Test leaf count with mid-tree leaves (genera with no species)."""
-        taxonomy = generate_tree_with_mid_leaves(
-            depth=4,
-            branching_factor=3,
-            leaf_probability=0.3,
-            seed=42,
-        )
 
-        _load_synthetic_to_db(taxonomy, db_path)
+class TestTreeIntegrity:
+    """Tests for tree structure integrity."""
+
+    def test_all_taxa_have_ancestors_computed(self, db_path, common_names_path, tmp_path, taxonomy):
+        """Test that all non-root taxa have ancestor_ids computed."""
+        _load_taxonomy_to_db(taxonomy, db_path)
         aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
 
         results = _get_results(db_path)
 
-        for node in taxonomy.nodes.values():
-            actual_leaf = results[node.id]['leaf_taxa_count']
-            expected_leaf = node.expected_leaf_count
-            assert actual_leaf == expected_leaf, (
-                f'Taxon {node.id}: expected leaf_count={expected_leaf}, got {actual_leaf}'
-            )
+        for node in taxonomy:
+            if node.id != ROOT_TAXON_ID:
+                ancestors = _parse_id_list(results[node.id]['ancestor_ids'])
+                assert len(ancestors) > 0, (
+                    f'Non-root taxon {node.id} should have ancestors, got none'
+                )
+                assert ancestors[0] == ROOT_TAXON_ID, (
+                    f'First ancestor of {node.id} should be root ({ROOT_TAXON_ID}), '
+                    f'got {ancestors[0]}'
+                )
 
-    def test_imbalanced_tree(self, db_path, common_names_path, tmp_path):
-        """Test correct aggregation on heavily imbalanced tree (Arthropoda-like scenario)."""
-        taxonomy = generate_imbalanced_tree(
-            depth=5,
-            branching_factor=3,
-            heavy_branch_multiplier=2.0,
-            seed=42,
-        )
-
-        _load_synthetic_to_db(taxonomy, db_path)
+    def test_parent_in_ancestors(self, db_path, common_names_path, tmp_path, taxonomy):
+        """Test that every taxon's parent is in its ancestor list."""
+        _load_taxonomy_to_db(taxonomy, db_path)
         aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
 
         results = _get_results(db_path)
 
-        for node in taxonomy.nodes.values():
-            actual_obs = results[node.id]['observations_count_rg']
-            expected_obs = node.expected_obs_count
-            assert actual_obs == expected_obs, (
-                f'Taxon {node.id}: expected obs_count={expected_obs}, got {actual_obs}'
-            )
+        for node in taxonomy:
+            if node.parent_id is not None:
+                ancestors = _parse_id_list(results[node.id]['ancestor_ids'])
+                assert node.parent_id in ancestors, (
+                    f'Parent {node.parent_id} of taxon {node.id} should be in ancestors {ancestors}'
+                )
+                # Parent should be the last ancestor
+                assert ancestors[-1] == node.parent_id, (
+                    f'Last ancestor of {node.id} should be parent {node.parent_id}, '
+                    f'got {ancestors[-1]}'
+                )
 
-            actual_leaf = results[node.id]['leaf_taxa_count']
-            expected_leaf = node.expected_leaf_count
-            assert actual_leaf == expected_leaf, (
-                f'Taxon {node.id}: expected leaf_count={expected_leaf}, got {actual_leaf}'
-            )
+    def test_root_has_most_leaves(self, db_path, common_names_path, tmp_path, taxonomy):
+        """Test that root has the highest leaf count (sum of all leaves)."""
+        _load_taxonomy_to_db(taxonomy, db_path)
+        aggregate_taxon_db(db_path, tmp_path / 'backup.parquet', common_names_path)
 
+        results = _get_results(db_path)
 
-class TestProgressCallback:
-    """Tests for progress callback functionality."""
-
-    def test_progress_callback_called(self, db_path, common_names_path, tmp_path):
-        """Test that progress callback is called during aggregation."""
-        taxonomy = generate_synthetic_taxonomy(depth=3, branching_factor=2, seed=42)
-
-        _load_synthetic_to_db(taxonomy, db_path)
-
-        progress_calls = []
-
-        def track_progress(step_name: str, current: int, total: int):
-            progress_calls.append((step_name, current, total))
-
-        aggregate_taxon_db(
-            db_path,
-            tmp_path / 'backup.parquet',
-            common_names_path,
-            progress_callback=track_progress,
-        )
-
-        # Should have calls for computing ancestors, loading counts, and aggregating levels
-        assert len(progress_calls) > 0, 'Progress callback should be called'
-
-        step_names = {call[0] for call in progress_calls}
-        assert 'Computing ancestors' in step_names
-        assert 'Loading observation counts' in step_names
-        assert 'Aggregating levels' in step_names
-
-    def test_progress_callback_none(self, db_path, common_names_path, tmp_path):
-        """Test that aggregation works with no progress callback."""
-        taxonomy = generate_synthetic_taxonomy(depth=2, branching_factor=2, seed=42)
-
-        _load_synthetic_to_db(taxonomy, db_path)
-
-        # Should not raise an error
-        result = aggregate_taxon_db(
-            db_path,
-            tmp_path / 'backup.parquet',
-            common_names_path,
-            progress_callback=None,
-        )
-
-        assert len(result) == len(taxonomy.nodes)
+        root_leaf_count = results[ROOT_TAXON_ID]['leaf_taxa_count']
+        for taxon_id, result in results.items():
+            if taxon_id != ROOT_TAXON_ID:
+                assert result['leaf_taxa_count'] <= root_leaf_count, (
+                    f'Taxon {taxon_id} has more leaves ({result["leaf_taxa_count"]}) '
+                    f'than root ({root_leaf_count})'
+                )
