@@ -116,7 +116,7 @@ def _aggregate_taxon_db(
 ) -> 'DataFrame':
     # Compute depth and ancestors
     progress.log('Computing ancestry...')
-    df = _compute_ancestors(db_path)
+    df = _compute_ancestry(db_path)
 
     # Get observation counts from observations table
     progress.log('Loading observation taxon counts...')
@@ -268,12 +268,12 @@ def _save_taxon_agg(df: 'DataFrame', agg_path: PathOrStr = TAXON_AGGREGATES_PATH
     df2.to_parquet(agg_path)
 
 
-def _compute_ancestors(db_path: PathOrStr = DB_PATH) -> 'DataFrame':
-    """Compute ancestors and depth"""
+def _compute_ancestry(db_path: PathOrStr = DB_PATH) -> 'DataFrame':
+    """Recursively compute ancestors and depth in SQL, and load into a dataframe"""
     import pandas as pd
 
     # ancestor_ids is built as comma-separated string from root to parent (not including self)
-    cte_query = """
+    query = """
     WITH RECURSIVE taxon_tree AS (
         -- Base case: root taxon (parent_id IS NULL)
         SELECT
@@ -307,13 +307,11 @@ def _compute_ancestors(db_path: PathOrStr = DB_PATH) -> 'DataFrame':
 
     with sqlite3.connect(db_path) as conn:
         conn.execute('PRAGMA journal_mode = WAL')
-        df = pd.read_sql_query(cte_query, conn)
+        df = pd.read_sql_query(query, conn)
 
     # Convert types
     df['parent_id'] = df['parent_id'].astype(pd.Int64Dtype())
     df['depth'] = df['depth'].astype('int64')
-
-    # Replace empty string with None for ancestor_ids
     df.loc[df['ancestor_ids'] == '', 'ancestor_ids'] = None
     return df
 
@@ -432,8 +430,7 @@ def _aggregate_level_parallel(
 
     # Split into chunks
     chunks = [chunk_data[i : i + CHUNK_SIZE] for i in range(0, len(chunk_data), CHUNK_SIZE)]
-    num_chunks = len(chunks)
-    progress.log(f'  Processing {len(level_ids)} taxa in {num_chunks} chunks')
+    progress.log(f'  Processing {len(level_ids)} taxa in {len(num_chunks)} chunks')
 
     # Process chunks
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
