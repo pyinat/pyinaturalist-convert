@@ -22,16 +22,15 @@ information to it.
 """
 
 import sqlite3
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor
 from logging import getLogger
 from multiprocessing import Manager, Process
+from multiprocessing import Queue as MPQueue
 from pathlib import Path
-from queue import Queue
 from time import sleep, time
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Optional
 
-from pyinaturalist import Taxon
-from pyinaturalist.constants import ICONIC_TAXA, ROOT_TAXON_ID
+from pyinaturalist import ICONIC_TAXA, RANK_LEVELS
 
 from .constants import DB_PATH, DWCA_TAXON_CSV_DIR, TAXON_AGGREGATES_PATH, PathOrStr
 from .download import ParallelMultiProgress
@@ -42,8 +41,6 @@ if TYPE_CHECKING:
 DEFAULT_LANG_CSV = DWCA_TAXON_CSV_DIR / 'VernacularNames-english.csv'
 # Bacteria, viruses, etc.
 EXCLUDE_IDS = [67333, 131236, 151817, 1228707, 1285874]
-# Most populous phylum IDs to start processing first
-LOAD_FIRST_IDS = [47120, 211194, 2]
 # All columns computed by aggregate_taxon_db
 PRECOMPUTED_COLUMNS = [
     'ancestor_ids',
@@ -53,6 +50,8 @@ PRECOMPUTED_COLUMNS = [
     'leaf_taxa_count',
     'preferred_common_name',
 ]
+PARALLEL_THRESHOLD = 6000  # Partition size over which parallelization should be used
+CHUNK_SIZE = 2000  # Chunk size per parallel worker
 
 logger = getLogger(__name__)
 
@@ -61,6 +60,7 @@ def aggregate_taxon_db(
     db_path: PathOrStr = DB_PATH,
     backup_path: PathOrStr = TAXON_AGGREGATES_PATH,
     common_names_path: PathOrStr = DEFAULT_LANG_CSV,
+    max_workers: Optional[int] = None,
     progress_bars: bool = True,
 ) -> 'DataFrame':
     """Add aggregate and hierarchical values to the taxon database:
@@ -79,133 +79,79 @@ def aggregate_taxon_db(
         backup_path: Path to save a minimal copy of aggregate values
         common_names_path: Path to a CSV file containing taxon common names.
             See the DwC-A taxonomy dataset for available languages.
+        max_workers: Max worker processes for parallel aggregation (None = cpu_count)
         progress_bars: Show detailed progress bars in addition to log output
     """
-    import pandas as pd
-
-    # Get taxon counts from observations table
     start = time()
-    df = _get_taxon_df(db_path)
-    taxon_counts_dict = get_observation_taxon_counts(db_path)
-    taxon_counts = pd.DataFrame(taxon_counts_dict.items(), columns=['id', 'observations_count_rg'])
-    df = _join_taxon_agg(df, taxon_counts)
-    n_phyla = len(df[(df['rank'] == 'phylum') & ~df['parent_id'].isin(EXCLUDE_IDS)])
-    n_kingdoms = len(df[(df['rank'] == 'kingdom')])
+    progress = RichProgress() if progress_bars else LoggerProgress()
 
-    # Optionally run without fancy progress bars
-    if not progress_bars:
-        df = _aggregate_taxon_db(df, db_path, backup_path, common_names_path)
-        return df
-
-    # Set up a separate process to manage progress updates via queues
-    manager = Manager()
-    progress_queue = manager.Queue()
-    task_queue = manager.Queue()
-    log_queue = manager.Queue()
-    progress_total = len(df) + n_phyla + n_kingdoms + 1
-    progress_proc = Process(
-        target=_update_progress, args=(progress_queue, task_queue, log_queue, progress_total)
-    )
-    progress_proc.start()
+    # get total number of taxa for progress bar
+    with sqlite3.connect(db_path) as conn:
+        conn.execute('PRAGMA journal_mode = WAL')
+        total_taxa = conn.execute('SELECT COUNT(*) FROM taxon;').fetchone()[0]
+    progress.start(total=total_taxa)
 
     try:
         df = _aggregate_taxon_db(
-            df, db_path, backup_path, common_names_path, progress_queue, task_queue, log_queue
+            db_path,
+            backup_path,
+            common_names_path,
+            progress,
+            max_workers=max_workers,
         )
-        logger.info(f'Completed in {time() - start:.2f}s')
+        progress.log(f'Completed taxonomy aggregation in {time() - start:.2f}s')
     except Exception as e:
         logger.exception(e)
     finally:
-        progress_proc.terminate()
+        progress.stop()
     return df
 
 
 def _aggregate_taxon_db(
-    df: 'DataFrame',
-    db_path: PathOrStr = DB_PATH,
-    backup_path: PathOrStr = TAXON_AGGREGATES_PATH,
-    common_names_path: PathOrStr = DEFAULT_LANG_CSV,
-    progress_queue: Optional[Queue] = None,
-    task_queue: Optional[Queue] = None,
-    log_queue: Optional[Queue] = None,
+    db_path: PathOrStr,
+    backup_path: PathOrStr,
+    common_names_path: PathOrStr,
+    progress: 'LoggerProgress',
+    max_workers: Optional[int] = None,
 ) -> 'DataFrame':
-    import pandas as pd
+    # Compute depth and ancestors
+    progress.log('Computing ancestry...')
+    df = _compute_ancestry(db_path)
 
-    # Write a log message to either a stdlib logger, or rich's progress logger
-    # (for better formatting that doesn't mangle progress bars)
-    log_func: Callable[[str], None] = log_queue.put if log_queue else logger.info  # type: ignore
-    q_kwargs = {'progress_queue': progress_queue, 'task_queue': task_queue}
+    # Get observation counts from observations table
+    progress.log('Loading observation taxon counts...')
+    taxon_counts_dict = get_observation_taxon_counts(db_path)
+    df['observations_count_rg'] = df['id'].map(taxon_counts_dict).fillna(0).astype('int64')
 
-    # Get common names from CSV
-    common_names = _get_common_names(common_names_path, **q_kwargs)
-
-    # Parallelize by phylum; split up entire dataframe to minimize memory usage per process
-    combined_df = df[(df['id'] == ROOT_TAXON_ID) | (df['rank'] == 'kingdom')]
-    phyla = [
-        Taxon.from_json(taxon)
-        for taxon in df[df['id'].isin(LOAD_FIRST_IDS)].to_dict(orient='records')
-    ]
-    phyla.extend(
-        [
-            Taxon.from_json(taxon)
-            for taxon in df[df['rank'] == 'phylum'].to_dict(orient='records')
-            if taxon['parent_id'] not in (EXCLUDE_IDS)
-            and taxon['id'] not in (EXCLUDE_IDS + LOAD_FIRST_IDS)
-        ]
+    # Aggregate bottom-up by level
+    progress.log('Building children index...')
+    children_index = _build_children_index(df)
+    progress.log('Starting aggregation...')
+    df = _aggregate_by_level(
+        df,
+        children_index,
+        progress=progress,
+        max_workers=max_workers,
     )
 
-    with ProcessPoolExecutor() as executor_1, ProcessPoolExecutor() as executor_2:
-        log_func('Partitioning tasks by phylum')
-        futures_to_taxon = {
-            executor_1.submit(
-                _get_descendant_ids,
-                taxon.id,
-                taxon_name=taxon.name,
-                df=df[['id', 'parent_id']],
-                **q_kwargs,  # type: ignore
-            ): taxon
-            for taxon in phyla
-        }
+    # Load common names
+    progress.log('Loading common names...')
+    common_names = _get_common_names(common_names_path)
+    df['preferred_common_name'] = df['id'].map(common_names)
 
-        # Process each phylum subtree
-        stage_2_futures = []
-        for future in as_completed(futures_to_taxon):
-            taxon = futures_to_taxon[future]
-            descenant_ids = future.result()
-            stage_2_futures.append(
-                executor_2.submit(
-                    _aggregate_branch,
-                    df[df['id'].isin(descenant_ids)].copy(),
-                    taxon_id=taxon.id,
-                    taxon_name=taxon.name,
-                    ancestor_ids=[ROOT_TAXON_ID, taxon.parent_id],
-                    common_names=common_names,
-                    **q_kwargs,
-                )
-            )
-
-        # As each subtree is completed, recombine into a single dataframe
-        log_func('Combining results')
-        for future in as_completed(stage_2_futures):
-            sub_df = future.result()
-            combined_df = pd.concat([combined_df, sub_df], ignore_index=True)
-
-    # Process kingdoms
-    df = _aggregate_kingdoms(combined_df, common_names, **q_kwargs)
-
-    # Save all results back to the database, plus a minimal backup
+    progress.log('Saving results...')
+    df = df.drop(columns=['depth'])
     _save_taxon_agg(df, backup_path)
     _save_taxon_df(df, db_path)
     return df
 
 
-def get_observation_taxon_counts(db_path: PathOrStr = DB_PATH) -> Dict[int, int]:
+def get_observation_taxon_counts(db_path: PathOrStr = DB_PATH) -> dict[int, int]:
     """Get taxon counts based on GBIF export (exact rank counts only, no aggregate counts)"""
     if not Path(db_path).is_file():
         logger.warning(f'Observation database {db_path} not found')
         return {}
 
-    logger.info(f'Getting base taxon counts from {db_path}')
     with sqlite3.connect(db_path) as conn:
         conn.row_factory = sqlite3.Row
         conn.execute('PRAGMA journal_mode = WAL')
@@ -214,172 +160,29 @@ def get_observation_taxon_counts(db_path: PathOrStr = DB_PATH) -> Dict[int, int]
             'WHERE taxon_id IS NOT NULL '
             'GROUP BY taxon_id;'
         ).fetchall()
-
-        return {
+        results = {
             int(row['taxon_id']): int(row['count'])
             for row in sorted(rows, key=lambda r: r['count'], reverse=True)
         }
 
+    return results
 
-def _get_descendant_ids(
-    taxon_id: int,
-    taxon_name: Optional[str] = None,
-    db_path: PathOrStr = DB_PATH,
-    df: Optional['DataFrame'] = None,
-    progress_queue: Optional[Queue] = None,
-    task_queue: Optional[Queue] = None,
-) -> List[int]:
-    """Recursively get all descendant taxon IDs (down to leaf taxa) for the given taxon"""
+
+def _get_common_names(common_names_path: PathOrStr = DEFAULT_LANG_CSV) -> dict[int, str]:
+    """Get common names for the specified language from DwC-A taxonomy files."""
     import pandas as pd
-
-    task_name = f'phylum {taxon_name}'
-    if task_queue:
-        task_queue.put((task_name, 'Finding descendants of', 1))
-
-    if df is None:
-        df = _get_taxon_df(db_path)
-
-    def _get_descendants_rec(parent_id):
-        child_ids = df[(df['parent_id'] == parent_id)]['id']
-        combined = pd.concat([child_ids] + [_get_descendants_rec(c) for c in child_ids])
-        return combined
-
-    descendant_ids = [taxon_id] + list(_get_descendants_rec(taxon_id))
-    if progress_queue:
-        progress_queue.put((task_name, 1))
-    return descendant_ids
-
-
-def _aggregate_branch(
-    df: 'DataFrame',
-    taxon_id: int,
-    taxon_name: Optional[str] = None,
-    ancestor_ids: Optional[List[int]] = None,
-    common_names: Optional[Dict[int, str]] = None,
-    progress_queue: Optional[Queue] = None,
-    task_queue: Optional[Queue] = None,
-) -> 'DataFrame':
-    """Add aggregate values to all descendants of a given taxon"""
-    common_names = common_names or {}
-    task_name = f'phylum {taxon_name}'
-    if task_queue:
-        task_queue.put((task_name, 'Loading', len(df) - 1))
-
-    def aggregate_rec(taxon_id, ancestor_ids: List[int]):
-        # Process children first, to update counts
-        child_ids = list(df[df['parent_id'] == taxon_id]['id'])
-        for child_id in child_ids:
-            aggregate_rec(child_id, ancestor_ids + [taxon_id])
-        if progress_queue:
-            progress_queue.put((task_name, len(child_ids)))
-
-        # Get combined child counts
-        children = df[df['parent_id'] == taxon_id]
-        obs_count = children['observations_count_rg'].sum()
-        leaf_count = children['leaf_taxa_count'].sum()
-        common_name = common_names.get(taxon_id)  # type: ignore
-        if len(children) == 0:  # Current taxon is a leaf
-            leaf_count = 1
-
-        # Process current taxon
-        mask = df['id'] == taxon_id
-        df.loc[mask] = df.loc[mask].apply(
-            lambda row: _update_taxon(
-                row, ancestor_ids, child_ids, obs_count, leaf_count, common_name
-            ),
-            axis=1,
-        )
-
-    aggregate_rec(taxon_id, ancestor_ids or [ROOT_TAXON_ID])
-    return df
-
-
-def _aggregate_kingdoms(
-    df: 'DataFrame',
-    common_names: Optional[Dict[int, str]] = None,
-    progress_queue: Optional[Queue] = None,
-    task_queue: Optional[Queue] = None,
-) -> 'DataFrame':
-    """Process kingdoms + root taxon (in main thread) after all phyla have been processed"""
-    common_names = common_names or {}
-    kingdom_ids = list(df[df['rank'] == 'kingdom']['id'])
-
-    if task_queue:
-        task_queue.put(('kingdoms', 'Loading', len(kingdom_ids) + 1))
-
-    for taxon_id in kingdom_ids + [ROOT_TAXON_ID]:
-        children = df[df['parent_id'] == taxon_id]
-        ancestor_ids = [] if taxon_id == ROOT_TAXON_ID else [ROOT_TAXON_ID]
-        mask = df['id'] == taxon_id
-        df.loc[mask] = df.loc[mask].apply(
-            lambda row: _update_taxon(
-                row,
-                ancestor_ids,
-                list(children['id']),
-                children['observations_count_rg'].sum(),
-                children['leaf_taxa_count'].sum(),
-                common_names.get(taxon_id),
-            ),
-            axis=1,
-        )
-
-        if progress_queue:
-            progress_queue.put(('kingdoms', 1))
-
-    return df
-
-
-def _update_taxon(
-    row,
-    ancestor_ids: List[int],
-    child_ids: List[int],
-    agg_count: int = 0,
-    leaf_count: int = 0,
-    common_name: Optional[str] = None,
-):
-    """Update aggregate values for a single taxon"""
-
-    def _join_ids(ids: List[int]) -> Optional[str]:
-        return ','.join(map(str, ids)) if ids else None
-
-    iconic_taxon_id = next((i for i in ancestor_ids if i in ICONIC_TAXA), None)
-    row['ancestor_ids'] = _join_ids(ancestor_ids) if ancestor_ids else None
-    row['child_ids'] = _join_ids(child_ids)
-    row['iconic_taxon_id'] = iconic_taxon_id
-    row['observations_count_rg'] += agg_count
-    row['leaf_taxa_count'] += leaf_count
-    row['preferred_common_name'] = common_name
-    return row
-
-
-def _get_common_names(
-    common_names_path: PathOrStr = DEFAULT_LANG_CSV,
-    progress_queue: Optional[Queue] = None,
-    task_queue: Optional[Queue] = None,
-) -> Dict[int, str]:
-    """Get common names for the specified language from DwC-A taxonomy files"""
-    import pandas as pd
-
-    # Arbitrary value to advance progress bar
-    if task_queue:
-        task_queue.put(('common names', 'Loading', 1))
 
     csv_path = Path(common_names_path).expanduser()
     if not csv_path.is_file():
         logger.warning(f'File not found: {csv_path}; common names will not be loaded')
         return {}
 
-    logger.info(f'Loading common names from {common_names_path}')
     df = pd.read_csv(csv_path)
 
     # Get the first match for each taxon ID; appears to be already sorted by relevance
     df = df.drop_duplicates(subset='id', keep='first')
     df = df.set_index('id')
-    df = df['vernacularName'].to_dict()
-
-    if progress_queue:
-        progress_queue.put(('common names', 1))
-    return df
+    return df['vernacularName'].to_dict()
 
 
 def _get_taxon_df(db_path: PathOrStr = DB_PATH) -> 'DataFrame':
@@ -403,7 +206,6 @@ def _save_taxon_df(df: 'DataFrame', db_path: PathOrStr = DB_PATH):
     backup_path = db_path.parent / 'taxa_backup.csv'
     df.to_csv(backup_path)
 
-    logger.info('Saving taxon counts to database')
     create_tables(db_path)
     with sqlite3.connect(db_path) as conn:
         try:
@@ -466,12 +268,318 @@ def _save_taxon_agg(df: 'DataFrame', agg_path: PathOrStr = TAXON_AGGREGATES_PATH
     df2.to_parquet(agg_path)
 
 
+def _compute_ancestry(db_path: PathOrStr = DB_PATH) -> 'DataFrame':
+    """Recursively compute ancestors and depth in SQL, and load into a dataframe"""
+    import pandas as pd
+
+    # ancestor_ids is built as comma-separated string from root to parent (not including self)
+    query = """
+    WITH RECURSIVE taxon_tree AS (
+        -- Base case: root taxon (parent_id IS NULL)
+        SELECT
+            id,
+            parent_id,
+            name,
+            rank,
+            0 as depth,
+            '' as ancestor_ids
+        FROM taxon
+        WHERE parent_id IS NULL
+
+        UNION ALL
+
+        -- Recursive case: children
+        SELECT
+            t.id,
+            t.parent_id,
+            t.name,
+            t.rank,
+            tt.depth + 1,
+            CASE
+                WHEN tt.ancestor_ids = '' THEN CAST(tt.id AS TEXT)
+                ELSE tt.ancestor_ids || ',' || CAST(tt.id AS TEXT)
+            END
+        FROM taxon t
+        JOIN taxon_tree tt ON t.parent_id = tt.id
+    )
+    SELECT * FROM taxon_tree;
+    """
+
+    with sqlite3.connect(db_path) as conn:
+        conn.execute('PRAGMA journal_mode = WAL')
+        df = pd.read_sql_query(query, conn)
+
+    # Convert types
+    df['parent_id'] = df['parent_id'].astype(pd.Int64Dtype())
+    df['depth'] = df['depth'].astype('int64')
+    df.loc[df['ancestor_ids'] == '', 'ancestor_ids'] = None
+    return df
+
+
+def _build_children_index(df: 'DataFrame') -> dict[int, list[int]]:
+    """Build a mapping from parent_id to list of child_ids.
+
+    Single O(n) pass using groupby for O(1) child lookups later.
+    """
+    children_df = df[df['parent_id'].notna()][['id', 'parent_id']]
+    children_index: dict[int, list[int]] = (
+        children_df.groupby('parent_id')['id'].apply(list).to_dict()
+    )
+    return children_index
+
+
+def _aggregate_by_level(
+    df: 'DataFrame',
+    children_index: dict[int, list[int]],
+    progress: 'LoggerProgress',
+    max_workers: Optional[int] = None,
+) -> 'DataFrame':
+    """Aggregate values from the bottom up, starting with leaf nodes"""
+    df['leaf_taxa_count'] = 0
+    df['child_ids'] = None
+    df['iconic_taxon_id'] = None
+    df = df.set_index('id')
+    max_depth = df['depth'].max()
+    max_depth + 1
+
+    # Pre-compute iconic taxa as a set for faster lookups in workers
+    iconic_taxa_set = set(ICONIC_TAXA.keys())
+
+    # Process from leaves to root
+    progress.start_task('taxa', total=len(df), description='Aggregating')
+    for depth in range(max_depth, -1, -1):
+        level_ids = df.index[df['depth'] == depth].tolist()
+        level_ranks = _format_rank_range(df.loc[level_ids, 'rank'].unique().tolist())
+        progress.log(f'Aggregating level {depth} ({level_ranks})...')
+
+        # Use parallel processing for large levels
+        if len(level_ids) < PARALLEL_THRESHOLD:
+            df = _aggregate_level(
+                df,
+                level_ids,
+                children_index,
+                progress=progress,
+            )
+        else:
+            df = _aggregate_level_parallel(
+                df,
+                level_ids,
+                children_index,
+                iconic_taxa_set,
+                progress=progress,
+                max_workers=max_workers,
+            )
+    return df.reset_index()
+
+
+def _aggregate_level(
+    df: 'DataFrame',
+    level_ids: list[int],
+    children_index: dict[int, list[int]],
+    progress: 'LoggerProgress',
+) -> 'DataFrame':
+    """Process a single level sequentially."""
+
+    progress.log(f'  Processing {len(level_ids)} taxa')
+    for i, taxon_id in enumerate(level_ids):
+        child_ids = children_index.get(taxon_id, [])
+        if child_ids:
+            df.at[taxon_id, 'child_ids'] = ','.join(map(str, child_ids))
+            child_obs_sum = df.loc[child_ids, 'observations_count_rg'].sum()
+            child_leaf_sum = df.loc[child_ids, 'leaf_taxa_count'].sum()
+            df.at[taxon_id, 'observations_count_rg'] += child_obs_sum
+            df.at[taxon_id, 'leaf_taxa_count'] = child_leaf_sum
+        else:
+            df.at[taxon_id, 'leaf_taxa_count'] = 1
+
+        ancestor_str = df.at[taxon_id, 'ancestor_ids']
+        df.at[taxon_id, 'iconic_taxon_id'] = _get_iconic_taxon_id(taxon_id, ancestor_str)
+
+        if (i + 1) % 100 == 0:
+            progress.advance('taxa', 100)
+
+    # Report any remaining progress
+    remaining = len(level_ids) % 100
+    if remaining > 0:
+        progress.advance('taxa', remaining)
+
+    return df
+
+
+def _aggregate_level_parallel(
+    df: 'DataFrame',
+    level_ids: list[int],
+    children_index: dict[int, list[int]],
+    iconic_taxa_set: set,
+    progress: 'LoggerProgress',
+    max_workers: Optional[int] = None,
+) -> 'DataFrame':
+    """Process a single level using parallel workers"""
+    # Prepare data for each taxon - precompute child sums to minimize dataframe access in workers
+    chunk_data = []
+    for taxon_id in level_ids:
+        child_ids = children_index.get(taxon_id, [])
+        own_obs = df.at[taxon_id, 'observations_count_rg']
+        ancestor_str = df.at[taxon_id, 'ancestor_ids']
+        child_obs_sum = df.loc[child_ids, 'observations_count_rg'].sum() if child_ids else 0
+        child_leaf_sum = df.loc[child_ids, 'leaf_taxa_count'].sum() if child_ids else 0
+
+        chunk_data.append(
+            (taxon_id, child_ids, own_obs, child_obs_sum, child_leaf_sum, ancestor_str)
+        )
+
+    # Split into chunks
+    chunks = [chunk_data[i : i + CHUNK_SIZE] for i in range(0, len(chunk_data), CHUNK_SIZE)]
+    progress.log(f'  Processing {len(level_ids)} taxa in {len(chunks)} chunks')
+
+    # Process chunks
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        futures = [
+            executor.submit(_process_taxa_chunk, chunk, iconic_taxa_set, progress.progress_queue)
+            for chunk in chunks
+        ]
+        all_results = [f.result() for f in futures]
+
+    # Merge results
+    progress.log('  Merging chunks')
+    for chunk_results in all_results:
+        for taxon_id, total_obs, leaf_count, child_ids_str, iconic_taxon_id in chunk_results:
+            df.at[taxon_id, 'observations_count_rg'] = total_obs
+            df.at[taxon_id, 'leaf_taxa_count'] = leaf_count
+            df.at[taxon_id, 'child_ids'] = child_ids_str
+            df.at[taxon_id, 'iconic_taxon_id'] = iconic_taxon_id
+
+    return df
+
+
+def _process_taxa_chunk(chunk_data, iconic_taxa_set, progress_queue) -> list:
+    """Worker function to process a chunk of taxa in parallel.
+
+    Returns:
+        List of (taxon_id, total_obs, leaf_count, child_ids_str, iconic_taxon_id)
+    """
+    results = []
+    total = len(chunk_data)
+    report_interval = max(1, total // 10)  # Report ~10 times per chunk
+
+    for i, (taxon_id, child_ids, own_obs, child_obs_sum, child_leaf_sum, ancestor_str) in enumerate(
+        chunk_data
+    ):
+        child_ids_str = ','.join(map(str, child_ids)) if child_ids else None
+        total_obs = own_obs + child_obs_sum if child_ids else own_obs
+        leaf_count = child_leaf_sum if child_ids else 1
+
+        # Compute iconic_taxon_id
+        iconic_taxon_id = None
+        if isinstance(ancestor_str, str):
+            ancestor_ids = [int(x) for x in ancestor_str.split(',')] + [taxon_id]
+            for ancestor_id in reversed(ancestor_ids):
+                if ancestor_id in iconic_taxa_set:
+                    iconic_taxon_id = ancestor_id
+                    break
+
+        results.append((taxon_id, total_obs, leaf_count, child_ids_str, iconic_taxon_id))
+
+        # Report progress periodically
+        if (i + 1) % report_interval == 0:
+            progress_queue.put(('taxa', report_interval))
+
+    # Report any remaining progress
+    if (remaining := total % report_interval) > 0:
+        progress_queue.put(('taxa', remaining))
+
+    return results
+
+
+def _format_rank_range(ranks: list[str]) -> str:
+    if len(ranks) == 1:
+        return ranks[0]
+    sorted_ranks = sorted(ranks, key=lambda r: RANK_LEVELS.get(r, 100))
+    return f'{sorted_ranks[0]} through {sorted_ranks[-1]}'
+
+
+def _get_iconic_taxon_id(taxon_id: int, ancestor_ids_str: Optional[str]) -> Optional[int]:
+    """Get the most specific iconic taxon for a given taxon"""
+    # Check ancestors + self in reverse order (most specific first)
+    if isinstance(ancestor_ids_str, str):
+        ancestor_ids = [int(x) for x in ancestor_ids_str.split(',')] + [taxon_id]
+        for ancestor_id in reversed(ancestor_ids):
+            if ancestor_id in ICONIC_TAXA:
+                return ancestor_id
+    return None
+
+
+class LoggerProgress:
+    """Base class for progress display. Just logs messages to a logger, with placeholders for
+    progress bars.
+    """
+
+    def __init__(self):
+        manager = Manager()
+        self.progress_queue = manager.Queue()
+        self.task_queue = manager.Queue()
+        self.log_queue = manager.Queue()
+        self._progress_proc: Optional[Process] = None
+
+    def start(self, total: int):
+        pass
+
+    def stop(self):
+        pass
+
+    def advance(self, name: str, amount: int = 1):
+        pass
+
+    def log(self, message: str):
+        logger.info(message)
+
+    def start_task(self, name: str, total: int, description: str = ''):
+        logger.info(f'Starting task: {description or name} ({total} items)')
+
+
+class RichProgress(LoggerProgress):
+    """Container for multiprocessing queues used for progress reporting."""
+
+    def start(self, total: int = 1):
+        """Start the progress display process."""
+        self._progress_proc = Process(
+            target=_update_progress,
+            args=(self.progress_queue, self.task_queue, self.log_queue, total),
+        )
+        self._progress_proc.start()
+
+    def stop(self):
+        """Stop the progress display process."""
+        if self._progress_proc is not None:
+            # Signal completion
+            self.task_queue.put(None)
+            self._progress_proc.join(timeout=5)
+            if self._progress_proc.is_alive():
+                self._progress_proc.terminate()
+            self._progress_proc = None
+
+    def log(self, message: str):
+        """Send a log message to the progress display."""
+        self.log_queue.put(message)
+
+    def start_task(self, name: str, total: int, description: str = ''):
+        """Register a new task with the progress display."""
+        self.task_queue.put((name, description or name, total))
+
+    def advance(self, name: str, amount: int = 1):
+        """Advance progress for a task."""
+        self.progress_queue.put((name, amount))
+
+
 def _update_progress(
-    progress_queue: Queue, task_queue: Queue, log_queue: Queue, total: int
-):  # pragma: no cover
-    """Pull from a multiprocessing queue and update progress"""
+    progress_queue: MPQueue,
+    task_queue: MPQueue,
+    log_queue: MPQueue,
+    total: int,
+):
+    """Pull from multiprocessing queues and update progress"""
     progress = ParallelMultiProgress(total=total)
-    pending: List[Tuple[str, int]] = []
+    pending: list[tuple[str, int]] = []
     refresh_rate = 10  # ticks per second
 
     with progress:
@@ -482,10 +590,14 @@ def _update_progress(
 
             # Check for new tasks (max 1 per tick)
             if not task_queue.empty():
-                task_name, task_desc, total = task_queue.get()
-                progress.start_job(task_name, total, task_desc)
+                item = task_queue.get_nowait()
+                if item is None:
+                    # Stop signal received
+                    return
+                task_name, task_desc, task_total = item
+                progress.start_job(task_name, task_total, task_desc)
 
-            # Check for new progress
+            # Collect progress updates
             while not progress_queue.empty():
                 pending.append(progress_queue.get())
 
