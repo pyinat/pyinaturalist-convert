@@ -1,0 +1,1684 @@
+id,parent_id,name,rank
+1,48460,Animalia,kingdom
+2,1,Chordata,phylum
+3,355675,Aves,class
+4,3,Gruiformes,order
+5,4,Aramidae,family
+6,5,Aramus,genus
+7,6,Aramus guarauna,species
+12,71262,Cariamidae,family
+13,12,Cariama,genus
+14,13,Cariama cristata,species
+15,12,Chunga,genus
+16,15,Chunga burmeisteri,species
+17,71263,Eurypygidae,family
+18,17,Eurypyga,genus
+19,18,Eurypyga helias,species
+23,4,Gruidae,family
+25,508058,Grus nigricollis,species
+26,508058,Grus monacha,species
+34,508058,Grus americana,species
+39,508058,Grus japonensis,species
+41,508058,Grus grus,species
+47,508058,Grus paradiseus,species
+48,508058,Grus virgo,species
+49,23,Balearica,genus
+50,49,Balearica pavonina,species
+53,49,Balearica regulorum,species
+57,508058,Grus carunculatus,species
+58,4,Heliornithidae,family
+59,58,Heliopais,genus
+60,59,Heliopais personatus,species
+61,58,Podica,genus
+62,61,Podica senegalensis,species
+67,58,Heliornis,genus
+68,67,Heliornis fulica,species
+69,71265,Mesitornithidae,family
+70,69,Mesitornis,genus
+71,70,Mesitornis unicolor,species
+72,70,Mesitornis variegatus,species
+73,69,Monias,genus
+74,73,Monias benschi,species
+75,71266,Otididae,family
+76,75,Otis,genus
+77,76,Otis tarda,species
+80,75,Houbaropsis,genus
+81,80,Houbaropsis bengalensis,species
+84,75,Neotis,genus
+85,84,Neotis denhami,species
+89,84,Neotis nuba,species
+90,84,Neotis heuglinii,species
+91,84,Neotis ludwigii,species
+92,75,Eupodotis,genus
+94,92,Eupodotis caerulescens,species
+95,92,Eupodotis senegalensis,species
+107,75,Ardeotis,genus
+108,107,Ardeotis australis,species
+109,107,Ardeotis arabs,species
+114,107,Ardeotis nigriceps,species
+115,107,Ardeotis kori,species
+129,75,Sypheotides,genus
+130,129,Sypheotides indicus,species
+131,75,Tetrax,genus
+132,131,Tetrax tetrax,species
+142,4,Psophiidae,family
+143,142,Psophia,genus
+144,143,Psophia leucoptera,species
+147,143,Psophia viridis,species
+151,143,Psophia crepitans,species
+154,4,Rallidae,family
+155,154,Porzana,genus
+156,155,Porzana fluminea,species
+162,155,Porzana carolina,species
+178,155,Porzana porzana,species
+194,154,Amaurornis,genus
+199,194,Amaurornis phoenicurus,species
+203,194,Amaurornis isabellina,species
+204,194,Amaurornis olivacea,species
+212,154,Rallus,genus
+213,212,Rallus semiplumbeus,species
+216,212,Rallus antarcticus,species
+243,212,Rallus limicola,species
+248,212,Rallus caerulescens,species
+254,212,Rallus madagascariensis,species
+255,212,Rallus wetmorei,species
+256,154,Anurolimnas,genus
+261,256,Anurolimnas castaneiceps,species
+20978,355675,Amphibia,class
+20979,20978,Anura,order
+20980,713809,Dendrobatidae,family
+20981,787547,Aromobates,genus
+20982,20981,Aromobates nocturnus,species
+20983,787561,Colostethus,genus
+21002,787560,Colostethus ruthveni,species
+21030,20983,Colostethus lynchi,species
+21038,20983,Colostethus inguinalis,species
+21039,20983,Colostethus latinasus,species
+21042,20983,Colostethus imbricolus,species
+21045,20983,Colostethus furviventris,species
+21052,20983,Colostethus mertensi,species
+21060,20980,Colostethus poecilonotus,species
+21069,20983,Colostethus thorntoni,species
+21105,20983,Colostethus agilis,species
+21108,20983,Colostethus pratti,species
+21112,787560,Dendrobates,genus
+21116,21112,Dendrobates truncatus,species
+21121,21112,Dendrobates auratus,species
+21141,21112,Dendrobates tinctorius,species
+21150,21112,Dendrobates leucomelas,species
+21154,787561,Epipedobates,genus
+21160,21154,Epipedobates anthonyi,species
+21165,21154,Epipedobates boulengeri,species
+21176,21154,Epipedobates tricolor,species
+21179,21154,Epipedobates espinosai,species
+21185,787547,Mannophryne,genus
+21186,21185,Mannophryne collaris,species
+21187,21185,Mannophryne olmonae,species
+21188,21185,Mannophryne lamarcai,species
+21189,21185,Mannophryne caquetio,species
+21190,21185,Mannophryne cordilleriana,species
+21191,21185,Mannophryne riveroi,species
+21192,21185,Mannophryne trinitatis,species
+21193,21185,Mannophryne yustizi,species
+21194,21185,Mannophryne oblitterata,species
+21195,21185,Mannophryne larandina,species
+21196,21185,Mannophryne neblina,species
+21197,21185,Mannophryne herminae,species
+21209,787562,Allobates,genus
+21210,21209,Allobates zaparo,species
+21211,21209,Allobates femoralis,species
+21212,787560,Phyllobates,genus
+21213,21212,Phyllobates bicolor,species
+21214,21212,Phyllobates vittatus,species
+21215,21212,Phyllobates lugubris,species
+21216,21212,Phyllobates aurotaenia,species
+21217,21212,Phyllobates terribilis,species
+21218,20979,Centrolenidae,family
+21219,787581,Cochranella,genus
+21221,64800,Nymphargus ocellatus,species
+21226,70939,Rulyrana adiazeta,species
+21227,70547,Celsiella vozmedianoi,species
+21228,21219,Cochranella euknemos,species
+21229,21219,Cochranella resplendens,species
+21230,70939,Rulyrana flavopunctata,species
+21231,70967,Teratohyla midas,species
+21235,70940,Sachatamia punctulata,species
+21236,787581,Cochranella xanthocheridia,species
+21242,787581,Cochranella euhystrix,species
+21249,70939,Rulyrana spiculata,species
+26036,355675,Reptilia,class
+26039,26036,Crocodylia,order
+26041,26039,Crocodylidae,family
+26042,26041,Crocodylus,genus
+26044,26042,Crocodylus siamensis,species
+26050,341972,Crocodylus niloticus pauciscutatus,subspecies
+26052,341972,Crocodylus niloticus cowiei,subspecies
+26056,341972,Crocodylus niloticus africanus,subspecies
+26057,341972,Crocodylus niloticus chamses,subspecies
+26061,26042,Crocodylus rhombifer,species
+26063,26042,Crocodylus palustris,species
+26068,26042,Crocodylus porosus,species
+26070,26042,Crocodylus novaeguineae,species
+26074,26042,Crocodylus moreletii,species
+26076,26042,Crocodylus mindorensis,species
+26079,26042,Crocodylus johnstoni,species
+26081,26042,Crocodylus intermedius,species
+26085,26042,Crocodylus acutus,species
+26135,26041,Osteolaemus,genus
+26138,26135,Osteolaemus tetraspis,species
+26154,121038,Alligator,genus
+26156,26154,Alligator sinensis,species
+26159,26154,Alligator mississippiensis,species
+26172,26036,Squamata,order
+26175,85553,Acrochordidae,family
+26176,26175,Acrochordus,genus
+26179,26176,Acrochordus javanicus,species
+26182,26176,Acrochordus granulatus,species
+26184,26176,Acrochordus arafurae,species
+26340,797523,Aparallactus,genus
+26342,26340,Aparallactus werneri,species
+26344,26340,Aparallactus turneri,species
+26347,26340,Aparallactus nigriceps,species
+26349,26340,Aparallactus niger,species
+26351,26340,Aparallactus moeruensis,species
+26354,26340,Aparallactus modestus,species
+26356,26354,Aparallactus modestus modestus,subspecies
+26360,26340,Aparallactus lunulatus,species
+26363,26360,Aparallactus lunulatus nigrocollaris,subspecies
+26365,26360,Aparallactus lunulatus lunulatus,subspecies
+26368,26340,Aparallactus lineatus,species
+26370,26340,Aparallactus jacksonii,species
+26373,26340,Aparallactus guentheri,species
+26376,26340,Aparallactus capensis,species
+26377,26376,Aparallactus capensis punctatolineatus,subspecies
+26381,26376,Aparallactus capensis capensis,subspecies
+26383,26376,Aparallactus capensis bocagii,subspecies
+26466,797523,Amblyodipsas,genus
+26468,26466,Amblyodipsas ventrimaculata,species
+26471,26466,Amblyodipsas unicolor,species
+26473,26466,Amblyodipsas teitana,species
+26475,26466,Amblyodipsas rodhaini,species
+26484,26466,Amblyodipsas microphthalma,species
+26486,26466,Amblyodipsas katangensis,species
+26489,26486,Amblyodipsas katangensis ionidesi,subspecies
+26491,26486,Amblyodipsas katangensis katangensis,subspecies
+26493,26466,Amblyodipsas dimidiata,species
+26496,26466,Amblyodipsas concolor,species
+26504,85553,Colubridae,family
+26506,797520,Dipsadoboa,genus
+26508,26506,Dipsadoboa weileri,species
+26511,26506,Dipsadoboa werneri,species
+26513,26506,Dipsadoboa viridis,species
+40151,355675,Mammalia,class
+40152,848319,Dasyuromorphia,order
+40153,40152,Dasyuridae,family
+40154,1596084,Planigale,genus
+40155,40154,Planigale tenuirostris,species
+40156,40154,Planigale maculata,species
+40159,40154,Planigale ingrami,species
+40163,40154,Planigale gilesi,species
+40164,40154,Planigale novaeguineae,species
+40165,846188,Dasyurus,genus
+40166,40165,Dasyurus maculatus,species
+40167,40165,Dasyurus viverrinus,species
+40168,40165,Dasyurus albopunctatus,species
+40169,40165,Dasyurus geoffroii,species
+40170,40165,Dasyurus hallucatus,species
+40171,40165,Dasyurus spartacus,species
+40172,846187,Ningaui,genus
+40174,40172,Ningaui timealeyi,species
+40175,40172,Ningaui ridei,species
+40178,1596085,Phascogale,genus
+40179,40178,Phascogale tapoatafa,species
+40180,40178,Phascogale calurus,species
+40181,1596085,Antechinus,genus
+40183,40181,Antechinus minimus,species
+40184,40181,Antechinus stuartii,species
+40185,40181,Antechinus bellus,species
+40186,40181,Antechinus leo,species
+40187,40181,Antechinus flavipes,species
+40190,40181,Antechinus godmani,species
+40191,40181,Antechinus subtropicus,species
+40192,40181,Antechinus agilis,species
+40193,40181,Antechinus adustus,species
+40194,846188,Dasykaluta,genus
+40195,40194,Dasykaluta rosamondae,species
+40196,846187,Sminthopsis,genus
+40197,40196,Sminthopsis youngsoni,species
+40198,40196,Sminthopsis psammophila,species
+40200,40196,Sminthopsis ooldea,species
+40201,40196,Sminthopsis gilberti,species
+40202,40196,Sminthopsis granulipes,species
+40203,40196,Sminthopsis douglasi,species
+40204,40196,Sminthopsis hirtipes,species
+40205,40196,Sminthopsis crassicaudata,species
+40206,40196,Sminthopsis bindi,species
+40208,40196,Sminthopsis dolichura,species
+40211,40196,Sminthopsis virginiae,species
+40215,40196,Sminthopsis butleri,species
+40216,40196,Sminthopsis archeri,species
+40217,40196,Sminthopsis leucopus,species
+40219,40196,Sminthopsis murina,species
+40220,40196,Sminthopsis macroura,species
+40221,846188,Dasycercus,genus
+40222,40221,Dasycercus cristicauda,species
+40223,846188,Pseudantechinus,genus
+40224,40223,Pseudantechinus mimulus,species
+40226,40223,Pseudantechinus woolleyae,species
+40227,40223,Pseudantechinus bilarni,species
+40228,40223,Pseudantechinus macdonnellensis,species
+40229,40223,Pseudantechinus ningbing,species
+40230,846188,Sarcophilus,genus
+40232,40230,Sarcophilus harrisii,species
+40235,846188,Phascolosorex,genus
+40236,40235,Phascolosorex dorsalis,species
+40240,40235,Phascolosorex doriae,species
+47110,47111,Triopha maculata,species
+47111,628408,Triopha,genus
+47113,775801,Nudibranchia,order
+47114,47115,Gastropoda,class
+47115,1,Mollusca,phylum
+47118,47119,Araneae,order
+47119,245097,Arachnida,class
+47120,1,Arthropoda,phylum
+47122,47123,Fabaceae,family
+47123,47124,Fabales,order
+47124,47125,Magnoliopsida,class
+47125,211194,Angiospermae,subphylum
+47126,48460,Plantae,kingdom
+47129,47130,Ribes californicum,species
+47130,47131,Ribes,genus
+47131,71289,Grossulariaceae,family
+47132,47124,Rosales,order
+47133,1465406,Badumna,genus
+47134,1528047,Desidae,family
+47135,47133,Badumna longinqua,species
+47138,47139,Ancula gibbosa,species
+47139,1528748,Ancula,genus
+47140,564804,Goniodorididae,family
+47142,564603,Cuthona,genus
+47146,47147,Adenostoma fasciculatum,species
+47147,922115,Adenostoma,genus
+47148,47132,Rosaceae,family
+47153,47154,Cydia pomonella,species
+47154,199554,Cydia,genus
+47155,47156,Tortricidae,family
+47156,47157,Tortricoidea,superfamily
+47157,184884,Lepidoptera,order
+47158,372739,Insecta,class
+47159,47160,Schoenoplectus californicus,species
+47160,1653332,Schoenoplectus,genus
+47161,47162,Cyperaceae,family
+47162,47163,Poales,order
+47163,47125,Liliopsida,class
+47164,1416484,Entoloma bloxamii,species
+47165,47166,Entoloma,genus
+47166,787526,Entolomataceae,family
+47167,1094814,Agaricales,order
+47169,47170,Basidiomycota,phylum
+47170,48460,Fungi,kingdom
+47174,47175,Nelusetta ayraud,species
+47175,47176,Nelusetta,genus
+47176,1303583,Monacanthidae,family
+47177,1632273,Tetraodontiformes,order
+47178,355675,Actinopterygii,class
+47181,47124,Ericales,order
+47192,1296980,Cornus canadensis,species
+47193,47194,Cornus,genus
+47194,47195,Cornaceae,family
+47195,47124,Cornales,order
+47199,47200,Ichneumonidae,family
+47200,124417,Ichneumonoidea,superfamily
+47201,184884,Hymenoptera,order
+47202,47203,Lepidium nitidum,species
+47203,792444,Lepidium,genus
+47204,71275,Brassicaceae,family
+47207,372854,Elateroidea,superfamily
+47208,184884,Coleoptera,order
+47211,564817,Facelinidae,family
+47213,47214,Sphingidae,family
+47214,47157,Bombycoidea,superfamily
+47215,47216,Calypso bulbosa,species
+47216,1441663,Calypso,genus
+47217,47218,Orchidaceae,family
+47218,47163,Asparagales,order
+47219,578086,Apis mellifera,species
+47220,538904,Apis,genus
+47221,630955,Apidae,family
+47222,326777,Apoidea,superfamily
+47223,47224,Papilionidae,family
+47224,47157,Papilionoidea,superfamily
+47225,207785,Papilio,genus
+47226,545186,Papilio rutulus,species
+47227,47231,Caranx latus,species
+47228,47231,Caranx sexfasciatus,species
+47229,47234,Selar crumenophthalmus,species
+47230,47231,Caranx hippos,species
+47231,1359796,Caranx,genus
+47232,1303747,Carangidae,family
+47233,1632273,Perciformes,order
+47234,1359796,Selar,genus
+47235,47236,Holacanthus ciliaris,species
+47236,47237,Holacanthus,genus
+47237,1303726,Pomacanthidae,family
+47238,47243,Aulostomus maculatus,species
+47239,47243,Aulostomus chinensis,species
+47240,47246,Macroramphosus scolopax,species
+47241,47243,Aulostomus strigosus,species
+47242,47248,Fistularia tabacaria,species
+47243,47244,Aulostomus,genus
+47244,1303580,Aulostomidae,family
+47245,1632273,Syngnathiformes,order
+47246,788650,Macroramphosus,genus
+47247,1303580,Centriscidae,family
+47248,47249,Fistularia,genus
+47249,1303580,Fistulariidae,family
+47250,47263,Sphyraena guachancho,species
+47251,47263,Sphyraena barracuda,species
+47252,47263,Sphyraena borealis,species
+47253,47263,Sphyraena ensis,species
+47255,47263,Sphyraena sphyraena,species
+47256,47263,Sphyraena jello,species
+47257,47265,Acanthocybium solandri,species
+47258,47267,Thyrsites atun,species
+47259,47263,Sphyraena obtusata,species
+47260,47263,Sphyraena viridensis,species
+47261,47263,Sphyraena idiastes,species
+47262,47263,Sphyraena argentea,species
+47263,47264,Sphyraena,genus
+47264,1303752,Sphyraenidae,family
+47265,788501,Acanthocybium,genus
+47266,1303746,Scombridae,family
+47267,47268,Thyrsites,genus
+47268,1303746,Gempylidae,family
+47280,47284,Pterois volitans,species
+47281,47284,Pterois russelii,species
+47284,788499,Pterois,genus
+47285,1303568,Scorpaenidae,family
+47292,47294,Ocyurus chrysurus,species
+47293,47296,Lutjanus argentiventris,species
+47294,788565,Ocyurus,genus
+47295,1303726,Lutjanidae,family
+47296,788565,Lutjanus,genus
+47301,47307,Gobioides broussonnetii,species
+47303,47312,Muraena melanotis,species
+47304,47312,Muraena robusta,species
+47305,47315,Gymnothorax mareei,species
+47306,47315,Gymnothorax afer,species
+47307,788602,Gobioides,genus
+47312,788551,Muraena,genus
+47313,1555721,Muraenidae,family
+47314,1124233,Anguilliformes,order
+47315,788551,Gymnothorax,genus
+47316,47317,Chaetodon lunula,species
+47317,1544594,Chaetodon,genus
+47318,1303726,Chaetodontidae,family
+47323,47324,Collinsia concolor,species
+47324,840998,Collinsia,genus
+47325,47324,Collinsia heterophylla,species
+47326,47327,Calochortus pulchellus,species
+47327,859158,Calochortus,genus
+47328,47329,Liliaceae,family
+47329,47163,Liliales,order
+47336,1269340,Formicidae,family
+47338,1398383,Formica aserva,species
+47339,637435,Formica,genus
+47340,47341,Tapinoma sessile,species
+47341,519189,Tapinoma,genus
+47347,1374657,Cantharellus cibarius,species
+47348,48423,Cantharellus,genus
+47350,50814,Cantharellales,order
+47353,47354,Lates calcarifer,species
+47354,47355,Lates,genus
+47355,1303752,Latidae,family
+47356,1080332,Allium falcifolium,species
+47357,924696,Allium,genus
+47359,47361,Apocynum androsaemifolium,species
+47360,47364,Lewisia rediviva,species
+47361,632344,Apocynum,genus
+47362,47363,Apocynaceae,family
+47363,47124,Gentianales,order
+47364,71417,Lewisia,genus
+47366,47124,Caryophyllales,order
+47367,47119,Opiliones,order
+47368,47369,Calisoga,genus
+47369,1467321,Nemesiidae,family
+47370,1472111,Latrodectus,genus
+47371,319384,Theridiidae,family
+47372,47373,Sequoia sempervirens,species
+47373,1150916,Sequoia,genus
+47374,47375,Cupressaceae,family
+47375,136329,Pinales,order
+47379,47380,Polyporaceae,family
+47380,50814,Polyporales,order
+47381,47370,Latrodectus mactans,species
+47382,47370,Latrodectus hesperus,species
+47383,47370,Latrodectus geometricus,species
+47384,47386,Gymnocorymbus ternetzi,species
+47385,47389,Stygnobrotula latebricola,species
+47386,1579610,Gymnocorymbus,genus
+47388,1543570,Characiformes,order
+47389,47390,Stygnobrotula,genus
+47390,47391,Bythitidae,family
+47391,1632273,Ophidiiformes,order
+47392,47393,Coprinus comatus,species
+47393,516951,Coprinus,genus
+47394,785517,Agaricaceae,family
+47399,47142,Cuthona divae,species
+47400,47401,Cadlina modesta,species
+47401,349077,Cadlina,genus
+47406,47408,Spartium junceum,species
+47408,548591,Spartium,genus
+47416,367161,Lycosidae,family
+47423,1496295,Aphonopelma,genus
+47424,1467321,Theraphosidae,family
+47425,47426,Tonicella lineata,species
+47426,1067212,Tonicella,genus
+47428,47429,Neoloricata,subclass
+47429,47115,Polyplacophora,class
+47434,47162,Poaceae,family
+47435,1453363,Lotus corniculatus,species
+47436,533443,Lotus,genus
+47441,47442,Calliandra haematocephala,species
+47442,521661,Calliandra,genus
+47443,47451,Albizia julibrissin,species
+47444,1372663,Acacia confusa,species
+47445,47450,Mimosa pigra,species
+47447,47453,Leucaena leucocephala,species
+47448,47450,Mimosa quadrivalvis,species
+47449,47450,Mimosa aculeaticarpa,species
+47450,479698,Mimosa,genus
+47451,521661,Albizia,genus
+47452,373578,Acacia,genus
+47453,479698,Leucaena,genus
+47454,47111,Triopha catalinae,species
+47455,47456,Octopus rubescens,species
+47456,47457,Octopus,genus
+47457,699692,Octopodidae,family
+47458,339397,Octopoda,order
+47459,47115,Cephalopoda,class
+47466,47467,Acanthodoris pilosa,species
+47467,1646926,Acanthodoris,genus
+47468,564804,Onchidorididae,family
+47469,50134,Doris montereyensis,species
+47472,47467,Acanthodoris lutea,species
+47473,47474,Rostanga pulchra,species
+47474,47507,Rostanga,genus
+47476,47467,Acanthodoris nanaimoensis,species
+47477,47478,Dirona albolineata,species
+47478,47479,Dirona,genus
+47479,631925,Dironidae,family
+47480,47481,Onchidoris bilamellata,species
+47481,47468,Onchidoris,genus
+47482,47467,Acanthodoris rhodoceras,species
+47484,68625,Helicidae,family
+47485,775812,Stylommatophora,order
+47493,47494,Lasioderma serricorne,species
+47494,373562,Lasioderma,genus
+47496,372844,Bostrichoidea,superfamily
+47499,47500,Armina californica,species
+47500,47501,Armina,genus
+47501,543637,Arminidae,family
+47505,47506,Geitodoris heathi,species
+47506,47507,Geitodoris,genus
+47507,528872,Discodorididae,family
+47508,47481,Onchidoris muricata,species
+47514,47518,Salmo trutta fario,subspecies
+47516,47522,Oncorhynchus mykiss,species
+47517,47518,Salmo trutta trutta,subspecies
+47518,47519,Salmo trutta,species
+47519,342904,Salmo,genus
+47520,1555655,Salmonidae,family
+47521,47178,Salmoniformes,order
+47522,342904,Oncorhynchus,genus
+47523,47524,Pleuronectes platessa,species
+47524,559182,Pleuronectes,genus
+47525,1303751,Pleuronectidae,family
+47527,47528,Ostracion meleagris,species
+47528,47529,Ostracion,genus
+47529,1303583,Ostraciidae,family
+47535,319384,Araneidae,family
+47543,1360635,Rubus spectabilis,species
+47544,922171,Rubus,genus
+47551,319384,Tetragnathidae,family
+47552,1004912,Argiope,genus
+47553,47555,Taxus baccata,species
+47555,47556,Taxus,genus
+47556,47375,Taxaceae,family
+47560,1606838,Pinus canariensis,species
+47561,1456301,Pinus,genus
+47562,47375,Pinaceae,family
+47563,47564,Nerium oleander,species
+47564,632352,Nerium,genus
+47565,1430520,Populus nigra,species
+47566,47567,Populus,genus
+47567,51820,Salicaceae,family
+47570,1430522,Populus alba,species
+47571,1430522,Populus tremula,species
+47572,701533,Juniperus sabina,species
+47573,701533,Juniperus horizontalis,species
+47574,1150915,Juniperus,genus
+47575,48656,Stylocheilus,genus
+47578,47579,Paracirrhites arcatus,species
+47579,47580,Paracirrhites,genus
+47580,1303754,Cirrhitidae,family
+47581,871441,Crassostrea,genus
+47582,196208,Ostreidae,family
+47583,372769,Ostreida,order
+47584,47115,Bivalvia,class
+47585,47581,Crassostrea virginica,species
+47588,904149,Cypripedium acaule,species
+47589,211065,Cypripedium,genus
+47590,47591,Phloeodes diabolicus,species
+47591,520329,Phloeodes,genus
+47592,47593,Zopheridae,family
+47593,372852,Tenebrionoidea,superfamily
+47597,47598,Chlorogalum pomeridianum,species
+47598,194780,Chlorogalum,genus
+47599,47218,Asparagaceae,family
+47602,967514,Taraxacum officinale,species
+47603,632701,Taraxacum,genus
+47604,47605,Asteraceae,family
+47605,47124,Asterales,order
+47606,121850,Arctiinae,subfamily
+47607,47157,Noctuoidea,superfamily
+47617,47618,Ctenochaetus strigosus,species
+47618,47619,Ctenochaetus,genus
+47619,1303726,Acanthuridae,family
+47631,533483,Mopaliidae,family
+47632,47633,Katharina tunicata,species
+47633,1067211,Katharina,genus
+47634,47642,Hemitripterus americanus,species
+47635,47644,Cottus gobio,species
+47636,47644,Cottus bairdii,species
+47637,47646,Myoxocephalus octodecemspinosus,species
+47638,47647,Scorpaenichthys marmoratus,species
+47639,47646,Myoxocephalus scorpius,species
+47642,1359815,Hemitripterus,genus
+47644,47645,Cottus,genus
+47645,1303567,Cottidae,family
+47646,86030,Myoxocephalus,genus
+47647,1363726,Scorpaenichthys,genus
+47655,47656,Doto amyra,species
+47656,245650,Doto,genus
+47676,47677,Acmaea mitra,species
+47677,47678,Acmaea,genus
+47678,551398,Acmaeidae,family
+47679,47114,Patellogastropoda,subclass
+47680,1632708,Lycogala epidendrum,species
+47681,126527,Lycogala,genus
+47683,1443221,Liceales,order
+47684,47685,Myxomycetes,class
+47685,47686,Mycetozoa,phylum
+47686,48460,Protozoa,kingdom
+47687,1438094,Erodium cicutarium,species
+47688,47689,Erodium,genus
+47689,47690,Geraniaceae,family
+47690,47124,Geraniales,order
+47691,47692,Sherardia arvensis,species
+47692,788083,Sherardia,genus
+47693,47363,Rubiaceae,family
+47695,47696,Cynosurus echinatus,species
+47696,1138136,Cynosurus,genus
+47697,47698,Hesperis matronalis,species
+47698,903187,Hesperis,genus
+47699,47701,Geranium maculatum,species
+47700,964919,Geranium erianthum,species
+47701,47689,Geranium,genus
+47706,47707,Dendronotus iris,species
+47707,47708,Dendronotus,genus
+47708,418414,Dendronotidae,family
+47717,122429,Datana,genus
+47718,47607,Notodontidae,family
+47719,47717,Datana ministra,species
+47726,1466297,Acer negundo,species
+47727,58321,Acer,genus
+47729,47124,Sapindales,order
+47731,47207,Lampyridae,family
+47744,184884,Hemiptera,order
+47745,1423802,Equisetum fluviatile,species
+47746,47747,Equisetum,genus
+47747,47748,Equisetaceae,family
+47748,764793,Equisetales,order
+47751,47752,Polystichum munitum,species
+47752,870758,Polystichum,genus
+47753,961001,Dryopteridaceae,family
+47754,764796,Polypodiales,order
+47757,1023136,Oxalis oregana,species
+47758,47759,Oxalis,genus
+47759,70233,Oxalidaceae,family
+47767,564808,Polyceridae,family
+47771,47707,Dendronotus subramosus,species
+47773,47707,Dendronotus albus,species
+47774,47656,Doto columbiana,species
+47775,47656,Doto kya,species
+47776,47777,Ariolimax columbianus,species
+47777,916897,Ariolimax,genus
+47779,1557187,Iris pseudacorus,species
+47780,790633,Iris,genus
+47781,47218,Iridaceae,family
+47785,1595251,Yucca brevifolia,species
+47787,194780,Yucca,genus
+47788,47787,Yucca baccata,species
+47792,184884,Odonata,order
+47798,47799,Elysia hedgpethi,species
+47799,49123,Elysia,genus
+47801,775800,Sacoglossa,superorder
+47802,1552378,Lymantria dispar,species
+47817,47818,Libellula saturata,species
+47818,47819,Libellula,genus
+47819,1317176,Libellulidae,family
+47822,184884,Diptera,order
+47845,47846,Koeberlinia spinosa,species
+47846,71413,Koeberlinia,genus
+47850,1542658,Quercus agrifolia,species
+47851,47852,Quercus,genus
+47852,47853,Fagaceae,family
+47853,47124,Fagales,order
+47854,1452207,Archichauliodes diversus,species
+47855,83350,Archichauliodes,genus
+47857,1452207,Archichauliodes anagaurus,species
+47859,1592172,Archichauliodes collifer,species
+47860,1592172,Archichauliodes conversus,species
+47861,1592176,Archichauliodes cuspidatus,species
+47863,47864,Corydalidae,family
+47864,184884,Megaloptera,order
+47867,1529315,Sparassidae,family
+47868,1529303,Philodromidae,family
+47869,1544707,Tibellus,genus
+47870,47869,Tibellus affinis,species
+47871,47869,Tibellus armatus,species
+47872,47869,Tibellus asiaticus,species
+47877,47883,Photuris versicolor,species
+47878,47879,Watasenia scintillans,species
+47879,47880,Watasenia,genus
+47880,1363994,Enoploteuthidae,family
+47883,529304,Photuris,genus
+47888,1431931,Impatiens capensis,species
+47889,47890,Impatiens,genus
+47890,47181,Balsaminaceae,family
+47914,47915,Eumorpha pandorus,species
+47915,1583846,Eumorpha,genus
+47916,47917,Actias luna,species
+47917,125080,Actias,genus
+47918,47214,Saturniidae,family
+47919,47920,Antheraea polyphemus,species
+47920,125080,Antheraea,genus
+47925,426081,Coenagrionidae,family
+47927,47792,Anisoptera,suborder
+47928,47792,Zygoptera,suborder
+47934,47818,Libellula luctuosa,species
+47935,47937,Megarhyssa,genus
+47937,47199,Rhyssinae,subfamily
+47939,47935,Megarhyssa arisana,species
+47940,47935,Megarhyssa atomistica,species
+47941,47935,Megarhyssa atrata,species
+47942,47935,Megarhyssa belluliflava,species
+47944,47935,Megarhyssa aurantia,species
+47960,471586,Desmocerus,genus
+47961,963992,Cerambycidae,family
+47962,47960,Desmocerus palliatus,species
+47963,47935,Megarhyssa macrurus,species
+47964,47963,Megarhyssa macrurus icterosticta,subspecies
+47966,47963,Megarhyssa macrurus macrurus,subspecies
+47967,1595259,Therea,genus
+47968,47967,Therea defranceschii,species
+47969,47967,Therea hispida,species
+47970,47967,Therea hyperguttata,species
+47971,47967,Therea petiveriana,species
+47972,47967,Therea regularis,species
+47975,47977,Argia apicalis,species
+47977,47925,Argia,genus
+47983,47988,Argyroeides ophion,species
+47984,47989,Diplochorda ophion,species
+47986,47991,Gonomyia ophion,species
+47987,47986,Gonomyia ophion brachyglossa,subspecies
+47988,82101,Argyroeides,genus
+47989,1070505,Diplochorda,genus
+47990,62006,Tephritidae,family
+47991,489802,Gonomyia,genus
+47992,51226,Limoniidae,family
+47993,639358,Ophion,genus
+47994,47993,Ophion aggressor,species
+47995,47993,Ophion adustus,species
+47996,47993,Ophion fuscicornis,species
+47999,47993,Ophion samoanus,species
+48000,47993,Ophion longescutellatus,species
+48001,47993,Ophion rufus,species
+48002,47993,Ophion abbreviator,species
+48003,47993,Ophion adeus,species
+48082,48084,Phytobia setosa,species
+48083,48092,Melanaspis tenebricosa,species
+48084,48085,Phytobia,genus
+48085,48086,Phytomyzinae,subfamily
+48086,48087,Agromyzidae,family
+48087,48088,Opomyzoidea,superfamily
+48088,48089,Acalyptratae,zoosubsection
+48089,372853,Schizophora,zoosection
+48091,47822,Brachycera,suborder
+48092,1505076,Melanaspis,genus
+48093,60922,Diaspididae,family
+48094,48096,Dryocampa rubicunda,species
+48096,125085,Dryocampa,genus
+48137,1472965,Loxosceles,genus
+48139,367200,Salticidae,family
+48140,367166,Sicariidae,family
+48151,47124,Lamiales,order
+48213,47777,Ariolimax californicus,species
+48214,47777,Ariolimax dolichophallus,species
+48215,48246,Hypomyces lactifluorum,species
+48216,48217,Fucus vesiculosus,species
+48217,48218,Fucus,genus
+48218,48219,Fucaceae,family
+48219,1267990,Fucales,order
+48220,48221,Phaeophyceae,class
+48221,48222,Ochrophyta,phylum
+48222,48460,Chromista,kingdom
+48246,48247,Hypomyces,genus
+48247,48248,Hypocreaceae,family
+48248,794115,Hypocreales,order
+48250,47170,Ascomycota,phylum
+48283,48287,Morum oniscus,species
+48287,1067259,Morum,genus
+48288,48289,Harpidae,family
+48289,246139,Neogastropoda,order
+48325,48326,Ramalina,genus
+48326,48327,Ramalinaceae,family
+48327,952186,Lecanorales,order
+48338,1396270,Russula sanguinaria,species
+48339,48340,Russula,genus
+48340,48341,Russulaceae,family
+48341,50814,Russulales,order
+48388,50033,Corambe steinbergae,species
+48390,564804,Corambidae,family
+48418,1144756,Amanita pantherina,species
+48419,1149497,Amanita,genus
+48421,969909,Hydnum umbilicatum,species
+48422,48423,Hydnum,genus
+48423,47350,Hydnaceae,family
+48424,48425,Gomphidius glutinosus,species
+48425,48426,Gomphidius,genus
+48426,48427,Gomphidiaceae,family
+48427,1094814,Boletales,order
+48428,48425,Gomphidius subroseus,species
+48443,48444,Lycoperdon perlatum,species
+48444,48445,Lycoperdon,genus
+48445,785517,Lycoperdaceae,family
+48447,47467,Acanthodoris hudsoni,species
+48450,50104,Peltodoris nobilis,species
+48455,48456,Melibe leonina,species
+48456,525277,Melibe,genus
+48458,48459,Polycera atra,species
+48459,628409,Polycera,genus
+48460,,Life,stateofmatter
+48470,48472,Sonorelix rixfordi,species
+48472,1294100,Sonorelix,genus
+48473,559675,Ganoderma applanatum,species
+48475,47379,Ganoderma,genus
+48494,1196165,Pleurotus ostreatus,species
+48495,905657,Pleurotaceae,family
+48496,48495,Pleurotus,genus
+48509,48510,Pleurocybella porrigens,species
+48510,1128529,Pleurocybella,genus
+48521,1180054,Coprinopsis atramentaria,species
+48522,56310,Coprinopsis,genus
+48529,48532,Tremella mesenterica,species
+48530,83737,Tremellales,order
+48531,48530,Tremellaceae,family
+48532,48531,Tremella,genus
+48586,48587,Cepaea nemoralis,species
+48587,910283,Cepaea,genus
+48607,1398876,Craterellus cornucopioides,species
+48611,48423,Craterellus,genus
+48630,48631,Diaphorodoris lirulatocauda,species
+48631,801573,Diaphorodoris,genus
+48639,1447339,Chroogomphus tomentosus,species
+48640,48426,Chroogomphus,genus
+48641,969903,Hydnum repandum,species
+48645,48647,Megathura crenulata,species
+48646,551396,Fissurellidae,family
+48647,1612316,Megathura,genus
+48654,47575,Stylocheilus striatus,species
+48655,48657,Aplysia californica,species
+48656,775828,Aplysiidae,family
+48657,48656,Aplysia,genus
+48701,48703,Boletus edulis,species
+48702,48427,Boletaceae,family
+48703,1135850,Boletus,genus
+48706,48715,Amanita muscaria muscaria,subspecies
+48707,48710,Ramaria,genus
+48708,891028,Phallales,order
+48710,55154,Gomphaceae,family
+48711,48714,Lobaria pulmonaria,species
+48712,952186,Peltigerales,order
+48713,48712,Lobariaceae,family
+48714,48713,Lobaria,genus
+48715,1155969,Amanita muscaria,species
+48716,48719,Aleuria aurantia,species
+48717,152032,Pezizales,order
+48718,48717,Pyronemataceae,family
+48719,48718,Aleuria,genus
+48721,48723,Hallaxa chani,species
+48722,989732,Actinocyclidae,family
+48723,48722,Hallaxa,genus
+48724,48725,Phidiana hiltoni,species
+48725,47211,Phidiana,genus
+48748,48749,Baptodoris mimetica,species
+48749,47507,Baptodoris,genus
+48750,1616716,Lottia scabra,species
+48751,551398,Lottiidae,family
+48752,1067558,Lottia,genus
+48765,48766,Heteropoda venatoria,species
+48766,1387033,Heteropoda,genus
+48767,48769,Hypholoma fasciculare,species
+48768,785517,Strophariaceae,family
+48769,48768,Hypholoma,genus
+48770,1483282,Ramaria formosa,species
+48771,48772,Magnapinna pacifica,species
+48772,48773,Magnapinna,genus
+48773,1288861,Magnapinnidae,family
+48800,1478434,Ramaria botrytis,species
+48802,52594,Phytophthora ramorum,species
+48827,48829,Tritonia festiva,species
+48828,801499,Tritoniidae,family
+48829,1489457,Tritonia,genus
+48847,121850,Lymantriinae,subfamily
+48848,82039,Lymantria,genus
+48894,47119,Scorpiones,order
+49072,791908,Ascocoryne,genus
+49073,55523,Helotiales,order
+49075,49072,Ascocoryne sarcoides,species
+49081,49082,Rhomphaea cometes,species
+49082,1472110,Rhomphaea,genus
+49123,801511,Plakobranchidae,family
+49134,49136,Sarcoscypha coccinea,species
+49135,48717,Sarcoscyphaceae,family
+49136,49135,Sarcoscypha,genus
+49137,49138,Scutellinia scutellata,species
+49138,48718,Scutellinia,genus
+49158,1520823,Hericium erinaceus,species
+49159,48341,Hericiaceae,family
+49160,49159,Hericium,genus
+49162,49160,Hericium coralloides,species
+49188,49191,Cryphonectria parasitica,species
+49189,977794,Diaporthales,order
+49191,373250,Cryphonectria,genus
+49205,48717,Helvellaceae,family
+49206,49205,Helvella,genus
+49208,49206,Helvella crispa,species
+49446,1396329,Russula nobilis,species
+49447,1396329,Russula silvestris,species
+49448,1396329,Russula betularum,species
+49449,1396329,Russula emetica,species
+49488,1080564,Cladonia chlorophaea,species
+49489,48327,Cladoniaceae,family
+49490,49489,Cladonia,genus
+49540,49541,Gasteracantha cancriformis,species
+49541,1004909,Gasteracantha,genus
+49544,49546,Macrocystidia cucumis,species
+49546,1181402,Macrocystidia,genus
+49547,847564,Agaricus augustus,species
+49548,1641209,Agaricus,genus
+49549,49551,Callobius severus,species
+49550,1528047,Amaurobiidae,family
+49551,1552579,Callobius,genus
+49578,48325,Ramalina menziesii,species
+49973,47223,Papilioninae,subfamily
+50033,48390,Corambe,genus
+50104,47507,Peltodoris,genus
+50133,528872,Dorididae,family
+50134,50133,Doris,genus
+50181,48137,Loxosceles reclusa,species
+50182,48137,Loxosceles deserta,species
+50277,1366581,Entoloma nigroviolaceum,species
+50638,48151,Plantaginaceae,family
+50813,1138427,Auricularia auricula-judae,species
+50814,492000,Agaricomycetes,class
+50815,50814,Auriculariales,order
+50816,50815,Auriculariaceae,family
+50817,50816,Auricularia,genus
+50867,47552,Argiope bruennichi,species
+50989,47368,Calisoga longitarsis,species
+51021,887311,Dictyota,genus
+51022,1267989,Dictyotales,order
+51023,51022,Dictyotaceae,family
+51024,51021,Dictyota dichotoma,species
+51025,843579,Padina,genus
+51135,51137,Clathrus archeri,species
+51137,1395929,Clathrus,genus
+51226,179916,Tipuloidea,superfamily
+51314,1558540,Amanita velosa,species
+51670,51674,Ixodes aragaoi,species
+51671,51674,Ixodes ricinus,species
+51672,129762,Ixodida,order
+51673,51672,Ixodidae,family
+51674,51673,Ixodes,genus
+51709,51710,Acanthepeira stellata,species
+51710,417879,Acanthepeira,genus
+51820,47124,Malpighiales,order
+51869,1135488,Hygrocybe punicea,species
+51870,1128302,Hygrophoraceae,family
+51871,1135227,Hygrocybe,genus
+51872,1135481,Hygrocybe conica,species
+51913,51920,Licea,genus
+51914,51913,Licea albonigra,species
+51915,51913,Licea alexopouli,species
+51920,47683,Liceaceae,family
+52135,926048,Amanita phalloides,species
+52155,52156,Dermacentor variabilis,species
+52156,51673,Dermacentor,genus
+52400,1430881,Entoloma virescens,species
+52525,52528,Hydnellum caeruleum,species
+52526,50814,Thelephorales,order
+52528,1649002,Hydnellum,genus
+52567,52569,Uroctonites montereus,species
+52568,52569,Uroctonites sequoia,species
+52569,1323560,Uroctonites,genus
+52572,1373186,Vaejovidae,family
+52576,52577,Uroctonus mordax,species
+52577,1323560,Uroctonus,genus
+52578,52577,Uroctonus franckei,species
+52594,52598,Phytophthora,genus
+52595,48222,Oomycota,phylum
+52597,1273102,Peronosporales,order
+52598,52597,Peronosporaceae,family
+52628,52629,Araneus diadematus,species
+52629,417879,Araneus,genus
+52788,47119,Acari,subclass
+52908,81883,Acanthopachylus aculeatus,species
+52936,52938,Titiotus californicus,species
+52938,127113,Titiotus,genus
+52939,52938,Titiotus flavescens,species
+52949,52951,Cybaeus signifer,species
+52950,1634342,Cybaeidae,family
+52951,52950,Cybaeus,genus
+52952,1634343,Argyroneta,genus
+52953,52952,Argyroneta aquatica,species
+53272,53273,Eriophora ravilla,species
+53273,417879,Eriophora,genus
+53388,53389,Phoneutria,genus
+53389,367161,Ctenidae,family
+53390,53388,Phoneutria fera,species
+53391,53388,Phoneutria nigriventer,species
+53392,53393,Cupiennius salei,species
+53393,142643,Cupiennius,genus
+53466,1569881,Leucauge,genus
+53539,372740,Sordariomycetes,class
+53599,53600,Maratus pavonis,species
+53600,712073,Maratus,genus
+53601,53600,Maratus amabilis,species
+53602,53600,Maratus mungaich,species
+53604,53600,Maratus vespertilio,species
+53605,53600,Maratus volans,species
+53641,53642,Bagheera kiplingi,species
+53642,1109044,Bagheera,genus
+53658,53662,Vaucheria litorea,species
+53659,48221,Xanthophyceae,class
+53660,53659,Vaucheriales,order
+53661,53660,Vaucheriaceae,family
+53662,53661,Vaucheria,genus
+53768,53466,Leucauge argyra,species
+53809,1362557,Phidippus audax,species
+53810,1109044,Phidippus,genus
+53838,53841,Stemonitis splendens,species
+53840,1443237,Stemonitidaceae,family
+53841,53840,Stemonitis,genus
+53860,52594,Phytophthora infestans,species
+54729,54733,Hubbardia pentapeltis,species
+54730,47119,Schizomida,order
+54731,54730,Hubbardioidea,superfamily
+54732,54731,Hubbardiidae,family
+54733,54732,Hubbardia,genus
+54743,372740,Lecanoromycetes,class
+55154,891028,Gomphales,order
+55421,47423,Aphonopelma eutylenum,species
+55469,55470,Arctosa leopardus,species
+55470,1372816,Arctosa,genus
+55483,55486,Fuligo septica,species
+55484,1443223,Physarales,order
+55485,55484,Physaraceae,family
+55486,55485,Fuligo,genus
+55523,372740,Leotiomycetes,class
+55560,55577,Phytoptus avellanae,species
+55577,1109604,Phytoptus,genus
+55578,55577,Phytoptus altisonorae,species
+55579,55577,Phytoptus alni,species
+55581,55577,Phytoptus abnormis,species
+55582,55577,Phytoptus alnicola,species
+55621,55622,Metellina segmentata,species
+55622,47551,Metellina,genus
+55849,47218,Amaryllidaceae,family
+56252,56257,Ceratiomyxa fruticulosa,species
+56256,152426,Ceratiomyxaceae,family
+56257,56256,Ceratiomyxa,genus
+56258,56261,Arcyria cinerea,species
+56259,1443221,Trichiales,order
+56260,56259,Arcyriaceae,family
+56261,56260,Arcyria,genus
+56262,56261,Arcyria denudata,species
+56264,56265,Badhamia utricularis,species
+56265,55485,Badhamia,genus
+56266,56269,Clastoderma debaryanum,species
+56268,1443228,Clastodermataceae,family
+56269,56268,Clastoderma,genus
+56270,56272,Diachea leucopodia,species
+56271,55484,Didymiaceae,family
+56272,56271,Diachea,genus
+56273,56274,Leocarpus fragilis,species
+56274,55485,Leocarpus,genus
+56276,56259,Trichiaceae,family
+56280,56282,Lamproderma columbinum,species
+56282,1443239,Lamproderma,genus
+56310,785517,Psathyrellaceae,family
+56565,56566,Comatricha nigra,species
+56566,1443236,Comatricha,genus
+57772,48217,Fucus serratus,species
+58321,47729,Sapindaceae,family
+59964,1433249,Albugo candida,species
+59965,1273102,Albuginales,order
+59966,59965,Albuginaceae,family
+59967,59966,Albugo,genus
+60922,334037,Coccoidea,superfamily
+62006,48088,Tephritoidea,superfamily
+64722,713809,Aromobatidae,family
+64800,787581,Nymphargus,genus
+67418,68789,Lessoniaceae,family
+67419,67421,Egregia menziesii,species
+67421,67418,Egregia,genus
+67424,67425,Laminaria,genus
+67425,68789,Laminariaceae,family
+68625,781352,Helicoidea,superfamily
+68769,48218,Ascophyllum,genus
+68770,68769,Ascophyllum nodosum,species
+68786,123803,Undaria pinnatifida,species
+68789,1267990,Laminariales,order
+68858,55485,Physarum,genus
+69153,69155,Fucus distichus distichus,subspecies
+69155,48217,Fucus distichus,species
+69156,69155,Fucus distichus anceps,subspecies
+69158,69155,Fucus distichus edentatus,subspecies
+70233,47124,Oxalidales,order
+70547,787565,Celsiella,genus
+70939,787581,Rulyrana,genus
+70940,787581,Sachatamia,genus
+70967,787581,Teratohyla,genus
+71130,47208,Polyphaga,suborder
+71262,3,Cariamiformes,order
+71263,3,Eurypygiformes,order
+71265,3,Mesitornithiformes,order
+71266,3,Otidiformes,order
+71275,47124,Brassicales,order
+71289,47124,Saxifragales,order
+71413,71275,Koeberliniaceae,family
+71417,47366,Montiaceae,family
+81508,129763,Sarcoptiformes,order
+81769,184884,Blattodea,order
+81878,67424,Laminaria ephemera,species
+81879,67424,Laminaria farlowii,species
+81883,535958,Acanthopachylus,genus
+81884,534092,Gonyleptidae,family
+81896,67424,Laminaria setchellii,species
+82039,48847,Lymantriini,tribe
+82089,47606,Arctiini,tribe
+82101,82089,Ctenuchina,subtribe
+82167,47496,Ptinidae,family
+83350,47863,Chauliodinae,subfamily
+83549,83550,Ecklonia maxima,species
+83550,67418,Ecklonia,genus
+83737,492000,Tremellomycetes,class
+84719,47118,Mygalomorphae,suborder
+85549,47114,Vetigastropoda,subclass
+85553,26172,Serpentes,suborder
+85563,1303567,Agonidae,family
+86030,1303567,Psychrolutidae,family
+117795,1267990,Ectocarpales,order
+117815,117830,Silvetia compressa,species
+117816,117834,Petalonia fascia,species
+117830,48218,Silvetia,genus
+117833,117795,Scytosiphonaceae,family
+117834,117833,Petalonia,genus
+117841,706026,Ralfsiaceae,family
+118249,785522,Amanitaceae,family
+118817,48217,Fucus spiralis,species
+118821,118824,Himanthalia elongata,species
+118823,48219,Himanthaliaceae,family
+118824,118823,Himanthalia,genus
+119930,55486,Fuligo megaspora,species
+120474,47118,Araneomorphae,suborder
+120499,120502,Nereocystis luetkeana,species
+120502,67425,Nereocystis,genus
+121038,26039,Alligatoridae,family
+121850,47607,Erebidae,family
+121943,211194,Polypodiopsida,class
+122429,47718,Phalerinae,subfamily
+123803,123804,Undaria,genus
+123804,68789,Alariaceae,family
+124071,47213,Macroglossinae,subfamily
+124080,124071,Dilophonotini,tribe
+124126,47918,Saturniinae,subfamily
+124146,124147,Pterygophora californica,species
+124147,123804,Pterygophora,genus
+124209,67424,Laminaria sinclairii,species
+124229,47155,Olethreutinae,subfamily
+124417,47201,Apocrita,suborder
+124746,124747,Pelagophycus porra,species
+124747,67425,Pelagophycus,genus
+124748,124749,Macrocystis pyrifera,species
+124749,67425,Macrocystis,genus
+124813,123804,Alaria,genus
+124814,124813,Alaria marginata,species
+124829,51021,Dictyota binghamiae,species
+125080,124126,Saturniini,tribe
+125085,47918,Ceratocampinae,subfamily
+125338,125339,Pelvetiopsis limitata,species
+125339,48218,Pelvetiopsis,genus
+125877,125878,Costaria costata,species
+125878,500820,Costaria,genus
+125879,125880,Eisenia arborea,species
+125880,67418,Eisenia,genus
+125881,125882,Dictyoneurum californicum,species
+125882,500820,Dictyoneurum,genus
+125933,68858,Physarum cinereum,species
+125939,125940,Stemonitopsis typhina,species
+125940,1443236,Stemonitopsis,genus
+126120,126121,Hemitrichia clavata,species
+126121,1581554,Hemitrichia,genus
+126122,1632707,Lycogala flavofuscum,species
+126125,48219,Sargassaceae,family
+126126,126128,Stephanocystis osmundacea,species
+126128,126125,Stephanocystis,genus
+126130,126128,Stephanocystis dioica,species
+126173,126174,Diderma hemisphaericum,species
+126174,56271,Diderma,genus
+126271,126272,Reticularia splendens,species
+126272,126527,Reticularia,genus
+126277,126278,Metatrichia floriformis,species
+126278,56276,Metatrichia,genus
+126279,53841,Stemonitis fusca,species
+126522,126528,Tubifera ferruginosa,species
+126527,1443225,Reticulariaceae,family
+126528,126527,Tubifera,genus
+126627,53841,Stemonitis herbatica,species
+126755,56282,Lamproderma scintillans,species
+126793,68858,Physarum bitectum,species
+127113,367161,Zoropsidae,family
+127352,372759,Decapodiformes,superorder
+128896,1286606,Padina pavonica,species
+129737,129742,Colpomenia peregrina,species
+129742,117833,Colpomenia,genus
+129756,129757,Pelvetia canaliculata,species
+129757,48218,Pelvetia,genus
+129762,52788,Parasitiformes,superorder
+129763,52788,Acariformes,superorder
+129868,117841,Analipus,genus
+130177,130178,Sargassum muticum,species
+130178,126125,Sargassum,genus
+130230,129868,Analipus japonicus,species
+130231,130243,Saccharina latissima,species
+130243,67425,Saccharina,genus
+130567,324332,Turbinaria ornata,species
+131255,131263,Dictyopteris justii,species
+131259,51021,Dictyota ciliolata,species
+131263,843579,Dictyopteris,genus
+131265,51021,Dictyota guineensis,species
+131273,132758,Zonaria tournefortii,species
+131274,131286,Stypopodium zonale,species
+131275,130178,Sargassum platycarpum,species
+131276,130178,Sargassum hystrix,species
+131277,131287,Lobophora variegata,species
+131286,51023,Stypopodium,genus
+131287,843579,Lobophora,genus
+132758,843579,Zonaria,genus
+136329,211194,Pinopsida,class
+142256,47686,Euglenozoa,phylum
+142257,142256,Euglenida,class
+142258,142257,Euglenales,order
+142643,367161,Trechaleidae,family
+143195,47199,Ophioninae,subfamily
+145366,126272,Reticularia lycoperdon,species
+151874,47686,Choanozoa,phylum
+152032,372740,Pezizomycetes,class
+152426,1443445,Ceratiomyxales,order
+154259,47822,Nematocera,suborder
+155364,68625,Xanthonychidae,family
+157027,1095208,Diphylleia rotans,species
+179061,126528,Tubifera microsperma,species
+179089,68858,Physarum album,species
+179092,68858,Physarum bogoriense,species
+179131,179133,Collaria arcyrionema,species
+179133,1443239,Collaria,genus
+179151,126121,Hemitrichia serpula,species
+179152,126121,Hemitrichia calyculata,species
+179916,154259,Tipulomorpha,infraorder
+180742,81769,Corydioidea,superfamily
+180744,180742,Corydiidae,family
+184884,47158,Pterygota,subclass
+194780,47599,Agavoideae,subfamily
+196208,47583,Ostreoidea,superfamily
+199554,124229,Grapholitini,tribe
+199939,47221,Apinae,subfamily
+200867,963946,Phacus,genus
+200868,142258,Euglenaceae,family
+200909,200910,Trachelomonas abrupta,species
+200910,200868,Trachelomonas,genus
+202277,47367,Laniatores,suborder
+203631,200868,Euglena,genus
+203733,200867,Phacus longicauda,species
+203734,200910,Trachelomonas armata,species
+203735,200910,Trachelomonas hispida,species
+203736,200910,Trachelomonas horrida,species
+203750,468411,Strombomonas volgensis,species
+207785,49973,Papilionini,tribe
+211065,47217,Cypripedioideae,subfamily
+211194,47126,Tracheophyta,phylum
+244394,47336,Dolichoderinae,subfamily
+244531,244532,Brefeldia maxima,species
+244532,1443236,Brefeldia,genus
+244834,47336,Formicinae,subfamily
+245097,47120,Chelicerata,subphylum
+245650,418414,Dotidae,family
+245900,47592,Zopherinae,subfamily
+245928,372735,Lobosa,subphylum
+246134,127352,Oegopsida,order
+246139,47114,Caenogastropoda,subclass
+311286,1027346,Anurofeca,genus
+311289,311286,Anurofeca richardsi,species
+311318,203631,Euglena mutabilis,species
+311343,311346,Amoeba proteus,species
+311345,884477,Amoebidae,family
+311346,311345,Amoeba,genus
+319384,342614,Araneoidea,superfamily
+321450,47961,Lepturinae,subfamily
+322311,53841,Stemonitis axifera,species
+324011,1648876,Cribraria intricata,species
+324012,1443224,Cribrariaceae,family
+324013,324012,Cribraria,genus
+324282,324284,Dictydiaethalium plumbeum,species
+324284,1442017,Dictydiaethalium,genus
+324332,126125,Turbinaria,genus
+326677,56261,Arcyria afroalpina,species
+326680,56261,Arcyria affinis,species
+326777,124417,Aculeata,infraorder
+334037,47744,Sternorrhyncha,suborder
+339397,372759,Octopodiformes,superorder
+341972,26042,Crocodylus niloticus,species
+342614,120474,Entelegynae,infraorder
+342904,47520,Salmoninae,subfamily
+349077,989732,Cadlinidae,family
+355675,2,Vertebrata,subphylum
+359450,447425,Cichorieae,tribe
+367158,120474,Haplogynae,infraorder
+367161,1529320,Lycosoidea,superfamily
+367166,1528408,Scytodoidea,superfamily
+367200,342614,Salticoidea,superfamily
+372735,47686,Amoebozoa,phylum
+372739,47120,Hexapoda,subphylum
+372740,48250,Pezizomycotina,subphylum
+372759,47459,Coleoidea,subclass
+372769,1051154,Pteriomorphia,infraclass
+372790,533431,Acanthochitonina,suborder
+372844,71130,Bostrichiformia,infraorder
+372852,71130,Cucujiformia,infraorder
+372853,48091,Cyclorrhapha,infraorder
+372854,71130,Elateriformia,infraorder
+373126,373225,Phytoptidae,family
+373225,635987,Eriophyoidea,superfamily
+373250,49189,Cryphonectriaceae,family
+373562,82167,Xyletininae,subfamily
+373578,47122,Mimosoideae,subfamily
+415343,47148,Rosoideae,subfamily
+417879,47535,Araneinae,subfamily
+418414,1644895,Dendronotoidea,superfamily
+426081,47928,Coenagrionoidea,superfamily
+427366,47362,Apocynoideae,subfamily
+447425,47604,Cichorioideae,subfamily
+468411,200868,Strombomonas,genus
+471586,321450,Desmocerini,tribe
+479698,373578,Mimoseae,tribe
+487049,781350,Arionoidea,superfamily
+489802,547088,Eriopterini,tribe
+492000,47169,Agaricomycotina,subphylum
+500752,1644037,Fionoidea,superfamily
+500820,68789,Agaraceae,family
+507502,47122,Faboideae,subfamily
+508058,23,Grus,genus
+514989,47434,Pooideae,subfamily
+516951,785517,Coprinaceae,family
+519189,244394,Tapinomini,tribe
+520329,245900,Zopherini,tribe
+521661,373578,Ingeae,tribe
+525277,418414,Tethydidae,family
+526082,202277,Grassatores,infraorder
+528872,801480,Doridoidea,superfamily
+529304,47731,Photurinae,subfamily
+533431,47428,Chitonida,order
+533443,507502,Loteae,tribe
+533483,372790,Mopalioidea,superfamily
+533539,533483,Tonicellidae,family
+534092,526082,Gonyleptoidea,superfamily
+535958,81884,Pachylinae,subfamily
+538904,199939,Apini,tribe
+543637,1644035,Arminoidea,superfamily
+545186,47225,Pterourus,subgenus
+546957,738346,Epidendreae,tribe
+547088,47992,Chioneinae,subfamily
+548591,507502,Genisteae,tribe
+551391,47114,Heterobranchia,subclass
+551396,775846,Fissurelloidea,superfamily
+551398,1656975,Lottioidea,superfamily
+552962,514989,Poeae,tribe
+559182,47525,Pleuronectinae,subfamily
+559675,48475,Elfvingia,subgenus
+564603,500752,Cuthonidae,family
+564804,801480,Onchidoridoidea,superfamily
+564808,801480,Polyceroidea,superfamily
+564817,1644037,Aeolidioidea,superfamily
+578086,47220,Apis,subgenus
+606933,48139,Salticinae,subfamily
+628408,47767,Triophinae,subfamily
+628409,47767,Polycerinae,subfamily
+629866,487049,Ariolimacidae,family
+630955,47222,Anthophila,epifamily
+631925,1644039,Proctonotoidea,superfamily
+632335,427366,Apocyneae,tribe
+632344,632335,Apocyinae,subtribe
+632351,427366,Nerieae,tribe
+632352,632351,Neriinae,subtribe
+632701,359450,Crepidinae,subtribe
+635987,81508,Endeostigmata,suborder
+637435,244834,Formicini,tribe
+639358,143195,Ophionini,tribe
+699692,699949,Octopodoidea,superfamily
+699949,47458,Incirrata,suborder
+701533,47574,Sabina,section
+706026,1267990,Ralfsiales,order
+709262,180744,Corydiinae,subfamily
+712034,606933,Dendryphantini,tribe
+712073,606933,Euophryini,tribe
+713809,20979,Dendrobatoidea,superfamily
+738346,47217,Epidendroideae,subfamily
+764793,121943,Equisetidae,subclass
+764796,121943,Polypodiidae,subclass
+768624,245928,Tubulinea,class
+775797,551391,Euthyneura,infraclass
+775799,775797,Ringipleura,subterclass
+775800,775797,Tectipleura,subterclass
+775801,775799,Nudipleura,superorder
+775804,775800,Aplysiida,order
+775812,775800,Eupulmonata,superorder
+775828,775804,Aplysioidea,superfamily
+775846,85549,Lepetellida,order
+781349,47485,Helicina,suborder
+781350,781349,Arionoidei,infraorder
+781352,781349,Helicoidei,infraorder
+785517,47167,Agaricineae,suborder
+785522,47167,Pluteineae,suborder
+787526,47167,Tricholomatineae,suborder
+787547,64722,Aromobatinae,subfamily
+787560,20980,Dendrobatinae,subfamily
+787561,20980,Colostethinae,subfamily
+787562,64722,Allobatinae,subfamily
+787565,21218,Hyalinobatrachinae,subfamily
+787581,21218,Centroleninae,subfamily
+788064,47693,Rubioideae,subfamily
+788083,788064,Rubieae,tribe
+788499,47285,Pteroinae,subfamily
+788501,47266,Scombrinae,subfamily
+788551,47313,Muraeninae,subfamily
+788565,47295,Lutjaninae,subfamily
+788602,1555696,Gobionellinae,subfamily
+788650,47247,Macroramphosinae,subfamily
+790617,47781,Iridoideae,subfamily
+790633,790617,Irideae,tribe
+790732,47561,Pinus,subgenus
+790771,790732,Pinus,section
+791908,49073,Gelatinodiscaceae,family
+792444,1473859,Lepidieae,tribe
+794115,53539,Hypocreomycetidae,subclass
+796989,47686,Sulcozoa,phylum
+797520,26504,Colubrinae,subfamily
+797523,1148893,Aparallactinae,subfamily
+801476,47113,Doridina,suborder
+801480,801476,Doridoidei,infraorder
+801499,1644900,Tritonioidea,superfamily
+801511,47801,Plakobranchoidea,superfamily
+801573,564804,Calycidorididae,family
+803797,155364,Helminthoglyptinae,subfamily
+808282,47424,Theraphosinae,subfamily
+824802,49548,Flavoagaricus,subgenus
+840998,50638,Cheloneae,tribe
+843579,51023,Zonarieae,tribe
+846187,40153,Sminthopsinae,subfamily
+846188,40153,Dasyurinae,subfamily
+847564,824802,Arvenses,section
+848317,40151,Theria,subclass
+848319,848317,Marsupialia,infraclass
+859158,47328,Calochortoideae,subfamily
+861029,47851,Quercus,subgenus
+861036,861029,Lobatae,section
+864989,47758,Oxalis,subgenus
+870758,47753,Dryopteridoideae,subfamily
+871441,47582,Crassostreinae,subfamily
+873509,47161,Cyperoideae,subfamily
+884477,768624,Euamoebida,order
+887311,51023,Dictyoteae,tribe
+891028,50814,Phallomycetidae,subclass
+899553,47357,Amerallium,subgenus
+903187,1473873,Hesperideae,tribe
+904149,47589,Acaulia,section
+905657,47167,Pleurotineae,suborder
+906594,1142599,Vaginatae,section
+906896,47484,Helicinae,subfamily
+910283,906896,Allognathini,tribe
+916897,629866,Ariolimacinae,subfamily
+918402,47990,Phytalmiinae,subfamily
+922110,47148,Amygdaloideae,subfamily
+922115,922110,Sorbarieae,tribe
+922171,415343,Rubeae,tribe
+924653,55849,Allioideae,subfamily
+924696,924653,Allieae,tribe
+926048,1142598,Phalloideae,section
+952186,54743,Lecanoromycetidae,subclass
+954920,1142599,Amanita,section
+961001,47754,Polypodiineae,suborder
+963946,142258,Phacaceae,family
+963992,372852,Cerambycoidea,superfamily
+964896,47701,Geranium,subgenus
+964919,964896,Geranium,section
+967514,47603,Taraxacum,section
+969899,48422,Hydnum,subgenus
+969901,48422,Rufescentia,subgenus
+969903,969899,Hydnum,section
+969904,969901,Rufescentia,section
+969909,969904,Tenuiformia,subsection
+977794,53539,Diaporthomycetidae,subclass
+989732,801480,Chromodoridoidea,superfamily
+1004909,47535,Gasteracanthinae,subfamily
+1004912,47535,Argiopinae,subfamily
+1023136,864989,Oxalis,section
+1027346,151874,Ichthyosporea,class
+1051154,47584,Autobranchia,subclass
+1067211,47631,Mopaliinae,subfamily
+1067212,533539,Tonicellinae,subfamily
+1067225,48751,Lottiinae,subfamily
+1067259,48288,Moruminae,subfamily
+1067558,1067225,Lottiini,tribe
+1070505,918402,Phytalmiini,tribe
+1080332,899553,Lophioprason,section
+1080564,49490,Cladonia chlorophaea,complex
+1094814,50814,Agaricomycetidae,subclass
+1095206,1276471,Collodictyonidae,family
+1095208,1095206,Diphylleia,genus
+1095923,796989,Diphyllatea,class
+1101271,1135480,Hygrocybe,section
+1109044,712034,Dendryphantina,subtribe
+1109604,373126,Phytoptinae,subfamily
+1124233,47178,Elopomorpha,superorder
+1128302,47167,Hygrophorineae,suborder
+1128529,1508994,Phyllotopsidaceae,family
+1135226,51870,Hygrocyboideae,subfamily
+1135227,1135226,Hygrocybeae,tribe
+1135479,51871,Pseudohygrocybe,subgenus
+1135480,51871,Hygrocybe,subgenus
+1135481,1101271,Hygrocybe,subsection
+1135487,1135479,Coccineae,section
+1135488,1135487,Coccineae,subsection
+1135850,48702,Boletoideae,subfamily
+1138136,552962,Cynosurinae,subtribe
+1138427,50817,Auricularia auricula-judae,complex
+1142598,48419,Amanitina,subgenus
+1142599,48419,Amanita,subgenus
+1144756,954920,Pantherinae,subsection
+1148893,85553,Atractaspididae,family
+1149497,118249,Amaniteae,tribe
+1150915,47374,Cupressoideae,subfamily
+1150916,47374,Sequoioideae,subfamily
+1155969,954920,Amanita,subsection
+1167950,48339,Russula,subgenus
+1180054,48522,Atramentariae,section
+1181402,1627801,Macrocystidiaceae,family
+1184311,47780,Limniris,subgenus
+1196165,48496,Pleurotus ostreatus,complex
+1267989,48220,Dictyotophycidae,subclass
+1267990,48220,Fucophycidae,subclass
+1269340,326777,Formicoidea,superfamily
+1273102,52595,Peronosporomycetes,class
+1276471,1095923,Diphylleida,order
+1286606,51025,Padina pavonica,complex
+1288861,246134,Chiroteuthoidea,superfamily
+1294100,803797,Helminthoglyptini,tribe
+1296980,47193,Arctocrania,subgenus
+1303567,47233,Cottoidei,suborder
+1303568,47233,Scorpaenoidei,suborder
+1303576,47388,Characoidei,suborder
+1303580,47245,Syngnathoidei,suborder
+1303583,47177,Balistoidei,suborder
+1303725,1632273,Gobiiformes,order
+1303726,1632273,Acanthuriformes,order
+1303727,1632273,Carangiformes,order
+1303731,1632273,Centrarchiformes,order
+1303739,1632273,Scombriformes,order
+1303746,1303739,Scombroidei,suborder
+1303747,1303727,Carangoidei,suborder
+1303751,1303727,Pleuronectoidei,suborder
+1303752,1303727,Centropomoidei,suborder
+1303754,1303731,Cirrhitioidei,suborder
+1304081,47889,Impatiens,subgenus
+1317176,47927,Libelluloidea,superfamily
+1323560,52572,Vaejovinae,subfamily
+1323567,48894,Neoscorpionina,suborder
+1323568,1323567,Orthosterni,infraorder
+1323570,1323568,Iurida,parvorder
+1351803,1184311,Limniris,section
+1359796,47232,Caranginae,subfamily
+1359815,85563,Hemitripterinae,subfamily
+1360635,47544,Idaeobatus,subgenus
+1362557,53810,Phidippus audax,complex
+1363726,1303567,Jordaniidae,family
+1363994,246134,Enoploteuthoidea,superfamily
+1366581,47165,Cyanula,subgenus
+1372663,47452,Plurinerves,subgenus
+1372816,47416,Tricassinae,subfamily
+1373186,1323570,Vaejovoidea,superfamily
+1374657,47348,Cantharellus,subgenus
+1387033,47867,Heteropodinae,subfamily
+1395929,48708,Clathraceae,family
+1396270,1167950,Sardoninae,subsection
+1396329,1167950,Russula,subsection
+1398383,47339,Formica sanguinea,complex
+1398876,48611,Craterellus,subgenus
+1416484,1424671,Gelatinosa,subsection
+1416547,47165,Prunuloides,subgenus
+1423802,47746,Equisetum,subgenus
+1424671,1416547,Madida,section
+1430520,47566,Aigeiros,section
+1430522,47566,Populus,section
+1430881,47165,Cubospora,subgenus
+1431931,1304081,Impatiens,section
+1433249,59967,Albugo candida,complex
+1438094,47688,Erodium cicutarium,complex
+1441663,546957,Calypsoinae,subtribe
+1442017,56259,Dianemataceae,family
+1443219,47684,Lucisporomycetidae,subclass
+1443220,47684,Columellomycetidae,subclass
+1443221,1443219,Trichiidia,superorder
+1443222,1443219,Cribrariidia,superorder
+1443223,1443220,Stemonitidia,superorder
+1443224,1443222,Cribrariales,order
+1443225,1443221,Reticulariales,order
+1443228,1443223,Clastodermatales,order
+1443236,1443237,Amaurochaetaceae,family
+1443237,1443223,Stemonitidales,order
+1443239,55484,Lamprodermataceae,family
+1443445,47685,Ceratiomyxomycetes,class
+1447339,48640,Floccigomphus,subgenus
+1452207,47855,Archichauliodes,subgenus
+1452208,47855,Riekochauliodes,subgenus
+1453363,47436,Lotus corniculatus,complex
+1456301,47562,Pinoideae,subfamily
+1465406,47134,Matachiinae,subfamily
+1466297,47727,Negundo,section
+1467321,84719,Avicularioidea,superfamily
+1472110,47371,Argyrodinae,subfamily
+1472111,47371,Latrodectinae,subfamily
+1472965,48140,Loxoscelinae,subfamily
+1473853,47204,Brassicoideae,subfamily
+1473859,1473853,Camelinodae,supertribe
+1473873,1473853,Hesperodae,supertribe
+1478434,48707,Ramaria,subgenus
+1483282,48707,Laeticolora,subgenus
+1489457,48828,Tritoniinae,subfamily
+1496295,808282,Theraphosini,tribe
+1505070,48093,Aspidiotinae,subfamily
+1505076,1505070,Aspidiotini,tribe
+1508994,47167,Phyllotopsidineae,suborder
+1520823,49160,Hericium erinaceus,complex
+1528047,1529315,Marronoid,zoosubsection
+1528408,367158,Synspermiata,zoosection
+1528748,47140,Anculinae,subfamily
+1529303,1529315,Dionycha,zoosubsection
+1529315,342614,Rta clade,zoosection
+1529320,1529315,Oval calamistrum clade,zoosubsection
+1542658,861036,Agrifoliae,subsection
+1543570,47178,Ostariophysi,superorder
+1544594,47318,Chaetodontinae,subfamily
+1544707,47868,Thanatinae,subfamily
+1552378,48848,Porthetria,subgenus
+1552579,49550,Amaurobiinae,subfamily
+1555655,47521,Salmonoidei,suborder
+1555675,1303725,Gobioidei,suborder
+1555696,1555675,Oxudercidae,family
+1555721,47314,Muraenoidei,suborder
+1557187,1351803,Laevigatae,subsection
+1558540,906594,Amanita crocea,complex
+1569881,47551,Leucauginae,subfamily
+1579580,1303576,Acestrorhamphidae,family
+1579610,1579580,Pristellinae,subfamily
+1581554,56259,Hemitrichiaceae,family
+1583846,124080,Philampelina,subtribe
+1592172,1452208,Archichauliodes uncinatus,complex
+1592176,1452208,Archichauliodes deceptor,complex
+1595251,47787,Clistocarpa,section
+1595259,709262,Corydiini,tribe
+1596084,40153,Planigalinae,subfamily
+1596085,40153,Phascogalinae,subfamily
+1606838,790771,Pinaster,subsection
+1612316,48646,Fissurellideinae,subfamily
+1616716,48752,Lottia scabra,complex
+1627801,47167,Macrocystidiineae,suborder
+1632273,47178,Acanthomorpha,superorder
+1632707,47681,Oleogala,section
+1632708,47681,Lycogala,section
+1634342,1528047,Dictynoidea,superfamily
+1634343,1634342,Argyronetidae,family
+1641209,47394,Agariceae,tribe
+1644035,47113,Arminina,suborder
+1644037,47113,Aeolidina,suborder
+1644039,47113,Janolina,suborder
+1644895,47113,Dendronotina,suborder
+1644900,47113,Tritonina,suborder
+1646926,564804,Acanthodorididae,family
+1648876,324013,Cribraria,subgenus
+1649002,52526,Boletopsidaceae,family
+1653332,873509,Schoenoplectieae,tribe
+1656975,47679,Nacellida,order
