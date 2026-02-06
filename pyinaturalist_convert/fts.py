@@ -109,7 +109,7 @@ from functools import partial
 from itertools import chain
 from logging import getLogger
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Union
+from typing import Iterable, Optional, Sequence
 
 from pyinaturalist import Observation
 from pyinaturalist.models import Taxon
@@ -170,7 +170,7 @@ class TaxonAutocompleter:
         self.connection.row_factory = sqlite3.Row
         self.limit = limit
 
-    def search(self, q: str, language: str = 'en') -> List[Taxon]:
+    def search(self, q: str, language: str = 'en') -> list[Taxon]:
         """Search for taxa by scientific and/or common name.
 
         Args:
@@ -226,7 +226,7 @@ class ObservationAutocompleter:
         self.limit = limit
         self.truncate_match_chars = truncate_match_chars
 
-    def search(self, q: str, fields: Optional[List[TextField]] = None) -> List[Tuple[int, str]]:
+    def search(self, q: str, fields: Optional[list[TextField]] = None) -> list[tuple[int, str]]:
         """Search for observations by text.
 
         Args:
@@ -379,7 +379,7 @@ def index_observation_text(observations: Sequence[Observation], db_path: PathOrS
         conn.commit()
 
 
-def _get_obs_strs(obs: Observation) -> List[Tuple[int, str, int]]:
+def _get_obs_strs(obs: Observation) -> list[tuple[int, str, int]]:
     obs_strs = []
     if obs.description:
         obs_strs.append((obs.id, obs.description, TextField.DESCRIPTION.value))
@@ -404,7 +404,7 @@ def optimize_fts_table(table: str, db_path: PathOrStr = DB_PATH):
 
 def _get_common_name_csvs(
     csv_dir: Path, languages: Optional[Iterable[str]] = None
-) -> Dict[str, Path]:
+) -> dict[str, Path]:
     """Get common name CSVs, for either all or some languages, with a separate table per language"""
     if languages and languages != 'all':
         common_name_csvs = {lang: csv_dir / f'VernacularNames-{lang}.csv' for lang in languages}
@@ -416,17 +416,18 @@ def _get_common_name_csvs(
         }
 
 
-def _add_taxon_counts(row: Dict[str, Union[int, str]], taxon_counts: Dict[int, int]):
+def _add_taxon_counts(row: list, field_index: dict[str, int], taxon_counts: dict[int, int]) -> list:
     """Add taxon counts to a chunk of taxon records read from CSV"""
-    taxon_id = int(row['id'])
-    row['count_rank'] = taxon_counts.get(taxon_id, -1)
-    if row.get('language_code'):
-        row['language_code'] = str(row['language_code']).lower().replace('-', '_')
+    taxon_id = int(row[field_index['id']])
+    row.append(taxon_counts.get(taxon_id, -1))
+    lang_idx = field_index.get('language')
+    if lang_idx is not None and row[lang_idx]:
+        row[lang_idx] = str(row[lang_idx]).lower().replace('-', '_')
     return row
 
 
 # TODO: Read from taxon table instead
-def _normalize_taxon_counts(agg_path: PathOrStr = TAXON_AGGREGATES_PATH) -> Dict[int, int]:
+def _normalize_taxon_counts(agg_path: PathOrStr = TAXON_AGGREGATES_PATH) -> dict[int, int]:
     """Read previously calculated taxon counts, and normalize to a logarithmic distribution"""
     import numpy as np
     import pandas as pd

@@ -2,12 +2,11 @@
 
 import sqlite3
 from contextlib import nullcontext
-from csv import DictReader
 from csv import reader as csv_reader
 from logging import getLogger
 from pathlib import Path
 from time import time
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Optional
 
 from .constants import DB_PATH, PathOrStr
 from .download import MultiProgress, get_progress_spinner
@@ -16,20 +15,47 @@ logger = getLogger(__name__)
 
 
 class ChunkReader:
-    """A CSV reader that yields chunks of rows
+    """A CSV reader that yields chunks of rows, with optional per-row transforms.
 
     Args:
         chunk_size: Number of rows to yield at a time
         fields: List of fields to include in each chunk
+        transform: Optional callback ``(row: list, field_index: dict[str, int]) -> list``
+            that modifies each row in place. ``field_index`` maps CSV column names to list
+            positions. For extra fields listed in *fields* but absent from the CSV header,
+            the transform should append values in the order they appear.
     """
 
-    def __init__(self, f, chunk_size: int = 2000, fields: Optional[List[str]] = None, **kwargs):
+    def __init__(
+        self,
+        f,
+        chunk_size: int = 2000,
+        fields: Optional[list[str]] = None,
+        transform: Optional[Callable] = None,
+        **kwargs,
+    ):
         self.reader = csv_reader(f, **kwargs)
         self._chunk_size = chunk_size
+        self.transform = transform
 
         # Determine which fields to include (by index)
         field_names = next(self.reader)
-        self._include_idx = [field_names.index(k) for k in fields] if fields else None
+
+        if transform and fields:
+            # Build field name -> index mapping for transforms
+            self._field_index: Optional[dict[str, int]] = {
+                name: i for i, name in enumerate(field_names)
+            }
+            # Extra fields that transforms will append (not in CSV header)
+            n = len(field_names)
+            for name in fields:
+                if name not in self._field_index:
+                    self._field_index[name] = n
+                    n += 1
+            self._include_idx: Optional[list[int]] = [self._field_index[k] for k in fields]
+        else:
+            self._field_index = None
+            self._include_idx = [field_names.index(k) for k in fields] if fields else None
 
     def __iter__(self):
         return self
@@ -47,40 +73,13 @@ class ChunkReader:
 
     def _next_row(self):
         row = next(self.reader)
+        if self.transform:
+            row = self.transform(row, self._field_index)
+            return [row[i] for i in self._include_idx] if self._include_idx else row
         return [row[i] or None for i in self._include_idx] if self._include_idx else row
 
 
-class XFormChunkReader(ChunkReader):
-    """A CSV reader that yields chunks of rows, and applies a transform callback to each row
-
-    Args:
-        chunk_size: Number of rows to yield at a time
-        fields: List of fields to include in each chunk
-        transform: Callback to transform a row before inserting into the database
-    """
-
-    def __init__(
-        self,
-        f,
-        chunk_size: int = 2000,
-        fields: Optional[List[str]] = None,
-        transform: Optional[Callable] = None,
-        **kwargs,
-    ):
-        self.reader = DictReader(f, **kwargs)  # type: ignore
-        self._chunk_size = chunk_size
-        self.include_fields = fields
-        self.transform = transform or (lambda x: x)
-
-    def __iter__(self):
-        return self
-
-    def _next_row(self) -> List:
-        row = self.transform(next(self.reader))
-        return [row[f] for f in self.include_fields] if self.include_fields else row
-
-
-def get_fields(csv_path: PathOrStr, delimiter: str = ',') -> List[str]:
+def get_fields(csv_path: PathOrStr, delimiter: str = ',') -> list[str]:
     with open(csv_path, encoding='utf-8') as f:
         reader = csv_reader(f, delimiter=delimiter)
         return next(reader)
@@ -90,7 +89,7 @@ def load_table(
     csv_path: PathOrStr,
     db_path: PathOrStr,
     table_name: Optional[str] = None,
-    column_map: Optional[Dict] = None,
+    column_map: Optional[dict] = None,
     pk: str = 'id',
     progress: Optional[MultiProgress] = None,
     delimiter: str = ',',
@@ -127,6 +126,7 @@ def load_table(
         db_cols = list(column_map.values())
 
     table_name = table_name or csv_path.stem
+    staging_name = f'_staging_{table_name}'
     non_pk_cols = [k for k in db_cols if k != pk]
     columns_str = ', '.join(db_cols)
     placeholders = ','.join(['?'] * len(csv_cols))
@@ -135,28 +135,38 @@ def load_table(
     if progress:
         progress.start_job(csv_path)
 
-    with sqlite3.connect(db_path) as conn, open(csv_path, encoding='utf-8') as f:
+    with sqlite3.connect(db_path) as conn:
         conn.execute('PRAGMA synchronous = 0')
         conn.execute('PRAGMA journal_mode = WAL')
+        conn.execute('PRAGMA cache_size = -64000')  # 64MB page cache
+        conn.execute('PRAGMA mmap_size = 268435456')  # 256MB memory-mapped I/O for faster reads
+
         _create_table(conn, table_name, non_pk_cols, pk)
-        stmt = f'INSERT OR REPLACE INTO {table_name} ({columns_str}) VALUES ({placeholders})'
+        _create_staging_table(conn, staging_name, db_cols)
+        stmt = f'INSERT INTO {staging_name} ({columns_str}) VALUES ({placeholders})'
 
-        if not transform:
-            reader = ChunkReader(f, fields=csv_cols, delimiter=delimiter)
-        else:
-            reader = XFormChunkReader(f, fields=csv_cols, delimiter=delimiter, transform=transform)
+        with open(csv_path, encoding='utf-8') as f:
+            reader = ChunkReader(
+                f, chunk_size=50000, fields=csv_cols, delimiter=delimiter, transform=transform
+            )
 
-        for chunk in reader:
-            conn.executemany(stmt, chunk)
-            if progress:
-                progress.advance(len(chunk))
+            for chunk in reader:
+                conn.executemany(stmt, chunk)
+                if progress:
+                    progress.advance(len(chunk))
+
+        conn.execute(
+            f'INSERT OR REPLACE INTO {table_name} ({columns_str}) '
+            f'SELECT {columns_str} FROM {staging_name}'
+        )
+        conn.execute(f'DROP TABLE {staging_name}')
         conn.commit()
 
     logger.info(f'Completed in {time() - start:.2f}s')
 
 
 def vacuum_analyze(
-    table_names: List[str], db_path: PathOrStr = DB_PATH, show_spinner: bool = False
+    table_names: list[str], db_path: PathOrStr = DB_PATH, show_spinner: bool = False
 ):
     """Vacuum a SQLite database and analyze one or more tables. If loading multiple tables, this
     should be done once after loading all of them.
@@ -172,3 +182,10 @@ def _create_table(conn, table_name, non_pk_cols, pk):
     # Assume an integer primary key and text columns for the rest
     table_cols = [f'{pk} INTEGER PRIMARY KEY'] + [f'{k} TEXT' for k in non_pk_cols]
     conn.execute(f'CREATE TABLE IF NOT EXISTS {table_name} ({", ".join(table_cols)});')
+
+
+def _create_staging_table(conn, table_name, columns):
+    """Create an unindexed staging table for fast bulk inserts"""
+    conn.execute(f'DROP TABLE IF EXISTS {table_name}')
+    table_cols = ', '.join(f'{k} TEXT' for k in columns)
+    conn.execute(f'CREATE TABLE {table_name} ({table_cols});')

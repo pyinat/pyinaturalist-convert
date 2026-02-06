@@ -28,7 +28,7 @@
 # TODO: For sound recordings: eol:dataObject.dcterms:type and any other fields?
 import re
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 from dateutil.parser import parse as parse_date
 from flatten_dict import flatten, unflatten
@@ -154,7 +154,7 @@ def to_dwc(
     observations: Optional[AnyObservations] = None,
     filename: Optional[PathOrStr] = None,
     taxa: Optional[AnyTaxa] = None,
-) -> Optional[List[Dict]]:
+) -> Optional[list[dict]]:
     """Convert observations into to a Simple Darwin Core RecordSet.
 
     Args:
@@ -176,7 +176,7 @@ def to_dwc(
         return records
 
 
-def get_dwc_record_set(records: List[Dict]) -> str:
+def get_dwc_record_set(records: list[dict]) -> str:
     """Make a DwC RecordSet as an XML string, including namespaces and the provided observation
     records
     """
@@ -187,7 +187,7 @@ def get_dwc_record_set(records: List[Dict]) -> str:
     return xmltodict.unparse({'dwr:SimpleDarwinRecordSet': records}, pretty=True, indent=' ' * 4)
 
 
-def observation_to_dwc_record(observation: Dict) -> Dict:
+def observation_to_dwc_record(observation: dict) -> dict:
     """Translate a flattened JSON observation from API results to a DwC record"""
     dwc_record = {}
     observation = _add_taxon_ancestors(observation)
@@ -225,7 +225,7 @@ def observation_to_dwc_record(observation: Dict) -> Dict:
     return dwc_record
 
 
-def taxon_to_dwc_record(taxon: Dict) -> Dict:
+def taxon_to_dwc_record(taxon: dict) -> dict:
     """Translate a taxon from API results to a partial DwC record (taxonomy terms only)"""
     # Translate 'ancestors' from API results to 'rank': 'name' fields
     for ancestor in taxon['ancestors'] + [taxon]:
@@ -238,7 +238,7 @@ def taxon_to_dwc_record(taxon: Dict) -> Dict:
     }
 
 
-def _photo_to_data_object(observation: Dict, photo: Dict) -> Dict:
+def _photo_to_data_object(observation: dict, photo: dict) -> dict:
     """Translate observation photo fields to eol:dataObject fields"""
     dwc_photo = {}
     for inat_field, dwc_field in PHOTO_FIELDS.items():
@@ -290,7 +290,7 @@ def _format_datetime(dt: Union[datetime, str]) -> str:
     return dt.replace(microsecond=0).isoformat()
 
 
-def _format_geoprivacy(observation: Dict) -> Optional[str]:
+def _format_geoprivacy(observation: dict) -> Optional[str]:
     if observation['geoprivacy'] == 'obscured':
         return (
             f'Coordinate uncertainty increased to {observation["positional_accuracy"]}'
@@ -312,7 +312,7 @@ def _format_license(license_code: str) -> Optional[str]:
     return f'{CC_BASE_URL}/{url_slug}/{CC_VERSION}'
 
 
-def _format_location(location: Optional[List[float]]) -> Dict[str, float]:
+def _format_location(location: Optional[list[float]]) -> dict[str, float]:
     if not location:
         return {}
     return {'dwc:decimalLatitude': location[0], 'dwc:decimalLongitude': location[1]}
@@ -324,7 +324,7 @@ def _format_time(dt: Union[datetime, str]) -> str:
     return dt.strftime('%H:%M%z')
 
 
-def dwc_to_observations(filename: PathOrStr) -> List[Observation]:
+def dwc_to_observations(filename: PathOrStr) -> list[Observation]:
     """Load observations from a Darwin Core file
 
     Args:
@@ -339,7 +339,7 @@ def dwc_to_observations(filename: PathOrStr) -> List[Observation]:
 
 
 # TODO: Translate eol:dataObject to photos
-def dwc_record_to_observation(dwc_record: Dict[str, Any]) -> Observation:
+def dwc_record_to_observation(dwc_record: dict[str, Any]) -> Observation:
     """Translate a DwC Record to an Observation object
 
     Args:
@@ -367,7 +367,7 @@ def dwc_record_to_observation(dwc_record: Dict[str, Any]) -> Observation:
     return Observation.from_json(json_record)
 
 
-def get_dwc_lookup() -> Dict[str, str]:
+def get_dwc_lookup() -> dict[str, str]:
     """Get a lookup table of DwC terms to standard field names"""
     lookup = {}
     for k, v in OBSERVATION_FIELDS.items():
@@ -383,7 +383,7 @@ def get_dwc_lookup() -> Dict[str, str]:
     return lookup
 
 
-def _format_dwc_ancestors(dwc_record: Dict) -> List[Dict[str, str]]:
+def _format_dwc_ancestors(dwc_record: dict) -> list[dict[str, str]]:
     ancestors = []
     for rank in RANKS[::-1]:
         if name := dwc_record.get(f'dwc:{rank}'):
@@ -391,7 +391,7 @@ def _format_dwc_ancestors(dwc_record: Dict) -> List[Dict[str, str]]:
     return ancestors
 
 
-def _format_dwc_geoprivacy(dwc_record: Dict) -> Optional[str]:
+def _format_dwc_geoprivacy(dwc_record: dict) -> Optional[str]:
     if not dwc_record.get('informationWithheld'):
         return None
     elif 'Coordinate uncertainty increased' in dwc_record['informationWithheld']:
@@ -402,7 +402,7 @@ def _format_dwc_geoprivacy(dwc_record: Dict) -> Optional[str]:
         return 'open'
 
 
-def _format_dwc_license(dwc_record: Dict) -> Optional[str]:
+def _format_dwc_license(dwc_record: dict) -> Optional[str]:
     """Format a CC license URL to a license code"""
     license = dwc_record.get('dcterms:license')
     if not license:
@@ -415,7 +415,7 @@ def _format_dwc_license(dwc_record: Dict) -> Optional[str]:
     return license
 
 
-def _format_dwc_location(dwc_record: Dict) -> Optional[Coordinates]:
+def _format_dwc_location(dwc_record: dict) -> Optional[Coordinates]:
     location = try_float_pair(
         dwc_record.get('dwc:decimalLatitude'),
         dwc_record.get('dwc:decimalLongitude'),

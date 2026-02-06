@@ -1,6 +1,6 @@
 # flake8: noqa: F401
 from pathlib import Path
-from typing import List, Union
+from typing import Union
 
 from pyinaturalist.constants import DATA_DIR
 
@@ -26,5 +26,5 @@ DWCA_OBS_CSV_DIR = DATA_DIR / 'gbif-observations-dwca'
 DWCA_OBS_CSV = DWCA_OBS_CSV_DIR / 'observations.csv'
 TAXON_AGGREGATES_PATH = DATA_DIR / 'taxon_aggregates.parquet'
 
-ParamList = List[Union[str, int]]
+ParamList = list[Union[str, int]]
 PathOrStr = Union[Path, str]

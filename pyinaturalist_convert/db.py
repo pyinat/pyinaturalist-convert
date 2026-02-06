@@ -55,7 +55,7 @@ use cases, but at least provides a starting point.
 # flake8: noqa: F401
 from itertools import chain
 from logging import getLogger
-from typing import TYPE_CHECKING, Iterable, Iterator, List, Optional
+from typing import TYPE_CHECKING, Iterable, Iterator, Optional
 
 from pyinaturalist import Observation, Taxon
 
@@ -143,7 +143,7 @@ def get_db_observations(
 
 def get_db_taxa(
     db_path: PathOrStr = DB_PATH,
-    ids: Optional[List[int]] = None,
+    ids: Optional[list[int]] = None,
     accept_partial: bool = True,
     limit: int = 200,
 ) -> Iterator[Taxon]:
