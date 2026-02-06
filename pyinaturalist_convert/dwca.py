@@ -159,12 +159,15 @@ def load_dwca_taxa(
     """Create or update a taxonomy SQLite table from the GBIF DwC-A archive"""
     create_table(DbTaxon, db_path)
 
-    def get_parent_id(row: Dict):
+    def get_parent_id(row: list, field_index: Dict[str, int]) -> list:
         """Get parent taxon ID from URL"""
+        idx = field_index.get('parentNameUsageID')
+        if idx is None:
+            return row
         try:
-            row['parentNameUsageID'] = int(row['parentNameUsageID'].split('/')[-1])
-        except (KeyError, TypeError, ValueError):
-            row['parentNameUsageID'] = None
+            row[idx] = int(str(row[idx]).split('/')[-1])
+        except (TypeError, ValueError):
+            row[idx] = None
         return row
 
     progress = progress or CSVProgress(csv_path)
