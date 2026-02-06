@@ -62,7 +62,7 @@ import json
 from copy import deepcopy
 from logging import getLogger
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Sequence, Type, Union
+from typing import TYPE_CHECKING, Iterable, Optional, Sequence, Type, Union
 
 from flatten_dict import flatten, unflatten
 from pyinaturalist import BaseModel, JsonResponse, ModelObjects, Observation, ResponseResult, Taxon
@@ -122,7 +122,7 @@ def _to_models(value: InputTypes, model: Type[BaseModel] = Observation) -> Itera
         return model.from_json_list(to_dicts(value))
 
 
-def to_dicts(value: InputTypes) -> Iterable[Dict]:
+def to_dicts(value: InputTypes) -> Iterable[dict]:
     """Convert any supported input type into a observation (or other record type) dicts"""
     if not value:
         return []
@@ -204,7 +204,7 @@ def to_parquet(observations: AnyObservations, filename: str):
     df.to_parquet(filename)
 
 
-def read(filename: PathOrStr) -> List[Observation]:
+def read(filename: PathOrStr) -> list[Observation]:
     """Load observations from any of the following file formats:
 
     * JSON
@@ -272,7 +272,7 @@ def flatten_observations(
     return [flatten(obs, reducer='dot') for obs in observations]
 
 
-def _df_to_dicts(df: 'DataFrame') -> List[JsonResponse]:
+def _df_to_dicts(df: 'DataFrame') -> list[JsonResponse]:
     """Convert a pandas DataFrame into nested dicts (similar to API response JSON)"""
     from numpy import nan, ndarray
 
@@ -286,7 +286,7 @@ def _df_to_dicts(df: 'DataFrame') -> List[JsonResponse]:
     return observations
 
 
-def _drop_observation_lists(observations: Iterable[Dict]) -> List[ResponseResult]:
+def _drop_observation_lists(observations: Iterable[dict]) -> list[ResponseResult]:
     """Drop list fields, which can't easily be represented in CSV"""
 
     def _drop(obs):
@@ -305,7 +305,7 @@ def _drop_observation_lists(observations: Iterable[Dict]) -> List[ResponseResult
     return [_drop(obs) for obs in observations]
 
 
-def _flatten_observation_lists(observations: Iterable[Dict]) -> List[ResponseResult]:
+def _flatten_observation_lists(observations: Iterable[dict]) -> list[ResponseResult]:
     """Flatten out some nested data structures within observation records:
 
     * annotations
@@ -316,13 +316,13 @@ def _flatten_observation_lists(observations: Iterable[Dict]) -> List[ResponseRes
     * sounds
     """
 
-    def _flatten_annotation(a: Dict) -> Dict:
+    def _flatten_annotation(a: dict) -> dict:
         try:
             return {a['controlled_attribute']['label']: a['controlled_value']['label']}
         except KeyError:
             return {str(a['controlled_attribute_id']): a['controlled_value_id']}
 
-    def _flatten(obs: Dict):
+    def _flatten(obs: dict):
         obs = deepcopy(obs)
 
         # Reduce annotations to IDs and values; use labels if available, otherwise IDs

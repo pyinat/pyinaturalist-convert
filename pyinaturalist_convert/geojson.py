@@ -17,7 +17,7 @@
 """
 
 import json
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Optional
 
 from pyinaturalist.constants import ResponseResult
 
@@ -43,7 +43,7 @@ DEFAULT_OBSERVATION_ATTRS = [
 def to_geojson(
     observations: AnyObservations,
     filename: Optional[PathOrStr] = None,
-    properties: List[str] = DEFAULT_OBSERVATION_ATTRS,
+    properties: list[str] = DEFAULT_OBSERVATION_ATTRS,
 ) -> Optional['FeatureCollection']:
     """Convert observations to a GeoJSON FeatureCollection.
 
@@ -73,7 +73,7 @@ def to_geojson(
 
 
 def _to_geojson_feature(
-    observation: ResponseResult, properties: Optional[List[str]] = None
+    observation: ResponseResult, properties: Optional[list[str]] = None
 ) -> 'Feature':
     from geojson import Feature, Point
 

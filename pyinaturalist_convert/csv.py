@@ -26,7 +26,7 @@ from glob import glob
 from logging import getLogger
 from os.path import basename
 from pathlib import Path
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from pyinaturalist import JsonResponse
 from pyinaturalist.constants import RANKS
@@ -133,7 +133,7 @@ def is_csv_export(file_path: PathOrStr) -> bool:
     return 'captive_cultivated' in fields
 
 
-def _resolve_file_paths(*file_paths: PathOrStr) -> List[Path]:
+def _resolve_file_paths(*file_paths: PathOrStr) -> list[Path]:
     """Given file paths and/or glob patterns, return a list of resolved file paths"""
     file_path_strs = [str(p) for p in file_paths]
     resolved_paths = [p for p in file_path_strs if '*' not in p]
