@@ -45,6 +45,7 @@ documentation = 'https://pyinaturalist-convert.readthedocs.io'
 
 # Optional dependencies for specific data formats
 [project.optional-dependencies]
+aggregate   = ['polars>=1.30', 'sqlalchemy>=2.0']
 db          = ['sqlalchemy>=2.0']
 dwc         = ['xmltodict>=0.12']
 feather     = ['pandas>=1.2', 'pyarrow>=10.0']
@@ -107,14 +108,14 @@ fix = true
 unsafe-fixes = true
 line-length = 100
 output-format = 'grouped'
-target-version = 'py38'
+target-version = 'py310'
 exclude = ['examples/']
 
 [tool.ruff.format]
 quote-style = 'single'
 
 [tool.ruff.lint]
-select = ['B', 'C4', 'C90', 'E', 'F', 'I']
+select = ['B', 'C4', 'E', 'F', 'I']
 ignore = ['B023']
 
 [tool.ruff.lint.isort]
