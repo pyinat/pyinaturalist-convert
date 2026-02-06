@@ -9,7 +9,7 @@ from pathlib import Path
 from shutil import copyfileobj
 from tarfile import TarFile
 from time import time
-from typing import Callable, Dict, Iterable, Optional, Tuple
+from typing import Callable, Iterable, Optional
 from zipfile import ZipFile
 
 import requests
@@ -29,7 +29,7 @@ from rich.table import Table
 
 from .constants import PathOrStr
 
-ProgressTask = Tuple[Progress, TaskID]
+ProgressTask = tuple[Progress, TaskID]
 
 # Times per second to redraw a table of parallel progress bars
 JOB_REFRESH_RATE = 1
@@ -83,7 +83,7 @@ class MultiProgress:
 
     def __init__(
         self,
-        totals: Dict[str, int],
+        totals: dict[str, int],
         total_progress: Optional[Progress] = None,
         job_progress: Optional[Progress] = None,
         task_description: str = 'Loading',
@@ -140,7 +140,7 @@ class ParallelMultiProgress:
     def __init__(self, total: int = 0, total_progress: Optional[Progress] = None):
         self.total_progress = total_progress or get_progress()
         self.total_task = self.total_progress.add_task('[cyan]Total', total=total)
-        self.job_progresses: Dict[str, JobProgress] = {}
+        self.job_progresses: dict[str, JobProgress] = {}
 
         self.table = Table.grid()
         self.table.add_row(self.total_progress)

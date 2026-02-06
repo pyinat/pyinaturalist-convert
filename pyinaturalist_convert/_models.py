@@ -2,7 +2,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from logging import getLogger
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from urllib.parse import quote_plus, unquote
 
 from pyinaturalist import (
@@ -24,7 +24,7 @@ from sqlalchemy.orm import registry, relationship
 from .taxonomy import PRECOMPUTED_COLUMNS
 
 Base = registry()
-JsonField = Dict[str, Any]
+JsonField = dict[str, Any]
 
 logger = getLogger(__name__)
 
@@ -74,10 +74,10 @@ class DbObservation:
     uuid: str = sa_field(String, default=None, index=True)
 
     # Denormalized nested collections
-    annotations: Optional[List[JsonField]] = sa_field(types.JSON, default=None)
-    comments: Optional[List[JsonField]] = sa_field(types.JSON, default=None)
-    identifications: Optional[List[JsonField]] = sa_field(types.JSON, default=None)
-    ofvs: Optional[List[JsonField]] = sa_field(types.JSON, default=None)
+    annotations: Optional[list[JsonField]] = sa_field(types.JSON, default=None)
+    comments: Optional[list[JsonField]] = sa_field(types.JSON, default=None)
+    identifications: Optional[list[JsonField]] = sa_field(types.JSON, default=None)
+    ofvs: Optional[list[JsonField]] = sa_field(types.JSON, default=None)
     tags: str = sa_field(String, default=None)
 
     # Table relationships
@@ -88,7 +88,7 @@ class DbObservation:
     user = relationship('DbUser', backref='observations')  # type: ignore
 
     @property
-    def sorted_photos(self) -> List[Photo]:
+    def sorted_photos(self) -> list[Photo]:
         """Get photos sorted by original position in the observation"""
         return [p.to_model() for p in sorted(self.photos, key=lambda p: p.position or 0)]
 
@@ -348,8 +348,8 @@ class DbUser:
 
 
 def _flatten_annotations(
-    annotations: Optional[List[Annotation]] = None,
-) -> Optional[List[JsonField]]:
+    annotations: Optional[list[Annotation]] = None,
+) -> Optional[list[JsonField]]:
     return [_flatten_annotation(a) for a in annotations] if annotations else None
 
 
@@ -365,8 +365,8 @@ def _flatten_annotation(annotation: Annotation) -> JsonField:
 
 
 def _flatten_comments(
-    comments: Optional[List[Comment]] = None,
-) -> Optional[List[JsonField]]:
+    comments: Optional[list[Comment]] = None,
+) -> Optional[list[JsonField]]:
     return [_flatten_comment(c) for c in comments] if comments else None
 
 
@@ -380,8 +380,8 @@ def _flatten_comment(comment: Comment):
 
 
 def _flatten_identifications(
-    identifications: Optional[List[Identification]] = None,
-) -> Optional[List[JsonField]]:
+    identifications: Optional[list[Identification]] = None,
+) -> Optional[list[JsonField]]:
     return [_flatten_identification(i) for i in identifications] if identifications else None
 
 
@@ -393,16 +393,16 @@ def _flatten_identification(identification: Identification) -> JsonField:
 
 
 def _flatten_ofvs(
-    ofvs: Optional[List[ObservationFieldValue]] = None,
-) -> Optional[List[JsonField]]:
+    ofvs: Optional[list[ObservationFieldValue]] = None,
+) -> Optional[list[JsonField]]:
     return [{'name': ofv.name, 'value': ofv.value} for ofv in ofvs] if ofvs else None
 
 
-def _get_taxa(id_str: str) -> List[Taxon]:
+def _get_taxa(id_str: str) -> list[Taxon]:
     return [Taxon(id=id, partial=True) for id in _split_int_list(id_str)]
 
 
-def _get_db_obs_photos(obs: Observation) -> List[DbPhoto]:
+def _get_db_obs_photos(obs: Observation) -> list[DbPhoto]:
     if not obs.photos:
         return []
 
@@ -419,23 +419,23 @@ def _get_db_obs_photos(obs: Observation) -> List[DbPhoto]:
     return photos
 
 
-def _split_list(values_str: Optional[str] = None) -> List[str]:
+def _split_list(values_str: Optional[str] = None) -> list[str]:
     return values_str.split(',') if values_str else []
 
 
-def _split_int_list(values_str: Optional[str] = None) -> List[int]:
+def _split_int_list(values_str: Optional[str] = None) -> list[int]:
     return [int(i) for i in values_str.split(',')] if values_str else []
 
 
-def _join_list(values: Optional[List] = None) -> str:
+def _join_list(values: Optional[list] = None) -> str:
     return ','.join(map(str, values)) if values else ''
 
 
-def _split_photo_urls(urls_str: str) -> List[Photo]:
+def _split_photo_urls(urls_str: str) -> list[Photo]:
     return [Photo(url=unquote(u)) for u in urls_str.split(',')] if urls_str else []
 
 
-def _join_photo_urls(photos: List[Photo]) -> str:
+def _join_photo_urls(photos: list[Photo]) -> str:
     valid_photos = [p for p in photos if p and not isinstance(p, IconPhoto)]
     # quote URLs, so when splitting we can be sure ',' is not in any URL
     return ','.join([quote_plus(p.url) for p in valid_photos])

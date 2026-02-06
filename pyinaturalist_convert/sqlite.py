@@ -6,7 +6,7 @@ from csv import reader as csv_reader
 from logging import getLogger
 from pathlib import Path
 from time import time
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Optional
 
 from .constants import DB_PATH, PathOrStr
 from .download import MultiProgress, get_progress_spinner
@@ -30,7 +30,7 @@ class ChunkReader:
         self,
         f,
         chunk_size: int = 2000,
-        fields: Optional[List[str]] = None,
+        fields: Optional[list[str]] = None,
         transform: Optional[Callable] = None,
         **kwargs,
     ):
@@ -43,7 +43,7 @@ class ChunkReader:
 
         if transform and fields:
             # Build field name -> index mapping for transforms
-            self._field_index: Optional[Dict[str, int]] = {
+            self._field_index: Optional[dict[str, int]] = {
                 name: i for i, name in enumerate(field_names)
             }
             # Extra fields that transforms will append (not in CSV header)
@@ -52,7 +52,7 @@ class ChunkReader:
                 if name not in self._field_index:
                     self._field_index[name] = n
                     n += 1
-            self._include_idx = [self._field_index[k] for k in fields]
+            self._include_idx: Optional[list[int]] = [self._field_index[k] for k in fields]
         else:
             self._field_index = None
             self._include_idx = [field_names.index(k) for k in fields] if fields else None
@@ -79,7 +79,7 @@ class ChunkReader:
         return [row[i] or None for i in self._include_idx] if self._include_idx else row
 
 
-def get_fields(csv_path: PathOrStr, delimiter: str = ',') -> List[str]:
+def get_fields(csv_path: PathOrStr, delimiter: str = ',') -> list[str]:
     with open(csv_path, encoding='utf-8') as f:
         reader = csv_reader(f, delimiter=delimiter)
         return next(reader)
@@ -89,7 +89,7 @@ def load_table(
     csv_path: PathOrStr,
     db_path: PathOrStr,
     table_name: Optional[str] = None,
-    column_map: Optional[Dict] = None,
+    column_map: Optional[dict] = None,
     pk: str = 'id',
     progress: Optional[MultiProgress] = None,
     delimiter: str = ',',
@@ -166,7 +166,7 @@ def load_table(
 
 
 def vacuum_analyze(
-    table_names: List[str], db_path: PathOrStr = DB_PATH, show_spinner: bool = False
+    table_names: list[str], db_path: PathOrStr = DB_PATH, show_spinner: bool = False
 ):
     """Vacuum a SQLite database and analyze one or more tables. If loading multiple tables, this
     should be done once after loading all of them.

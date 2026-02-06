@@ -34,7 +34,7 @@ import subprocess
 from logging import getLogger
 from os.path import basename, splitext
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Optional
 
 from pyinaturalist.constants import DATA_DIR
 
@@ -153,13 +153,13 @@ def load_full_dwca_observations(
 def load_dwca_taxa(
     csv_path: PathOrStr = DWCA_TAXON_CSV,
     db_path: PathOrStr = DB_PATH,
-    column_map: Dict = TAXON_COLUMN_MAP,
+    column_map: dict = TAXON_COLUMN_MAP,
     progress: Optional[CSVProgress] = None,
 ):
     """Create or update a taxonomy SQLite table from the GBIF DwC-A archive"""
     create_table(DbTaxon, db_path)
 
-    def get_parent_id(row: list, field_index: Dict[str, int]) -> list:
+    def get_parent_id(row: list, field_index: dict[str, int]) -> list:
         """Get parent taxon ID from URL"""
         idx = field_index.get('parentNameUsageID')
         if idx is None:
@@ -220,7 +220,7 @@ def _cleanup_observations(db_path: PathOrStr = DB_PATH):
         conn.execute('UPDATE observation SET captive=TRUE WHERE captive IS NOT FALSE')
 
 
-def _get_obs_column_map(fields: List[str]) -> Dict[str, str]:
+def _get_obs_column_map(fields: list[str]) -> dict[str, str]:
     """Translate subset of DwC terms to API-compatible field names"""
     lookup = {k.split(':')[-1]: v.replace('.', '_') for k, v in get_dwc_lookup().items()}
     return {field: lookup[field] for field in fields}
