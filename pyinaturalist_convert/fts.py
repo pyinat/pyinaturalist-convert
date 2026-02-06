@@ -109,7 +109,7 @@ from functools import partial
 from itertools import chain
 from logging import getLogger
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from pyinaturalist import Observation
 from pyinaturalist.models import Taxon
@@ -416,12 +416,13 @@ def _get_common_name_csvs(
         }
 
 
-def _add_taxon_counts(row: Dict[str, Union[int, str]], taxon_counts: Dict[int, int]):
+def _add_taxon_counts(row: list, field_index: Dict[str, int], taxon_counts: Dict[int, int]) -> list:
     """Add taxon counts to a chunk of taxon records read from CSV"""
-    taxon_id = int(row['id'])
-    row['count_rank'] = taxon_counts.get(taxon_id, -1)
-    if row.get('language_code'):
-        row['language_code'] = str(row['language_code']).lower().replace('-', '_')
+    taxon_id = int(row[field_index['id']])
+    row.append(taxon_counts.get(taxon_id, -1))
+    lang_idx = field_index.get('language')
+    if lang_idx is not None and row[lang_idx]:
+        row[lang_idx] = str(row[lang_idx]).lower().replace('-', '_')
     return row
 
 
