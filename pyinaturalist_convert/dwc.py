@@ -28,7 +28,7 @@
 # TODO: For sound recordings: eol:dataObject.dcterms:type and any other fields?
 import re
 from datetime import datetime
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from dateutil.parser import parse as parse_date
 from flatten_dict import flatten, unflatten
@@ -284,7 +284,7 @@ def _format_dataset_name(quality_grade: str) -> str:
     return f'iNaturalist {DATASET_TITLES.get(quality_grade, "")} observations'
 
 
-def _format_datetime(dt: Union[datetime, str]) -> str:
+def _format_datetime(dt: datetime | str) -> str:
     if isinstance(dt, str):
         return dt
     return dt.replace(microsecond=0).isoformat()
@@ -318,7 +318,7 @@ def _format_location(location: Optional[list[float]]) -> dict[str, float]:
     return {'dwc:decimalLatitude': location[0], 'dwc:decimalLongitude': location[1]}
 
 
-def _format_time(dt: Union[datetime, str]) -> str:
+def _format_time(dt: datetime | str) -> str:
     if isinstance(dt, str):
         dt = parse_date(dt)
     return dt.strftime('%H:%M%z')

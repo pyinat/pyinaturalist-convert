@@ -1,12 +1,13 @@
 """Helper utilities to load data directly from CSV into a SQLite database"""
 
 import sqlite3
+from collections.abc import Callable
 from contextlib import nullcontext
 from csv import reader as csv_reader
 from logging import getLogger
 from pathlib import Path
 from time import time
-from typing import Callable, Optional
+from typing import Optional
 
 from .constants import DB_PATH, PathOrStr
 from .download import MultiProgress, get_progress_spinner

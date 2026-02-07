@@ -53,9 +53,10 @@ use cases, but at least provides a starting point.
 """
 
 # flake8: noqa: F401
+from collections.abc import Iterable, Iterator
 from itertools import chain
 from logging import getLogger
-from typing import TYPE_CHECKING, Iterable, Iterator, Optional
+from typing import TYPE_CHECKING, Optional
 
 from pyinaturalist import Observation, Taxon
 

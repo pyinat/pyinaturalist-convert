@@ -59,10 +59,11 @@
 """
 
 import json
+from collections.abc import Iterable, Sequence
 from copy import deepcopy
 from logging import getLogger
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterable, Optional, Sequence, Type, Union
+from typing import TYPE_CHECKING, Optional, TypeAlias
 
 from flatten_dict import flatten, unflatten
 from pyinaturalist import BaseModel, JsonResponse, ModelObjects, Observation, ResponseResult, Taxon
@@ -79,18 +80,20 @@ from tablib import Dataset
 if TYPE_CHECKING:
     from pandas import DataFrame
 
-    CollectionTypes = Union[DataFrame, Dataset, Response, JsonResponse, Iterable[ResponseResult]]
+    CollectionTypes: TypeAlias = (
+        DataFrame | Dataset | Response | JsonResponse | Iterable[ResponseResult]
+    )
 else:
-    CollectionTypes = Union[Dataset, Response, JsonResponse, Iterable[ResponseResult]]
+    CollectionTypes: TypeAlias = Dataset | Response | JsonResponse | Iterable[ResponseResult]
 
 
 TABLIB_FORMATS = ['csv', 'html', 'json', 'ods', 'rst', 'xlsx', 'yaml']
 PANDAS_FORMATS = ['csv', 'feather', 'hdf', 'parquet', 'xlsx']
 
-InputTypes = Union[CollectionTypes, ModelObjects]
-AnyObservations = Union[CollectionTypes, Observation, Iterable[Observation]]
-AnyTaxa = Union[CollectionTypes, Taxon, Iterable[Taxon]]
-PathOrStr = Union[Path, str]
+InputTypes: TypeAlias = CollectionTypes | ModelObjects
+AnyObservations: TypeAlias = CollectionTypes | Observation | Iterable[Observation]
+AnyTaxa: TypeAlias = CollectionTypes | Taxon | Iterable[Taxon]
+PathOrStr: TypeAlias = Path | str
 
 logger = getLogger(__name__)
 
@@ -111,7 +114,7 @@ def to_taxa(value: InputTypes) -> Iterable[Taxon]:
     return _to_models(value, Taxon)
 
 
-def _to_models(value: InputTypes, model: Type[BaseModel] = Observation) -> Iterable[BaseModel]:
+def _to_models(value: InputTypes, model: type[BaseModel] = Observation) -> Iterable[BaseModel]:
     """Convert any supported input type into a list of Observation (or other record type) objects"""
     # If the value already contains model object(s), don't convert them to dicts and back to models
     if isinstance(value, BaseModel):
@@ -242,7 +245,7 @@ def read(filename: PathOrStr) -> list[Observation]:
     return Observation.from_json_list(_df_to_dicts(df))
 
 
-def write(content: Union[str, bytes], filename: PathOrStr, mode='w'):
+def write(content: str | bytes, filename: PathOrStr, mode='w'):
     """Write converted observation data to a file, creating parent dirs first"""
     logger.info(f'Writing to {filename}')
     file_path = Path(filename).expanduser()

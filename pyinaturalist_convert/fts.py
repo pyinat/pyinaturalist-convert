@@ -104,12 +104,13 @@ Search observations::
 """
 
 import sqlite3
+from collections.abc import Iterable, Sequence
 from enum import Enum
 from functools import partial
 from itertools import chain
 from logging import getLogger
 from pathlib import Path
-from typing import Iterable, Optional, Sequence
+from typing import Optional
 
 from pyinaturalist import Observation
 from pyinaturalist.models import Taxon

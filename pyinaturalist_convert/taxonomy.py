@@ -352,15 +352,15 @@ def _aggregate_by_level(
     ids = df['id'].to_list()
     obs_counts: dict[int, int] = dict(zip(ids, df['observations_count_rg'].to_list(), strict=False))
     depths: dict[int, int] = dict(zip(ids, df['depth'].to_list(), strict=False))
-    ancestor_strs: dict[int, str | None] = dict(
+    ancestor_strs: dict[int, Optional[str]] = dict(
         zip(ids, df['ancestor_ids'].to_list(), strict=False)
     )
     ranks: dict[int, str] = dict(zip(ids, df['rank'].to_list(), strict=False))
 
     # Result dicts
     leaf_counts: dict[int, int] = dict.fromkeys(ids, 0)
-    child_ids_strs: dict[int, str | None] = dict.fromkeys(ids)
-    iconic_ids: dict[int, int | None] = dict.fromkeys(ids)
+    child_ids_strs: dict[int, Optional[str]] = dict.fromkeys(ids)
+    iconic_ids: dict[int, Optional[int]] = dict.fromkeys(ids)
 
     max_depth = max(depths.values())
 
@@ -423,9 +423,9 @@ def _aggregate_level(
     children_index: dict[int, list[int]],
     obs_counts: dict[int, int],
     leaf_counts: dict[int, int],
-    child_ids_strs: dict[int, str | None],
-    iconic_ids: dict[int, int | None],
-    ancestor_strs: dict[int, str | None],
+    child_ids_strs: dict[int, Optional[str]],
+    iconic_ids: dict[int, Optional[int]],
+    ancestor_strs: dict[int, Optional[str]],
     progress: 'LoggerProgress',
 ) -> None:
     """Process a single level sequentially, mutating the result dicts in place."""
@@ -458,9 +458,9 @@ def _aggregate_level_parallel(
     children_index: dict[int, list[int]],
     obs_counts: dict[int, int],
     leaf_counts: dict[int, int],
-    child_ids_strs: dict[int, str | None],
-    iconic_ids: dict[int, int | None],
-    ancestor_strs: dict[int, str | None],
+    child_ids_strs: dict[int, Optional[str]],
+    iconic_ids: dict[int, Optional[int]],
+    ancestor_strs: dict[int, Optional[str]],
     iconic_taxa_set: set,
     progress: 'LoggerProgress',
     max_workers: Optional[int] = None,

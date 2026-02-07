@@ -1,6 +1,7 @@
 """Helper utilities for downloading and extracting files, with progress bars"""
 
 # TODO: Make progress bar optional
+from collections.abc import Callable, Iterable
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from io import FileIO
@@ -9,7 +10,7 @@ from pathlib import Path
 from shutil import copyfileobj
 from tarfile import TarFile
 from time import time
-from typing import Callable, Iterable, Optional
+from typing import Optional
 from zipfile import ZipFile
 
 import requests
