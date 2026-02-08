@@ -1,13 +1,14 @@
 """Helper utilities for downloading and extracting files, with progress bars"""
 
-# TODO: Make progress bar optional
+import subprocess
 from collections.abc import Callable, Iterable
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from io import FileIO
+from logging import getLogger
 from os.path import basename, getsize
 from pathlib import Path
-from shutil import copyfileobj
+from shutil import copyfileobj, which
 from tarfile import TarFile
 from time import time
 from typing import Optional
@@ -30,6 +31,7 @@ from rich.table import Table
 
 from .constants import PathOrStr
 
+logger = getLogger(__name__)
 ProgressTask = tuple[Progress, TaskID]
 
 # Times per second to redraw a table of parallel progress bars
@@ -358,8 +360,18 @@ def get_progress_spinner(description: str = 'Loading') -> Progress:
     return progress
 
 
+def count_lines(filename: PathOrStr) -> int:
+    """Count the number of lines in a file. Use `wc` or `polars` if available; otherwise python."""
+    if which('wc'):
+        _count_lines_wc(filename)
+    try:
+        return _count_lines_polars(filename)
+    except ImportError:
+        return _count_lines(filename)
+
+
 def _count_lines(filename: PathOrStr) -> int:
-    """Unbuffered file line counter
+    """Count file lines using an unbuffered reader in 1MB chunks.
     Based on: https://stackoverflow.com/a/27518377/15592055
     """
 
@@ -369,6 +381,34 @@ def _count_lines(filename: PathOrStr) -> int:
 
     with open(filename, 'rb') as f:
         return sum(chunk.count(b'\n') for chunk in iter_chunks(f.raw.read))
+
+
+def _count_lines_polars(filename: PathOrStr) -> int:
+    """Count CSV file lines using streaming scan with polars"""
+    import polars as pl
+
+    return (
+        pl.scan_csv(
+            filename,
+            has_header=False,
+            infer_schema_length=0,
+        )
+        .select(pl.len())
+        .collect(engine='streaming')
+        .item()
+    )
+
+
+def _count_lines_wc(filename: PathOrStr) -> int:
+    """Count file lines using `wc`"""
+    result = subprocess.run(
+        ['wc', '-l', str(filename)], capture_output=True, text=True, check=False
+    )
+    try:
+        return int(result.stdout.strip().split()[0])
+    except (AttributeError, TypeError, ValueError) as e:
+        logger.error(e)
+        return 0
 
 
 def _fname(name: PathOrStr):
@@ -400,7 +440,7 @@ def _get_url_mtime(url: str) -> Optional[datetime]:
 
 def _get_csv_totals(filenames: Iterable[PathOrStr]):
     print('[cyan]Estimating processing time...')
-    return {_fname(f): _count_lines(f) - 1 for f in filenames}
+    return {_fname(f): count_lines(f) - 1 for f in filenames}
 
 
 def _get_zip_totals(archive: ZipFile):
