@@ -1,6 +1,7 @@
 import sqlite3
 from datetime import datetime
 
+import pytest
 from pyinaturalist import (
     Annotation,
     Comment,
@@ -14,13 +15,54 @@ from pyinaturalist import (
     User,
 )
 
+from pyinaturalist_convert._models import DbTaxon
 from pyinaturalist_convert.db import (
+    create_table,
     create_tables,
     get_db_observations,
     get_db_taxa,
     save_observations,
     save_taxa,
 )
+
+TAXON_INDEXES = ['ix_taxon_name', 'ix_taxon_parent_id']
+
+
+def _get_indexes(db_path, table_name):
+    conn = sqlite3.connect(db_path)
+    rows = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name=?", (table_name,)
+    ).fetchall()
+    conn.close()
+    return sorted(r[0] for r in rows)
+
+
+def _has_table(db_path, table_name):
+    conn = sqlite3.connect(db_path)
+    rows = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,)
+    ).fetchall()
+    conn.close()
+    return len(rows) > 0
+
+
+@pytest.mark.parametrize(
+    'first_indexes, second_indexes, expected_indexes',
+    [
+        (False, None, []),
+        (True, None, TAXON_INDEXES),
+        (False, True, TAXON_INDEXES),
+        (True, True, TAXON_INDEXES),
+    ],
+)
+def test_create_table(tmp_path, first_indexes, second_indexes, expected_indexes):
+    """Test creating a table and/or indexes when table and indexes do and don't already exist"""
+    db_path = tmp_path / 'test.db'
+    create_table(DbTaxon, db_path, indexes=first_indexes)
+    if second_indexes is not None:
+        create_table(DbTaxon, db_path, indexes=second_indexes)
+    assert _has_table(db_path, 'taxon')
+    assert _get_indexes(db_path, 'taxon') == expected_indexes
 
 
 def test_save_observations(tmp_path):

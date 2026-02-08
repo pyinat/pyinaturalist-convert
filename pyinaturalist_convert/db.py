@@ -75,23 +75,39 @@ if TYPE_CHECKING:
 logger = getLogger(__name__)
 
 
-def create_table(model, db_path: PathOrStr = DB_PATH):
-    """Create a single table for the specified model, if it doesn't already exist"""
-    from sqlalchemy import inspect
+def create_tables(db_path: PathOrStr = DB_PATH, indexes: bool = True):
+    """Create all tables defined in the registry in a SQLite database, if they don't already exist;
+    and optionally create secondary indexes, if they don't already exist.
+
+    db_path: Path to SQLite database file
+    indexes: Whether to create secondary indexes (in addition to the primary key index)
+    """
+    for mapper in Base.mappers:
+        create_table(mapper.class_, db_path, indexes=indexes)
+
+
+def create_table(model, db_path: PathOrStr = DB_PATH, indexes: bool = True):
+    """Create a single table for the specified model, if it doesn't already exist;
+    and optionally create secondary indexes, if they don't already exist.
+
+    model: SQLAlchemy model class
+    db_path: Path to SQLite database file
+    indexes: Whether to create secondary indexes (in addition to the primary key index)
+    """
+    from sqlalchemy.schema import CreateIndex, CreateTable
 
     engine = _get_engine(db_path)
-    table = model.__tablename__
-    if inspect(engine).has_table(table):
-        logger.debug(f'Table {table} already exists')
-    else:
-        model.__table__.create(engine)
-        logger.debug(f'Table {table} created')
+    table_name = model.__tablename__
 
+    with engine.connect() as conn:
+        conn.execute(CreateTable(model.__table__, if_not_exists=True))
+        logger.debug(f'Table {table_name} created')
 
-def create_tables(db_path: PathOrStr = DB_PATH):
-    """Create all tables in a SQLite database"""
-    engine = _get_engine(db_path)
-    Base.metadata.create_all(engine)
+        if indexes:
+            for index in model.__table__.indexes:
+                conn.execute(CreateIndex(index, if_not_exists=True))
+            logger.debug(f'Indexes for table {table_name} created')
+        conn.commit()
 
 
 def get_session(db_path: PathOrStr = DB_PATH) -> 'Session':
