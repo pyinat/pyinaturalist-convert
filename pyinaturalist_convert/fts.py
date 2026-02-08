@@ -334,8 +334,9 @@ def create_taxon_fts_table(db_path: PathOrStr = DB_PATH):
     prefix_idxs = ', '.join([f'prefix={i}' for i in TAXON_PREFIX_INDEXES])
 
     with sqlite3.connect(db_path) as conn:
+        conn.execute(f'DROP TABLE IF EXISTS {TAXON_FTS_TABLE}')
         conn.execute(
-            f'CREATE VIRTUAL TABLE IF NOT EXISTS {TAXON_FTS_TABLE} USING fts5( '
+            f'CREATE VIRTUAL TABLE {TAXON_FTS_TABLE} USING fts5( '
             '   name, taxon_id, taxon_rank UNINDEXED, count_rank UNINDEXED, language_code,'
             f'  {prefix_idxs})'
         )

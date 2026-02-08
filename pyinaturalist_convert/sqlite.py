@@ -95,6 +95,7 @@ def load_table(
     progress: Optional[MultiProgress] = None,
     delimiter: str = ',',
     transform: Optional[Callable] = None,
+    clear: bool = False,
 ):
     """Load a CSV file into a sqlite3 table.
     This is less efficient than the sqlite3 shell `.import` command, but easier to use.
@@ -113,6 +114,7 @@ def load_table(
         pk: Primary key column name
         progress: Progress bar, if tracking loading from multiple files
         transform: Callback to transform a row before inserting into the database
+        clear: Whether to clear existing data from the table before loading
     """
     csv_path = Path(csv_path).expanduser()
     db_path = Path(db_path).expanduser()
@@ -142,9 +144,10 @@ def load_table(
         conn.execute('PRAGMA cache_size = -64000')  # 64MB page cache
         conn.execute('PRAGMA mmap_size = 268435456')  # 256MB memory-mapped I/O for faster reads
 
-        # Create table if it doesn't exist, and clear it if it does
+        # Create table if it doesn't exist, and optionally clear it if it does
         conn.execute(f'CREATE TABLE IF NOT EXISTS {table_name} ({", ".join(table_cols)});')
-        conn.execute(f'DELETE FROM {table_name}')
+        if clear:
+            conn.execute(f'DELETE FROM {table_name}')
 
         stmt = f'INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders})'
         with open(csv_path, encoding='utf-8') as f:

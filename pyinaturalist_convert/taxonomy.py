@@ -203,14 +203,14 @@ def _get_taxon_df(db_path: PathOrStr = DB_PATH) -> 'DataFrame':
 
 def _save_taxon_df(df: 'DataFrame', db_path: PathOrStr = DB_PATH):
     """Save taxon dataframe back to SQLite; clear and reuse existing table to keep indexes"""
-    from pyinaturalist_convert.db import create_tables
+    from pyinaturalist_convert.db import DbTaxon, create_table
 
     # Backup to CSV in the rare case that this fails
     db_path = Path(db_path)
     backup_path = db_path.parent / 'taxa_backup.csv'
     df.write_csv(backup_path)
 
-    create_tables(db_path)
+    create_table(DbTaxon, db_path)
     columns = df.columns
     placeholders = ', '.join(['?'] * len(columns))
     insert_sql = f'INSERT INTO taxon ({", ".join(columns)}) VALUES ({placeholders})'

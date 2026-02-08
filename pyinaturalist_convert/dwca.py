@@ -133,7 +133,7 @@ def load_dwca_observations(
     column_map = _get_obs_column_map(OBS_COLUMNS)
     progress = progress or CSVProgress(csv_path)
     with progress:
-        load_table(csv_path, db_path, 'observation', column_map, progress=progress)
+        load_table(csv_path, db_path, 'observation', column_map, progress=progress, clear=True)
 
     # Delay creating indexes until all rows have been inserted
     create_table(DbObservation, db_path, indexes=True)
@@ -177,7 +177,13 @@ def load_dwca_taxa(
     progress = progress or CSVProgress(csv_path)
     with progress:
         load_table(
-            csv_path, db_path, 'taxon', column_map, transform=get_parent_id, progress=progress
+            csv_path,
+            db_path,
+            'taxon',
+            column_map,
+            transform=get_parent_id,
+            progress=progress,
+            clear=True,
         )
 
     # Delay creating indexes until all rows have been inserted
