@@ -61,6 +61,7 @@ xlsx        = ['pandas>=1.2', 'openpyxl>=2.6']
 # Dev dependencies
 dev = [
     'coverage~=7.0',
+    'ipython>=8.0',
     'nox~=2025.05',
     'pre-commit~=4.2',
     'pyparsing~=3.0',
