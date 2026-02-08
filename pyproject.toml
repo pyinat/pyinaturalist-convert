@@ -117,7 +117,7 @@ quote-style = 'single'
 
 [tool.ruff.lint]
 select = ['B', 'C4', 'E', 'F', 'I']
-ignore = ['B023']
+ignore = ['B023', 'E731']
 
 [tool.ruff.lint.isort]
 known-first-party = ['test']

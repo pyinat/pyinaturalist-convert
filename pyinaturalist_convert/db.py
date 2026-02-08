@@ -100,13 +100,13 @@ def create_table(model, db_path: PathOrStr = DB_PATH, indexes: bool = True):
     table_name = model.__tablename__
 
     with engine.connect() as conn:
+        logger.debug(f'Creating table {table_name}')
         conn.execute(CreateTable(model.__table__, if_not_exists=True))
-        logger.debug(f'Table {table_name} created')
 
         if indexes:
+            logger.debug(f'Creating indexes for table {table_name}')
             for index in model.__table__.indexes:
                 conn.execute(CreateIndex(index, if_not_exists=True))
-            logger.debug(f'Indexes for table {table_name} created')
         conn.commit()
 
 

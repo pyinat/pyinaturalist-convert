@@ -5,6 +5,7 @@ from collections.abc import Callable
 from contextlib import nullcontext
 from csv import reader as csv_reader
 from logging import getLogger
+from operator import itemgetter
 from pathlib import Path
 from time import time
 from typing import Optional
@@ -38,11 +39,16 @@ class ChunkReader:
         self.reader = csv_reader(f, **kwargs)
         self._chunk_size = chunk_size
         self.transform = transform
+        self._getter = self._build_getter(fields)
 
+    def _build_getter(self, fields: Optional[list[str]]) -> Optional[Callable]:
+        """Build a column extractor function on to avoid unnecessary overhead from function calls
+        and single-use data structures
+        """
         # Determine which fields to include (by index)
         field_names = next(self.reader)
 
-        if transform and fields:
+        if self.transform and fields:
             # Build field name -> index mapping for transforms
             self._field_index: Optional[dict[str, int]] = {
                 name: i for i, name in enumerate(field_names)
@@ -53,31 +59,39 @@ class ChunkReader:
                 if name not in self._field_index:
                     self._field_index[name] = n
                     n += 1
-            self._include_idx: Optional[list[int]] = [self._field_index[k] for k in fields]
+            include_idx: Optional[list] = [self._field_index[k] for k in fields]
         else:
             self._field_index = None
-            self._include_idx = [field_names.index(k) for k in fields] if fields else None
+            include_idx = [field_names.index(k) for k in fields] if fields else None
+
+        # Make the column extractor function
+        getter: Optional[Callable] = None
+        if include_idx:
+            if len(include_idx) == 1:
+                _ig = itemgetter(include_idx[0])
+                getter = lambda row: (_ig(row),)
+            else:
+                getter = itemgetter(*include_idx)
+        return getter
 
     def __iter__(self):
         return self
 
     def __next__(self):
-        chunk = []
+        chunk: list[tuple] = []
+        append = chunk.append
+
         try:
             for _ in range(self._chunk_size):
-                chunk.append(self._next_row())
+                row = self.reader.__next__()
+                if self.transform:
+                    row = self.transform(row, self._field_index)
+                append(self._getter(row) if self._getter else tuple(row))
         except StopIteration:
             # Ignore first StopIteration to return final chunk
             if not chunk:
                 raise
         return chunk
-
-    def _next_row(self):
-        row = next(self.reader)
-        if self.transform:
-            row = self.transform(row, self._field_index)
-            return [row[i] for i in self._include_idx] if self._include_idx else row
-        return [row[i] or None for i in self._include_idx] if self._include_idx else row
 
 
 def get_fields(csv_path: PathOrStr, delimiter: str = ',') -> list[str]:
@@ -98,7 +112,7 @@ def load_table(
     clear: bool = False,
 ):
     """Load a CSV file into a sqlite3 table.
-    This is less efficient than the sqlite3 shell `.import` command, but easier to use.
+    This is less efficient than the sqlite3 shell ``.import`` command, but easier to use.
 
     Example:
         # Minimal example to load data into a 'taxon' table in 'my_database.db'
@@ -132,17 +146,20 @@ def load_table(
     non_pk_cols = [k for k in db_cols if k != pk]
     table_cols = [f'{pk} INTEGER PRIMARY KEY'] + [f'{k} TEXT' for k in non_pk_cols]
     columns_str = ', '.join(db_cols)
-    placeholders = ','.join(['?'] * len(csv_cols))
+    # Convert empty strings to null in SQL instead of python
+    placeholders = ','.join(["NULLIF(?,'')"] * len(csv_cols))
+
     start = time()
 
     if progress:
         progress.start_job(csv_path)
 
     with sqlite3.connect(db_path) as conn:
-        conn.execute('PRAGMA synchronous = 0')
-        conn.execute('PRAGMA journal_mode = WAL')
+        conn.execute('PRAGMA synchronous = OFF')
+        conn.execute('PRAGMA journal_mode = OFF')
         conn.execute('PRAGMA cache_size = -64000')  # 64MB page cache
-        conn.execute('PRAGMA mmap_size = 268435456')  # 256MB memory-mapped I/O for faster reads
+        conn.execute('PRAGMA mmap_size = 268435456')  # 256MB memory-mapped I/O
+        conn.execute('PRAGMA temp_store = MEMORY')
 
         # Create table if it doesn't exist, and optionally clear it if it does
         conn.execute(f'CREATE TABLE IF NOT EXISTS {table_name} ({", ".join(table_cols)});')
@@ -150,7 +167,7 @@ def load_table(
             conn.execute(f'DELETE FROM {table_name}')
 
         stmt = f'INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders})'
-        with open(csv_path, encoding='utf-8') as f:
+        with open(csv_path, encoding='utf-8', buffering=2**20) as f:
             reader = ChunkReader(
                 f, chunk_size=50000, fields=csv_cols, delimiter=delimiter, transform=transform
             )
