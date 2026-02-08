@@ -183,14 +183,17 @@ def _download_archive(url: str, dest_dir: PathOrStr = DATA_DIR):
     dest_dir = Path(dest_dir).expanduser()
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest_file = dest_dir / basename(url)
+    extract_dir = dest_dir / splitext(basename(url))[0]
 
     # Skip download if we're already up to date
-    if check_download(dest_file, url=url, release_interval=7):
+    if check_download(dest_file, url=url, release_interval=30):
+        if not extract_dir.exists():
+            unzip_progress(dest_file, extract_dir)
         return
 
     # Otherwise, download and extract files
     download_file(url, dest_file)
-    unzip_progress(dest_file, dest_dir / splitext(basename(url))[0])
+    unzip_progress(dest_file, extract_dir)
 
 
 def _cleanup_observations(db_path: PathOrStr = DB_PATH):
