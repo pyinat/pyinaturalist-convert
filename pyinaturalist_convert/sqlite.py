@@ -127,8 +127,8 @@ def load_table(
         db_cols = list(column_map.values())
 
     table_name = table_name or csv_path.stem
-    staging_name = f'_staging_{table_name}'
     non_pk_cols = [k for k in db_cols if k != pk]
+    table_cols = [f'{pk} INTEGER PRIMARY KEY'] + [f'{k} TEXT' for k in non_pk_cols]
     columns_str = ', '.join(db_cols)
     placeholders = ','.join(['?'] * len(csv_cols))
     start = time()
@@ -142,10 +142,11 @@ def load_table(
         conn.execute('PRAGMA cache_size = -64000')  # 64MB page cache
         conn.execute('PRAGMA mmap_size = 268435456')  # 256MB memory-mapped I/O for faster reads
 
-        _create_table(conn, table_name, non_pk_cols, pk)
-        _create_staging_table(conn, staging_name, db_cols)
-        stmt = f'INSERT INTO {staging_name} ({columns_str}) VALUES ({placeholders})'
+        # Create table if it doesn't exist, and clear it if it does
+        conn.execute(f'CREATE TABLE IF NOT EXISTS {table_name} ({", ".join(table_cols)});')
+        conn.execute(f'DELETE FROM {table_name}')
 
+        stmt = f'INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders})'
         with open(csv_path, encoding='utf-8') as f:
             reader = ChunkReader(
                 f, chunk_size=50000, fields=csv_cols, delimiter=delimiter, transform=transform
@@ -156,11 +157,6 @@ def load_table(
                 if progress:
                     progress.advance(len(chunk))
 
-        conn.execute(
-            f'INSERT OR REPLACE INTO {table_name} ({columns_str}) '
-            f'SELECT {columns_str} FROM {staging_name}'
-        )
-        conn.execute(f'DROP TABLE {staging_name}')
         conn.commit()
 
     logger.info(f'Completed in {time() - start:.2f}s')
@@ -172,21 +168,27 @@ def vacuum_analyze(
     """Vacuum a SQLite database and analyze one or more tables. If loading multiple tables, this
     should be done once after loading all of them.
     """
-    spinner = get_progress_spinner('Final cleanup') if show_spinner else nullcontext()
+    msg = f'Vacuuming and analyzing {",".join(table_names)}'
+    if show_spinner:
+        spinner = get_progress_spinner(msg)
+    else:
+        logger.info(msg)
+        spinner = nullcontext()
+
     with spinner, sqlite3.connect(db_path) as conn:
         conn.execute('VACUUM')
         for table_name in table_names:
             conn.execute(f'ANALYZE {table_name}')
 
 
+def _table_exists(conn, table_name):
+    row = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table_name,)
+    ).fetchone()
+    return row is not None
+
+
 def _create_table(conn, table_name, non_pk_cols, pk):
     # Assume an integer primary key and text columns for the rest
     table_cols = [f'{pk} INTEGER PRIMARY KEY'] + [f'{k} TEXT' for k in non_pk_cols]
     conn.execute(f'CREATE TABLE IF NOT EXISTS {table_name} ({", ".join(table_cols)});')
-
-
-def _create_staging_table(conn, table_name, columns):
-    """Create an unindexed staging table for fast bulk inserts"""
-    conn.execute(f'DROP TABLE IF EXISTS {table_name}')
-    table_cols = ', '.join(f'{k} TEXT' for k in columns)
-    conn.execute(f'CREATE TABLE {table_name} ({table_cols});')
