@@ -136,7 +136,8 @@ def load_dwca_observations(
         load_table(csv_path, db_path, 'observation', column_map, progress=progress, clear=True)
 
     # Delay creating indexes until all rows have been inserted
-    create_table(DbObservation, db_path, indexes=True)
+    with get_progress_spinner('Creating indexes...'):
+        create_table(DbObservation, db_path, indexes=True)
     _cleanup_observations(db_path)
 
 
@@ -187,7 +188,8 @@ def load_dwca_taxa(
         )
 
     # Delay creating indexes until all rows have been inserted
-    create_table(DbTaxon, db_path, indexes=True)
+    with get_progress_spinner('Creating indexes...'):
+        create_table(DbTaxon, db_path, indexes=True)
     with sqlite3.connect(db_path) as conn:
         conn.execute("UPDATE taxon SET parent_id=NULL WHERE parent_id=''")
 
