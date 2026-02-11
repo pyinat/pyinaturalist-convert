@@ -109,7 +109,13 @@ def load_odp_observations(
     progress = progress or CSVProgress(csv_path)
     with progress:
         load_table(
-            csv_path, db_path, 'observation', OBS_COLUMN_MAP, delimiter='\t', progress=progress
+            csv_path,
+            db_path,
+            'observation',
+            OBS_COLUMN_MAP,
+            delimiter='\t',
+            progress=progress,
+            clear=True,
         )
 
 

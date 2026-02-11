@@ -39,7 +39,7 @@ from typing import Optional
 from pyinaturalist.constants import DATA_DIR
 
 from .constants import DB_PATH, DWCA_OBS_CSV, DWCA_TAXA_URL, DWCA_TAXON_CSV, DWCA_URL, PathOrStr
-from .db import DbTaxon, create_table, create_tables
+from .db import DbObservation, DbTaxon, create_table, create_tables
 from .download import (
     CSVProgress,
     check_download,
@@ -87,6 +87,7 @@ def load_dwca_tables(db_path: PathOrStr = DB_PATH):
     with CSVProgress(DWCA_OBS_CSV, DWCA_TAXON_CSV) as progress:
         load_dwca_observations(db_path=db_path, progress=progress)
         load_dwca_taxa(db_path=db_path, progress=progress)
+    create_tables(db_path, indexes=True)  # Create remaining tables that reference Taxon+Observation
     vacuum_analyze(['observation', 'taxon'], db_path, show_spinner=True)
 
 
@@ -128,11 +129,15 @@ def load_dwca_observations(
 
     To load everything as-is, see :py:func:`.load_full_dwca_observations`.
     """
-    create_tables(db_path)
+    create_table(DbObservation, db_path, indexes=False)
     column_map = _get_obs_column_map(OBS_COLUMNS)
     progress = progress or CSVProgress(csv_path)
     with progress:
-        load_table(csv_path, db_path, 'observation', column_map, progress=progress)
+        load_table(csv_path, db_path, 'observation', column_map, progress=progress, clear=True)
+
+    # Delay creating indexes until all rows have been inserted
+    with get_progress_spinner('Creating indexes...'):
+        create_table(DbObservation, db_path, indexes=True)
     _cleanup_observations(db_path)
 
 
@@ -157,7 +162,7 @@ def load_dwca_taxa(
     progress: Optional[CSVProgress] = None,
 ):
     """Create or update a taxonomy SQLite table from the GBIF DwC-A archive"""
-    create_table(DbTaxon, db_path)
+    create_table(DbTaxon, db_path, indexes=False)
 
     def get_parent_id(row: list, field_index: dict[str, int]) -> list:
         """Get parent taxon ID from URL"""
@@ -173,8 +178,18 @@ def load_dwca_taxa(
     progress = progress or CSVProgress(csv_path)
     with progress:
         load_table(
-            csv_path, db_path, 'taxon', column_map, transform=get_parent_id, progress=progress
+            csv_path,
+            db_path,
+            'taxon',
+            column_map,
+            transform=get_parent_id,
+            progress=progress,
+            clear=True,
         )
+
+    # Delay creating indexes until all rows have been inserted
+    with get_progress_spinner('Creating indexes...'):
+        create_table(DbTaxon, db_path, indexes=True)
     with sqlite3.connect(db_path) as conn:
         conn.execute("UPDATE taxon SET parent_id=NULL WHERE parent_id=''")
 
@@ -183,14 +198,17 @@ def _download_archive(url: str, dest_dir: PathOrStr = DATA_DIR):
     dest_dir = Path(dest_dir).expanduser()
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest_file = dest_dir / basename(url)
+    extract_dir = dest_dir / splitext(basename(url))[0]
 
     # Skip download if we're already up to date
-    if check_download(dest_file, url=url, release_interval=7):
+    if check_download(dest_file, url=url, release_interval=30):
+        if not extract_dir.exists():
+            unzip_progress(dest_file, extract_dir)
         return
 
     # Otherwise, download and extract files
     download_file(url, dest_file)
-    unzip_progress(dest_file, dest_dir / splitext(basename(url))[0])
+    unzip_progress(dest_file, extract_dir)
 
 
 def _cleanup_observations(db_path: PathOrStr = DB_PATH):

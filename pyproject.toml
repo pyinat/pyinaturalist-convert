@@ -61,6 +61,7 @@ xlsx        = ['pandas>=1.2', 'openpyxl>=2.6']
 # Dev dependencies
 dev = [
     'coverage~=7.0',
+    'ipython>=8.0',
     'nox~=2025.05',
     'pre-commit~=4.2',
     'pyparsing~=3.0',
@@ -116,7 +117,7 @@ quote-style = 'single'
 
 [tool.ruff.lint]
 select = ['B', 'C4', 'E', 'F', 'I']
-ignore = ['B023']
+ignore = ['B023', 'E731']
 
 [tool.ruff.lint.isort]
 known-first-party = ['test']
