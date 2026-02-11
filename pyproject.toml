@@ -1,6 +1,6 @@
 [project]
 name = 'pyinaturalist-convert'
-version = '0.7.5'
+version = '0.8.0'
 description = 'Data conversion tools for iNaturalist observations and taxonomy'
 authors = [
     { name = "Jordan Cook" }
@@ -34,6 +34,7 @@ classifiers = [
 dependencies = [
     'pyinaturalist>=0.21',
     'flatten-dict>=0.4',
+    'requests-ratelimiter>=0.6,<0.9',
     'tablib>=3.0',
 ]
 
