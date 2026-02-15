@@ -39,7 +39,7 @@ from typing import Optional
 from pyinaturalist.constants import DATA_DIR
 
 from .constants import DB_PATH, DWCA_OBS_CSV, DWCA_TAXA_URL, DWCA_TAXON_CSV, DWCA_URL, PathOrStr
-from .db import DbObservation, DbTaxon, create_table, create_tables
+from .db import create_table, create_tables
 from .download import (
     CSVProgress,
     check_download,
@@ -82,6 +82,8 @@ def load_dwca_tables(db_path: PathOrStr = DB_PATH):
     Args:
         db_path: Path to SQLite database
     """
+    import slqalchemy  # noqa: F401
+
     download_dwca_observations()
     download_dwca_taxa()
     with CSVProgress(DWCA_OBS_CSV, DWCA_TAXON_CSV) as progress:
@@ -129,6 +131,8 @@ def load_dwca_observations(
 
     To load everything as-is, see :py:func:`.load_full_dwca_observations`.
     """
+    from ._models import DbObservation
+
     create_table(DbObservation, db_path, indexes=False)
     column_map = _get_obs_column_map(OBS_COLUMNS)
     progress = progress or CSVProgress(csv_path)
@@ -162,6 +166,8 @@ def load_dwca_taxa(
     progress: Optional[CSVProgress] = None,
 ):
     """Create or update a taxonomy SQLite table from the GBIF DwC-A archive"""
+    from ._models import DbTaxon
+
     create_table(DbTaxon, db_path, indexes=False)
 
     def get_parent_id(row: list, field_index: dict[str, int]) -> list:
