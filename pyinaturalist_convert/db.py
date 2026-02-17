@@ -54,6 +54,7 @@ use cases, but at least provides a starting point.
 """
 
 # flake8: noqa: F401
+import sqlite3
 from collections.abc import Iterable, Iterator
 from importlib.resources import files
 from itertools import chain
@@ -84,20 +85,29 @@ def create_tables(db_path: PathOrStr = DB_PATH, indexes: bool = True):
     """Create all tables defined in the registry in a SQLite database, if they don't already exist;
     and optionally create secondary indexes, if they don't already exist.
 
-    db_path: Path to SQLite database file
-    indexes: Whether to create secondary indexes (in addition to the primary key index)
+    Also adds the current alembic head revision, so future migrations can be applied.
+
+    Args:
+        db_path: Path to SQLite database file
+        indexes: Whether to create secondary indexes (in addition to the primary key index)
     """
+    from alembic import command
+
     for mapper in Base.mappers:
         create_table(mapper.class_, db_path, indexes=indexes)
+
+    alembic_cfg = _get_alembic_config(db_path)
+    command.stamp(alembic_cfg, 'head')
 
 
 def create_table(model, db_path: PathOrStr = DB_PATH, indexes: bool = True):
     """Create a single table for the specified model, if it doesn't already exist;
     and optionally create secondary indexes, if they don't already exist.
 
-    model: SQLAlchemy model class
-    db_path: Path to SQLite database file
-    indexes: Whether to create secondary indexes (in addition to the primary key index)
+    Args:
+        model: SQLAlchemy model class
+        db_path: Path to SQLite database file
+        indexes: Whether to create secondary indexes (in addition to the primary key index)
     """
     from sqlalchemy.schema import CreateIndex, CreateTable
 
@@ -121,15 +131,9 @@ def migrate(db_path: PathOrStr = DB_PATH):
     This is an alternative to :py :func:`create_tables` that handles incremental schema changes.
     It also handles previously created tables with no alembic revision state.
     """
-    import sqlite3
-
-    from alembic.config import Config
-
     from alembic import command
 
-    alembic_cfg = Config()
-    alembic_cfg.set_main_option('script_location', str(files('pyinaturalist_convert') / 'alembic'))
-    alembic_cfg.set_main_option('sqlalchemy.url', f'sqlite:///{db_path}')
+    alembic_cfg = _get_alembic_config(db_path)
 
     with sqlite3.connect(db_path) as conn:
         tables = {
@@ -245,3 +249,12 @@ def save_taxa(taxa: Iterable[Taxon], db_path: PathOrStr = DB_PATH):
                 session.add(DbTaxon.from_model(taxon))
 
         session.commit()
+
+
+def _get_alembic_config(db_path: PathOrStr):
+    from alembic.config import Config
+
+    alembic_cfg = Config()
+    alembic_cfg.set_main_option('script_location', str(files('pyinaturalist_convert') / 'alembic'))
+    alembic_cfg.set_main_option('sqlalchemy.url', f'sqlite:///{db_path}')
+    return alembic_cfg

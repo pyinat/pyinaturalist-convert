@@ -29,10 +29,17 @@ from pyinaturalist_convert.db import (
     save_observations,
     save_taxa,
 )
+from test.conftest import PROJECT_DIR
 
 TAXON_INDEXES = ['ix_taxon_name', 'ix_taxon_parent_id']
 EXPECTED_TABLES = ['observation', 'photo', 'taxon', 'user']
-REPO_ROOT = Path(__file__).parent.parent
+
+
+@pytest.fixture(autouse=True)
+def patch_alembic_script_location():
+    """Patch alembic script location to expect files in the repo root"""
+    with patch('pyinaturalist_convert.db.files', return_value=PROJECT_DIR):
+        yield
 
 
 def _get_indexes(db_path, table_name):
@@ -75,8 +82,7 @@ def test_create_table(tmp_path, first_indexes, second_indexes, expected_indexes)
 def test_migrate(tmp_path):
     """Test that migrate() creates all expected tables"""
     db_path = tmp_path / 'test.db'
-    with patch('pyinaturalist_convert.db.files', return_value=REPO_ROOT):
-        migrate(db_path)
+    migrate(db_path)
     for table in EXPECTED_TABLES:
         assert _has_table(db_path, table)
 
@@ -84,9 +90,8 @@ def test_migrate(tmp_path):
 def test_migrate__idempotent(tmp_path):
     """Test that calling migrate() multiple times does not raise and preserves the schema"""
     db_path = tmp_path / 'test.db'
-    with patch('pyinaturalist_convert.db.files', return_value=REPO_ROOT):
-        migrate(db_path)
-        migrate(db_path)
+    migrate(db_path)
+    migrate(db_path)
     for table in EXPECTED_TABLES:
         assert _has_table(db_path, table)
 
@@ -97,14 +102,13 @@ def test_migrate__pre_alembic_db(tmp_path):
 
     # Create a DB at the initial schema state (as if created by an old create_tables())
     alembic_cfg = Config()
-    alembic_cfg.set_main_option('script_location', str(REPO_ROOT / 'alembic'))
+    alembic_cfg.set_main_option('script_location', str(PROJECT_DIR / 'alembic'))
     alembic_cfg.set_main_option('sqlalchemy.url', f'sqlite:///{db_path}')
     command.upgrade(alembic_cfg, '1085cbe39943')
     with sqlite3.connect(db_path) as conn:
         conn.execute('DROP TABLE alembic_version')
 
-    with patch('pyinaturalist_convert.db.files', return_value=REPO_ROOT):
-        migrate(db_path)
+    migrate(db_path)
     for table in EXPECTED_TABLES:
         assert _has_table(db_path, table)
 
