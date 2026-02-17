@@ -87,9 +87,16 @@ docs = [
 requires = ['hatchling>=1.0.0']
 build-backend = 'hatchling.build'
 
-[tool.hatch.build]
-packages =  ['pyinaturalist_convert']
-force-include = {'README.md' = 'pyinaturalist_convert/README.md'}
+[tool.hatch.build.targets.sdist]
+include = ['pyinaturalist_convert', 'alembic', 'README.md']
+
+[tool.hatch.build.targets.wheel]
+packages = ['pyinaturalist_convert']
+
+[tool.hatch.build.targets.wheel.force-include]
+'README.md' = 'pyinaturalist_convert/README.md'
+'alembic/env.py' = 'pyinaturalist_convert/alembic/env.py'
+'alembic/versions' = 'pyinaturalist_convert/alembic/versions'
 
 [tool.coverage.html]
 directory = 'test-reports'
