@@ -213,19 +213,36 @@ def read(filename: PathOrStr) -> list[Observation]:
     * JSON
     * CSV (exported from pyinaturalist-convert)
     * CSV (exported from iNaturalist export tool)
+    * Darwin Core (DwC)
     * Feather
+    * GeoJSON
+    * GPX
     * HDF5
     * Parquet
     * Excel
+    * SQLite (``.sqlite`` or ``.db``)
     """
     import pandas as pd
 
     from .csv import is_csv_export, load_csv_exports
+    from .dwc import dwc_to_observations
+    from .geojson import geojson_to_observations
+    from .gpx import gpx_to_observations
 
     file_path = Path(filename).expanduser()
     ext = file_path.suffix.lower().replace('.', '')
     if ext == 'json':
         return Observation.from_json_file(file_path)
+    elif ext == 'dwc':
+        return dwc_to_observations(file_path)
+    elif ext == 'geojson':
+        return geojson_to_observations(file_path)
+    elif ext == 'gpx':
+        return gpx_to_observations(file_path)
+    elif ext in ('sqlite', 'db'):
+        from .db import get_db_observations
+
+        return list(get_db_observations(file_path))
     # For CSV, check if it came from the export tool or from API results
     elif ext == 'csv' and is_csv_export(file_path):
         df = load_csv_exports(file_path)

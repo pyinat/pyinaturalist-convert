@@ -10,6 +10,10 @@ from pyinaturalist_convert.converters import (
     to_dataframe,
     to_dataset,
 )
+from pyinaturalist_convert.db import create_tables, save_observations
+from pyinaturalist_convert.dwc import to_dwc
+from pyinaturalist_convert.geojson import to_geojson
+from pyinaturalist_convert.gpx import to_gpx
 from test.conftest import SAMPLE_DATA_DIR, load_sample_data
 
 
@@ -23,6 +27,54 @@ def test_read_formats(file_type):
     assert isinstance(obs.created_at, datetime)
     assert isinstance(obs.taxon, Taxon)
     assert isinstance(obs.user, User)
+
+
+def test_read__dwc(tmp_path):
+    dwc_path = tmp_path / 'observations.dwc'
+    observation = load_sample_data('observation.json')['results'][0]
+    to_dwc(observation, dwc_path)
+
+    observations = read(dwc_path)
+    assert len(observations) == 1
+    assert isinstance(observations[0], Observation)
+    assert observations[0].id == 45524803
+
+
+def test_read__geojson(tmp_path):
+    geojson_path = tmp_path / 'observations.geojson'
+    observation = load_sample_data('observation.json')
+    to_geojson(observation, geojson_path)
+
+    observations = read(geojson_path)
+    assert len(observations) == 1
+    obs = observations[0]
+    assert isinstance(obs, Observation)
+    assert obs.id == 45524803
+    assert obs.location == (32.843097, -117.281583)
+
+
+def test_read__gpx(tmp_path):
+    gpx_path = tmp_path / 'observations.gpx'
+    obs = Observation.from_json_file(SAMPLE_DATA_DIR / 'observation.json')[0]
+    to_gpx([obs], gpx_path)
+
+    observations = read(gpx_path)
+    assert len(observations) == 1
+    result = observations[0]
+    assert isinstance(result, Observation)
+    assert result.location == (32.8430971478, -117.2815829044)
+
+
+def test_read__sqlite(tmp_path):
+    db_path = tmp_path / 'observations.db'
+    obs = Observation.from_json_file(SAMPLE_DATA_DIR / 'observation.json')
+    create_tables(db_path)
+    save_observations(obs, db_path)
+
+    observations = read(db_path)
+    assert len(observations) == 1
+    assert isinstance(observations[0], Observation)
+    assert observations[0].id == 45524803
 
 
 def test_to_dataset():
