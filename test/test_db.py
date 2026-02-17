@@ -1,10 +1,7 @@
 import sqlite3
 from datetime import datetime
-from pathlib import Path
-from unittest.mock import patch
 
 import pytest
-from alembic.config import Config
 from pyinaturalist import (
     Annotation,
     Comment,
@@ -23,23 +20,16 @@ from pyinaturalist_convert._models import DbTaxon
 from pyinaturalist_convert.db import (
     create_table,
     create_tables,
+    get_alembic_config,
     get_db_observations,
     get_db_taxa,
     migrate,
     save_observations,
     save_taxa,
 )
-from test.conftest import PROJECT_DIR
 
 TAXON_INDEXES = ['ix_taxon_name', 'ix_taxon_parent_id']
 EXPECTED_TABLES = ['observation', 'photo', 'taxon', 'user']
-
-
-@pytest.fixture(autouse=True)
-def patch_alembic_script_location():
-    """Patch alembic script location to expect files in the repo root"""
-    with patch('pyinaturalist_convert.db.files', return_value=PROJECT_DIR):
-        yield
 
 
 def _get_indexes(db_path, table_name):
@@ -101,9 +91,7 @@ def test_migrate__pre_alembic_db(tmp_path):
     db_path = tmp_path / 'test.db'
 
     # Create a DB at the initial schema state (as if created by an old create_tables())
-    alembic_cfg = Config()
-    alembic_cfg.set_main_option('script_location', str(PROJECT_DIR / 'alembic'))
-    alembic_cfg.set_main_option('sqlalchemy.url', f'sqlite:///{db_path}')
+    alembic_cfg = get_alembic_config(db_path)
     command.upgrade(alembic_cfg, '1085cbe39943')
     with sqlite3.connect(db_path) as conn:
         conn.execute('DROP TABLE alembic_version')

@@ -59,6 +59,7 @@ from collections.abc import Iterable, Iterator
 from importlib.resources import files
 from itertools import chain
 from logging import getLogger
+from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
 from pyinaturalist import Observation, Taxon
@@ -96,7 +97,7 @@ def create_tables(db_path: PathOrStr = DB_PATH, indexes: bool = True):
     for mapper in Base.mappers:
         create_table(mapper.class_, db_path, indexes=indexes)
 
-    alembic_cfg = _get_alembic_config(db_path)
+    alembic_cfg = get_alembic_config(db_path)
     command.stamp(alembic_cfg, 'head')
 
 
@@ -133,7 +134,7 @@ def migrate(db_path: PathOrStr = DB_PATH):
     """
     from alembic import command
 
-    alembic_cfg = _get_alembic_config(db_path)
+    alembic_cfg = get_alembic_config(db_path)
 
     with sqlite3.connect(db_path) as conn:
         tables = {
@@ -146,6 +147,23 @@ def migrate(db_path: PathOrStr = DB_PATH):
         command.stamp(alembic_cfg, INITIAL_REVISION)
 
     command.upgrade(alembic_cfg, 'head')
+
+
+def get_alembic_config(db_path: PathOrStr):
+    """Get alembic config for the specified SQLite database"""
+    from alembic.config import Config
+
+    # Use alembic dir from either package (under src dir) or repo (under root)
+    repo_alembic_dir = Path(__file__).parent.parent / 'alembic'
+    if repo_alembic_dir.is_dir():
+        script_location = str(repo_alembic_dir)
+    else:
+        script_location = str(files('pyinaturalist_convert') / 'alembic')
+
+    alembic_cfg = Config()
+    alembic_cfg.set_main_option('script_location', script_location)
+    alembic_cfg.set_main_option('sqlalchemy.url', f'sqlite:///{db_path}')
+    return alembic_cfg
 
 
 def get_session(db_path: PathOrStr = DB_PATH) -> 'Session':
@@ -249,12 +267,3 @@ def save_taxa(taxa: Iterable[Taxon], db_path: PathOrStr = DB_PATH):
                 session.add(DbTaxon.from_model(taxon))
 
         session.commit()
-
-
-def _get_alembic_config(db_path: PathOrStr):
-    from alembic.config import Config
-
-    alembic_cfg = Config()
-    alembic_cfg.set_main_option('script_location', str(files('pyinaturalist_convert') / 'alembic'))
-    alembic_cfg.set_main_option('sqlalchemy.url', f'sqlite:///{db_path}')
-    return alembic_cfg
