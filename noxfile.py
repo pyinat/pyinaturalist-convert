@@ -5,7 +5,9 @@
 """
 
 from os.path import join
+from pathlib import Path
 from shutil import rmtree
+from tempfile import gettempdir
 
 import nox
 
@@ -17,6 +19,7 @@ LIVE_DOCS_PORT = 8181
 LIVE_DOCS_IGNORE = ['*.csv', '*.ipynb', '*.pyc', '*.tmp', '**/modules/*']
 DEFAULT_COVERAGE_FORMATS = ['html', 'term']
 DOC_BUILD_DIR = join('docs', '_build', 'html')
+TEMP_DB = Path(gettempdir()) / 'pyinat.db'
 
 
 def install_deps(session):
@@ -88,3 +91,17 @@ def lint(session):
     """Run linters and code formatters via pre-commit"""
     cmd = 'pre-commit run --all-files'
     session.run(*cmd.split(' '))
+
+
+@nox.session(python=False, name='db-generate')
+def db_generate(session):
+    """Generate an alembic revision using autogenerate.
+
+    Usage: nox -e db-generate -- "revision message"
+    """
+    message = session.posargs[0] if session.posargs else 'schema update'
+    session.env['INAT_DB_PATH'] = TEMP_DB
+    TEMP_DB.unlink(missing_ok=True)
+
+    session.run('alembic', 'upgrade', 'head')
+    session.run('alembic', 'revision', '--autogenerate', '-m', message)
