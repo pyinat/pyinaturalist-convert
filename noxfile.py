@@ -1,6 +1,6 @@
 """Notes:
 * 'test' command: nox will use poetry.lock to determine dependency versions
-* 'lint' command: tools and environments are managed by pre-commit
+* 'lint' command: tools and environments are managed by prek/pre-commit
 * All other commands: the current environment will be used instead of creating new ones
 """
 
@@ -88,8 +88,8 @@ def livedocs(session):
 
 @nox.session(python=False)
 def lint(session):
-    """Run linters and code formatters via pre-commit"""
-    cmd = 'pre-commit run --all-files'
+    """Run linters and code formatters via prek/pre-commit"""
+    cmd = 'prek run --all-files'
     session.run(*cmd.split(' '))
 
 
