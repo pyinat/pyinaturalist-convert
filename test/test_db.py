@@ -15,17 +15,21 @@ from pyinaturalist import (
     User,
 )
 
+from alembic import command
 from pyinaturalist_convert._models import DbTaxon
 from pyinaturalist_convert.db import (
     create_table,
     create_tables,
+    get_alembic_config,
     get_db_observations,
     get_db_taxa,
+    migrate,
     save_observations,
     save_taxa,
 )
 
 TAXON_INDEXES = ['ix_taxon_name', 'ix_taxon_parent_id']
+EXPECTED_TABLES = ['observation', 'photo', 'taxon', 'user']
 
 
 def _get_indexes(db_path, table_name):
@@ -63,6 +67,38 @@ def test_create_table(tmp_path, first_indexes, second_indexes, expected_indexes)
         create_table(DbTaxon, db_path, indexes=second_indexes)
     assert _has_table(db_path, 'taxon')
     assert _get_indexes(db_path, 'taxon') == expected_indexes
+
+
+def test_migrate(tmp_path):
+    """Test that migrate() creates all expected tables"""
+    db_path = tmp_path / 'test.db'
+    migrate(db_path)
+    for table in EXPECTED_TABLES:
+        assert _has_table(db_path, table)
+
+
+def test_migrate__idempotent(tmp_path):
+    """Test that calling migrate() multiple times does not raise and preserves the schema"""
+    db_path = tmp_path / 'test.db'
+    migrate(db_path)
+    migrate(db_path)
+    for table in EXPECTED_TABLES:
+        assert _has_table(db_path, table)
+
+
+def test_migrate__pre_alembic_db(tmp_path):
+    """Test that migrate() handles a DB at initial schema state with no alembic version tracking"""
+    db_path = tmp_path / 'test.db'
+
+    # Create a DB at the initial schema state (as if created by an old create_tables())
+    alembic_cfg = get_alembic_config(db_path)
+    command.upgrade(alembic_cfg, '1085cbe39943')
+    with sqlite3.connect(db_path) as conn:
+        conn.execute('DROP TABLE alembic_version')
+
+    migrate(db_path)
+    for table in EXPECTED_TABLES:
+        assert _has_table(db_path, table)
 
 
 def test_save_observations(tmp_path):

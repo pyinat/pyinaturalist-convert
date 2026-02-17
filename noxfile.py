@@ -1,11 +1,13 @@
 """Notes:
 * 'test' command: nox will use poetry.lock to determine dependency versions
-* 'lint' command: tools and environments are managed by pre-commit
+* 'lint' command: tools and environments are managed by prek/pre-commit
 * All other commands: the current environment will be used instead of creating new ones
 """
 
 from os.path import join
+from pathlib import Path
 from shutil import rmtree
+from tempfile import gettempdir
 
 import nox
 
@@ -17,6 +19,7 @@ LIVE_DOCS_PORT = 8181
 LIVE_DOCS_IGNORE = ['*.csv', '*.ipynb', '*.pyc', '*.tmp', '**/modules/*']
 DEFAULT_COVERAGE_FORMATS = ['html', 'term']
 DOC_BUILD_DIR = join('docs', '_build', 'html')
+TEMP_DB = Path(gettempdir()) / 'pyinat.db'
 
 
 def install_deps(session):
@@ -85,6 +88,20 @@ def livedocs(session):
 
 @nox.session(python=False)
 def lint(session):
-    """Run linters and code formatters via pre-commit"""
-    cmd = 'pre-commit run --all-files'
+    """Run linters and code formatters via prek/pre-commit"""
+    cmd = 'prek run --all-files'
     session.run(*cmd.split(' '))
+
+
+@nox.session(python=False, name='db-generate')
+def db_generate(session):
+    """Generate an alembic revision using autogenerate.
+
+    Usage: nox -e db-generate -- "revision message"
+    """
+    message = session.posargs[0] if session.posargs else 'schema update'
+    session.env['INAT_DB_PATH'] = TEMP_DB
+    TEMP_DB.unlink(missing_ok=True)
+
+    session.run('alembic', 'upgrade', 'head')
+    session.run('alembic', 'revision', '--autogenerate', '-m', message)

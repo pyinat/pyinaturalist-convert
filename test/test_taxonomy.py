@@ -1,4 +1,3 @@
-# flake8: noqa: F401
 import sqlite3
 from csv import DictReader
 from logging import getLogger

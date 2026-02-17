@@ -34,6 +34,7 @@ use cases, but at least provides a starting point.
     :nosignatures:
 
     create_tables
+    migrate
     get_db_observations
     get_db_taxa
     save_observations
@@ -52,10 +53,13 @@ use cases, but at least provides a starting point.
     DbUser
 """
 
-# flake8: noqa: F401
+# ruff: noqa: F401
+import sqlite3
 from collections.abc import Iterable, Iterator
+from importlib.resources import files
 from itertools import chain
 from logging import getLogger
+from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
 from pyinaturalist import Observation, Taxon
@@ -72,6 +76,9 @@ except ImportError:
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
+
+INITIAL_REVISION = '1085cbe39943'
+
 logger = getLogger(__name__)
 
 
@@ -79,20 +86,29 @@ def create_tables(db_path: PathOrStr = DB_PATH, indexes: bool = True):
     """Create all tables defined in the registry in a SQLite database, if they don't already exist;
     and optionally create secondary indexes, if they don't already exist.
 
-    db_path: Path to SQLite database file
-    indexes: Whether to create secondary indexes (in addition to the primary key index)
+    Also adds the current alembic head revision, so future migrations can be applied.
+
+    Args:
+        db_path: Path to SQLite database file
+        indexes: Whether to create secondary indexes (in addition to the primary key index)
     """
+    from alembic import command
+
     for mapper in Base.mappers:
         create_table(mapper.class_, db_path, indexes=indexes)
+
+    alembic_cfg = get_alembic_config(db_path)
+    command.stamp(alembic_cfg, 'head')
 
 
 def create_table(model, db_path: PathOrStr = DB_PATH, indexes: bool = True):
     """Create a single table for the specified model, if it doesn't already exist;
     and optionally create secondary indexes, if they don't already exist.
 
-    model: SQLAlchemy model class
-    db_path: Path to SQLite database file
-    indexes: Whether to create secondary indexes (in addition to the primary key index)
+    Args:
+        model: SQLAlchemy model class
+        db_path: Path to SQLite database file
+        indexes: Whether to create secondary indexes (in addition to the primary key index)
     """
     from sqlalchemy.schema import CreateIndex, CreateTable
 
@@ -108,6 +124,46 @@ def create_table(model, db_path: PathOrStr = DB_PATH, indexes: bool = True):
             for index in model.__table__.indexes:
                 conn.execute(CreateIndex(index, if_not_exists=True))
         conn.commit()
+
+
+def migrate(db_path: PathOrStr = DB_PATH):
+    """Apply all pending database migrations to upgrade the schema to the latest version.
+
+    This is an alternative to :py :func:`create_tables` that handles incremental schema changes.
+    It also handles previously created tables with no alembic revision state.
+    """
+    from alembic import command
+
+    alembic_cfg = get_alembic_config(db_path)
+
+    with sqlite3.connect(db_path) as conn:
+        tables = {
+            row[0]
+            for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+        }
+
+    # If tables exist but no alembic version, stamp as initial revision before upgrading
+    if tables.issuperset({'observation', 'taxon', 'photo'}) and 'alembic_version' not in tables:
+        command.stamp(alembic_cfg, INITIAL_REVISION)
+
+    command.upgrade(alembic_cfg, 'head')
+
+
+def get_alembic_config(db_path: PathOrStr):
+    """Get alembic config for the specified SQLite database"""
+    from alembic.config import Config
+
+    # Use alembic dir from either package (under src dir) or repo (under root)
+    repo_alembic_dir = Path(__file__).parent.parent / 'alembic'
+    if repo_alembic_dir.is_dir():
+        script_location = str(repo_alembic_dir)
+    else:
+        script_location = str(files('pyinaturalist_convert') / 'alembic')
+
+    alembic_cfg = Config()
+    alembic_cfg.set_main_option('script_location', script_location)
+    alembic_cfg.set_main_option('sqlalchemy.url', f'sqlite:///{db_path}')
+    return alembic_cfg
 
 
 def get_session(db_path: PathOrStr = DB_PATH) -> 'Session':

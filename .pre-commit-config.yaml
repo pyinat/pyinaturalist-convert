@@ -8,7 +8,7 @@ repos:
       - id: mixed-line-ending
       - id: trailing-whitespace
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.0
+    rev: v0.15.1
     hooks:
       - id: ruff
       - id: ruff-format
@@ -21,8 +21,9 @@ repos:
     rev: v1.19.1
     hooks:
       - id: mypy
-        additional_dependencies: [attrs, sqlalchemy2-stubs, types-python-dateutil, types-requests, types-tabulate]
+        additional_dependencies: [alembic, attrs, sqlalchemy2-stubs, types-python-dateutil, types-requests, types-tabulate]
+        exclude: '^alembic/'
   - repo: https://github.com/crate-ci/typos
-    rev: v1.43.4
+    rev: v1.43.5
     hooks:
       - id: typos
