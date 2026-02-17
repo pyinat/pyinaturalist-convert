@@ -1,5 +1,7 @@
 import sqlite3
 from datetime import datetime
+from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from pyinaturalist import (
@@ -21,11 +23,14 @@ from pyinaturalist_convert.db import (
     create_tables,
     get_db_observations,
     get_db_taxa,
+    migrate,
     save_observations,
     save_taxa,
 )
 
 TAXON_INDEXES = ['ix_taxon_name', 'ix_taxon_parent_id']
+EXPECTED_TABLES = ['observation', 'photo', 'taxon', 'user']
+REPO_ROOT = Path(__file__).parent.parent
 
 
 def _get_indexes(db_path, table_name):
@@ -63,6 +68,25 @@ def test_create_table(tmp_path, first_indexes, second_indexes, expected_indexes)
         create_table(DbTaxon, db_path, indexes=second_indexes)
     assert _has_table(db_path, 'taxon')
     assert _get_indexes(db_path, 'taxon') == expected_indexes
+
+
+def test_migrate(tmp_path):
+    """Test that migrate() creates all expected tables"""
+    db_path = tmp_path / 'test.db'
+    with patch('pyinaturalist_convert.db.files', return_value=REPO_ROOT):
+        migrate(db_path)
+    for table in EXPECTED_TABLES:
+        assert _has_table(db_path, table)
+
+
+def test_migrate__idempotent(tmp_path):
+    """Test that calling migrate() multiple times does not raise and preserves the schema"""
+    db_path = tmp_path / 'test.db'
+    with patch('pyinaturalist_convert.db.files', return_value=REPO_ROOT):
+        migrate(db_path)
+        migrate(db_path)
+    for table in EXPECTED_TABLES:
+        assert _has_table(db_path, table)
 
 
 def test_save_observations(tmp_path):

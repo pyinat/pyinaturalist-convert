@@ -34,6 +34,7 @@ use cases, but at least provides a starting point.
     :nosignatures:
 
     create_tables
+    migrate
     get_db_observations
     get_db_taxa
     save_observations
@@ -54,6 +55,7 @@ use cases, but at least provides a starting point.
 
 # flake8: noqa: F401
 from collections.abc import Iterable, Iterator
+from importlib.resources import files
 from itertools import chain
 from logging import getLogger
 from typing import TYPE_CHECKING, Optional
@@ -108,6 +110,21 @@ def create_table(model, db_path: PathOrStr = DB_PATH, indexes: bool = True):
             for index in model.__table__.indexes:
                 conn.execute(CreateIndex(index, if_not_exists=True))
         conn.commit()
+
+
+def migrate(db_path: PathOrStr = DB_PATH):
+    """Apply all pending database migrations to upgrade the schema to the latest version.
+
+    This is an alternative to :py :func:`create_tables` that handles incremental schema changes.
+    """
+    from alembic.config import Config
+
+    from alembic import command
+
+    alembic_cfg = Config()
+    alembic_cfg.set_main_option('script_location', str(files('pyinaturalist_convert') / 'alembic'))
+    alembic_cfg.set_main_option('sqlalchemy.url', f'sqlite:///{db_path}')
+    command.upgrade(alembic_cfg, 'head')
 
 
 def get_session(db_path: PathOrStr = DB_PATH) -> 'Session':
