@@ -1,4 +1,4 @@
-# flake8: noqa: F401
+# ruff: noqa: F401
 import json
 import logging
 from pathlib import Path

@@ -1,4 +1,4 @@
-# flake8: noqa: F401
+# ruff: noqa: F401
 import sqlite3
 from logging import getLogger
 

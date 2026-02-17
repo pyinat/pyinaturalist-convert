@@ -53,7 +53,7 @@ use cases, but at least provides a starting point.
     DbUser
 """
 
-# flake8: noqa: F401
+# ruff: noqa: F401
 import sqlite3
 from collections.abc import Iterable, Iterator
 from importlib.resources import files
