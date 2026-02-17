@@ -19,6 +19,7 @@
 import json
 from typing import TYPE_CHECKING, Optional
 
+from pyinaturalist import Observation
 from pyinaturalist.constants import ResponseResult
 
 from .converters import AnyObservations, PathOrStr, flatten_observations, to_dicts, write
@@ -70,6 +71,39 @@ def to_geojson(
         return None
     else:
         return feature_collection
+
+
+def geojson_to_observations(filename: PathOrStr) -> list[Observation]:
+    """Load observations from a GeoJSON file.
+
+    Args:
+        filename: Path to a GeoJSON file
+    """
+    with open(filename, encoding='utf-8') as f:
+        feature_collection = json.load(f)
+
+    observations = []
+    for feature in feature_collection.get('features', []):
+        props = feature.get('properties') or {}
+        coords = feature.get('geometry', {}).get('coordinates')
+
+        # Unflatten dot-notation keys (e.g. 'taxon.id' -> {'taxon': {'id': ...}})
+        nested: dict = {}
+        for key, value in props.items():
+            parts = key.split('.')
+            node = nested
+            for part in parts[:-1]:
+                node = node.setdefault(part, {})
+            node[parts[-1]] = value
+
+        if coords:
+            # GeoJSON coordinates are [longitude, latitude]
+            nested['geojson'] = {'type': 'Point', 'coordinates': coords}
+            nested['location'] = [coords[1], coords[0]]
+
+        observations.append(Observation.from_json(nested))
+
+    return observations
 
 
 def _to_geojson_feature(

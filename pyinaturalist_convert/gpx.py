@@ -72,6 +72,41 @@ def to_gpx(
         return gpx
 
 
+def gpx_to_observations(filename) -> list[Observation]:
+    """Load observations from a GPX file.
+
+    Args:
+        filename: Path to a GPX file
+    """
+    import gpxpy
+
+    with open(filename, encoding='utf-8') as f:
+        gpx = gpxpy.parse(f)
+
+    observations = []
+    for point in _iter_gpx_points(gpx):
+        obs_dict: dict = {}
+        if point.latitude is not None and point.longitude is not None:
+            obs_dict['location'] = [point.latitude, point.longitude]
+            obs_dict['geojson'] = {
+                'type': 'Point',
+                'coordinates': [point.longitude, point.latitude],
+            }
+        if point.time is not None:
+            obs_dict['observed_on'] = point.time.isoformat()
+        observations.append(Observation.from_json(obs_dict))
+
+    return observations
+
+
+def _iter_gpx_points(gpx):
+    """Yield all track points and waypoints from a GPX object"""
+    for track in gpx.tracks:
+        for segment in track.segments:
+            yield from segment.points
+    yield from gpx.waypoints
+
+
 def to_gpx_point(observation: ResponseResult, waypoints: bool = False) -> Optional['Location']:
     """Convert a single observation to a GPX point
 
