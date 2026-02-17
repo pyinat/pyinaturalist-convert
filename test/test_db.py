@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from alembic.config import Config
 from pyinaturalist import (
     Annotation,
     Comment,
@@ -17,6 +18,7 @@ from pyinaturalist import (
     User,
 )
 
+from alembic import command
 from pyinaturalist_convert._models import DbTaxon
 from pyinaturalist_convert.db import (
     create_table,
@@ -84,6 +86,24 @@ def test_migrate__idempotent(tmp_path):
     db_path = tmp_path / 'test.db'
     with patch('pyinaturalist_convert.db.files', return_value=REPO_ROOT):
         migrate(db_path)
+        migrate(db_path)
+    for table in EXPECTED_TABLES:
+        assert _has_table(db_path, table)
+
+
+def test_migrate__pre_alembic_db(tmp_path):
+    """Test that migrate() handles a DB at initial schema state with no alembic version tracking"""
+    db_path = tmp_path / 'test.db'
+
+    # Create a DB at the initial schema state (as if created by an old create_tables())
+    alembic_cfg = Config()
+    alembic_cfg.set_main_option('script_location', str(REPO_ROOT / 'alembic'))
+    alembic_cfg.set_main_option('sqlalchemy.url', f'sqlite:///{db_path}')
+    command.upgrade(alembic_cfg, '1085cbe39943')
+    with sqlite3.connect(db_path) as conn:
+        conn.execute('DROP TABLE alembic_version')
+
+    with patch('pyinaturalist_convert.db.files', return_value=REPO_ROOT):
         migrate(db_path)
     for table in EXPECTED_TABLES:
         assert _has_table(db_path, table)

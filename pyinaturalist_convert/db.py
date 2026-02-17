@@ -74,6 +74,9 @@ except ImportError:
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
+
+INITIAL_REVISION = '1085cbe39943'
+
 logger = getLogger(__name__)
 
 
@@ -116,7 +119,10 @@ def migrate(db_path: PathOrStr = DB_PATH):
     """Apply all pending database migrations to upgrade the schema to the latest version.
 
     This is an alternative to :py :func:`create_tables` that handles incremental schema changes.
+    It also handles previously created tables with no alembic revision state.
     """
+    import sqlite3
+
     from alembic.config import Config
 
     from alembic import command
@@ -124,6 +130,17 @@ def migrate(db_path: PathOrStr = DB_PATH):
     alembic_cfg = Config()
     alembic_cfg.set_main_option('script_location', str(files('pyinaturalist_convert') / 'alembic'))
     alembic_cfg.set_main_option('sqlalchemy.url', f'sqlite:///{db_path}')
+
+    with sqlite3.connect(db_path) as conn:
+        tables = {
+            row[0]
+            for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+        }
+
+    # If tables exist but no alembic version, stamp as initial revision before upgrading
+    if tables.issuperset({'observation', 'taxon', 'photo'}) and 'alembic_version' not in tables:
+        command.stamp(alembic_cfg, INITIAL_REVISION)
+
     command.upgrade(alembic_cfg, 'head')
 
 
