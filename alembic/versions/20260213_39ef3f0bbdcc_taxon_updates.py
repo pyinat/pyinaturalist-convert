@@ -17,10 +17,15 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column('taxon', sa.Column('conservation_status', sa.String(), nullable=True))
-    op.add_column('taxon', sa.Column('establishment_means', sa.String(), nullable=True))
-    op.add_column('taxon', sa.Column('wikipedia_summary', sa.String(), nullable=True))
-    op.add_column('taxon', sa.Column('wikipedia_url', sa.String(), nullable=True))
+    existing_columns = [col['name'] for col in sa.inspect(op.get_bind()).get_columns('taxon')]
+    if 'conservation_status' not in existing_columns:
+        op.add_column('taxon', sa.Column('conservation_status', sa.String(), nullable=True))
+    if 'establishment_means' not in existing_columns:
+        op.add_column('taxon', sa.Column('establishment_means', sa.String(), nullable=True))
+    if 'wikipedia_summary' not in existing_columns:
+        op.add_column('taxon', sa.Column('wikipedia_summary', sa.String(), nullable=True))
+    if 'wikipedia_url' not in existing_columns:
+        op.add_column('taxon', sa.Column('wikipedia_url', sa.String(), nullable=True))
 
 
 def downgrade():

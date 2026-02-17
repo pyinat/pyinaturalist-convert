@@ -17,10 +17,15 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column('photo', sa.Column('file_path', sa.String(), nullable=True))
-    op.add_column('photo', sa.Column('original_filename', sa.String(), nullable=True))
-    op.add_column('photo', sa.Column('position', sa.Integer(), nullable=True))
-    op.add_column('photo', sa.Column('uuid', sa.String(), nullable=True))
+    existing_columns = [col['name'] for col in sa.inspect(op.get_bind()).get_columns('photo')]
+    if 'file_path' not in existing_columns:
+        op.add_column('photo', sa.Column('file_path', sa.String(), nullable=True))
+    if 'original_filename' not in existing_columns:
+        op.add_column('photo', sa.Column('original_filename', sa.String(), nullable=True))
+    if 'position' not in existing_columns:
+        op.add_column('photo', sa.Column('position', sa.Integer(), nullable=True))
+    if 'uuid' not in existing_columns:
+        op.add_column('photo', sa.Column('uuid', sa.String(), nullable=True))
 
 
 def downgrade():
