@@ -4,11 +4,15 @@
 
 - Add database migrations with Alembic and include in PyPI package
 - Add a `migrate()` helper for downstream libraries
+- Add a unified `export()` function to write observations to any supported format (based on file extension)
 - Extend `read()` to support GeoJSON, GPX, DwC, and SQLite formats
 - Improve CSV loading performance
 - Rewrite taxonomy aggregation for significantly improved performance
 - Optimize DwC-A table loading (delay index creation until after all rows are inserted)
 - Raise a more descriptive error when SQLAlchemy is missing
+- Strip timezone info from all datetime values before saving to xlsx (for compatibility with openpyxl)
+- Fix issues with some observation formats passed to `to_json()`
+- Update `to_geojson()` to use `location` tuple if available
 
 ## 0.7.0 (2026-01-22)
 

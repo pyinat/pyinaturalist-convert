@@ -24,6 +24,12 @@
     >>> to_json(observations, 'my_observations.json')
     >>> to_parquet(observations, 'my_observations.parquet')
 
+    Or export to any supported format by file extension:
+
+    >>> export(observations, 'my_observations.csv')
+    >>> export(observations, 'my_observations.geojson')
+    >>> export(observations, 'my_observations.gpx')
+
     Load back into Observation objects:
 
     >>> observations = read('my_observations.csv')
@@ -33,11 +39,13 @@
     >>> observations = read('my_observations.json')
     >>> observations = read('my_observations.parquet')
 
+
 **Export functions:**
 
 .. autosummary::
     :nosignatures:
 
+    export
     to_csv
     to_excel
     to_feather
@@ -61,9 +69,10 @@
 import json
 from collections.abc import Iterable, Sequence
 from copy import deepcopy
+from datetime import datetime
 from logging import getLogger
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, TypeAlias
+from typing import TYPE_CHECKING, TypeAlias
 
 from flatten_dict import flatten, unflatten
 from pyinaturalist import BaseModel, JsonResponse, ModelObjects, Observation, ResponseResult, Taxon
@@ -147,7 +156,7 @@ def to_dicts(value: InputTypes) -> Iterable[dict]:
         return [value]  # type: ignore [list-item]
 
 
-def to_csv(observations: AnyObservations, filename: Optional[str] = None):
+def to_csv(observations: AnyObservations, filename: PathOrStr):
     """Convert observations to CSV"""
     from pandas import DataFrame
 
@@ -178,30 +187,31 @@ def to_dataset(observations: AnyObservations) -> Dataset:
     return dataset
 
 
-def to_excel(observations: AnyObservations, filename: str):
+def to_excel(observations: AnyObservations, filename: PathOrStr):
     """Convert observations to an Excel spreadsheet (xlsx)"""
-    xlsx_observations = to_dataset(observations).get_xlsx()
-    write(xlsx_observations, filename, 'wb')
+    dataset = to_dataset(observations)
+    dataset = _strip_tzinfo(dataset)
+    write(dataset.get_xlsx(), filename, 'wb')
 
 
-def to_feather(observations: AnyObservations, filename: str):
+def to_feather(observations: AnyObservations, filename: PathOrStr):
     """Convert observations into a Feather file"""
     df = to_dataframe(observations)
     df.to_feather(filename)
 
 
-def to_hdf(observations: AnyObservations, filename: str):
+def to_hdf(observations: AnyObservations, filename: PathOrStr):
     """Convert observations into a HDF5 file"""
     df = to_dataframe(observations)
     df.to_hdf(filename, 'observations')
 
 
-def to_json(observations: AnyObservations, filename: str):
+def to_json(observations: AnyObservations, filename: PathOrStr):
     """Convert observations into a JSON file"""
-    write(json.dumps(observations, indent=2, default=str), filename)
+    write(json.dumps(to_dicts(observations), indent=2, default=str), filename)
 
 
-def to_parquet(observations: AnyObservations, filename: str):
+def to_parquet(observations: AnyObservations, filename: PathOrStr):
     """Convert observations into a Parquet file"""
     df = to_dataframe(observations)
     df.to_parquet(filename)
@@ -225,41 +235,87 @@ def read(filename: PathOrStr) -> list[Observation]:
     import pandas as pd
 
     from .csv import is_csv_export, load_csv_exports
+    from .db import get_db_observations
     from .dwc import dwc_to_observations
     from .geojson import geojson_to_observations
     from .gpx import gpx_to_observations
 
     file_path = Path(filename).expanduser()
     ext = file_path.suffix.lower().replace('.', '')
-    if ext == 'json':
-        return Observation.from_json_file(file_path)
-    elif ext == 'dwc':
-        return dwc_to_observations(file_path)
-    elif ext == 'geojson':
-        return geojson_to_observations(file_path)
-    elif ext == 'gpx':
-        return gpx_to_observations(file_path)
-    elif ext in ('sqlite', 'db'):
-        from .db import get_db_observations
-
-        return list(get_db_observations(file_path))
-    # For CSV, check if it came from the export tool or from API results
-    elif ext == 'csv' and is_csv_export(file_path):
-        df = load_csv_exports(file_path)
-    elif ext == 'csv':
-        df = pd.read_csv(file_path)
-    elif ext == 'feather':
-        df = pd.read_feather(file_path)
-    elif ext == 'hdf':
-        df = pd.read_hdf(file_path, 'observations')
-    elif ext == 'parquet':
-        df = pd.read_parquet(file_path)
-    elif ext == 'xlsx':
-        df = pd.read_excel(file_path)
-    else:
-        raise ValueError(f'File format not yet supported: {file_path.suffix}')
+    match ext:
+        case 'json':
+            return Observation.from_json_file(file_path)
+        case 'dwc':
+            return dwc_to_observations(file_path)
+        case 'geojson':
+            return geojson_to_observations(file_path)
+        case 'gpx':
+            return gpx_to_observations(file_path)
+        case 'sqlite' | 'db':
+            return list(get_db_observations(file_path))
+        # For CSV, check if it came from the export tool or from API results
+        case 'csv':
+            df = load_csv_exports(file_path) if is_csv_export(file_path) else pd.read_csv(file_path)
+        case 'feather':
+            df = pd.read_feather(file_path)
+        case 'hdf':
+            df = pd.read_hdf(file_path, 'observations')
+        case 'parquet':
+            df = pd.read_parquet(file_path)
+        case 'xlsx':
+            df = pd.read_excel(file_path)
+        case _:
+            raise ValueError(f'File format not yet supported: {file_path.suffix}')
 
     return Observation.from_json_list(_df_to_dicts(df))
+
+
+def export(observations: AnyObservations, filename: PathOrStr):
+    """Export observations to any of the following file formats, based on file extension:
+
+    * CSV (``.csv``)
+    * Darwin Core (``.dwc``)
+    * Feather (``.feather``)
+    * GeoJSON (``.geojson``)
+    * GPX (``.gpx``)
+    * HDF5 (``.hdf``)
+    * JSON (``.json``)
+    * Parquet (``.parquet``)
+    * Excel (``.xlsx``)
+    * SQLite (``.sqlite`` or ``.db``)
+    """
+    from .db import create_tables, save_observations
+    from .dwc import to_dwc
+    from .geojson import to_geojson
+    from .gpx import to_gpx
+
+    file_path = Path(filename).expanduser()
+    ext = file_path.suffix.lower().replace('.', '')
+
+    match ext:
+        case 'json':
+            to_json(observations, file_path)
+        case 'csv':
+            to_csv(observations, file_path)
+        case 'dwc':
+            to_dwc(observations, file_path)
+        case 'feather':
+            to_feather(observations, file_path)
+        case 'geojson':
+            to_geojson(observations, file_path)
+        case 'gpx':
+            to_gpx(observations, file_path)
+        case 'hdf':
+            to_hdf(observations, file_path)
+        case 'parquet':
+            to_parquet(observations, file_path)
+        case 'xlsx':
+            to_excel(observations, file_path)
+        case 'sqlite' | 'db':
+            create_tables(file_path)
+            save_observations(observations, file_path)
+        case _:
+            raise ValueError(f'File format not supported: {ext}')
 
 
 def write(content: str | bytes, filename: PathOrStr, mode='w'):
@@ -386,6 +442,21 @@ def _fix_dimensions(flat_observations):
         for field in headers:
             obs.setdefault(field, None)
     return sorted(headers), flat_observations
+
+
+def _strip_tzinfo(dataset: Dataset) -> Dataset:
+    """Strip timezone info from all datetime values in a tablib Dataset, for compatibility with
+    openpyxl
+    """
+    for col in dataset.headers or []:
+        col_idx = dataset.headers.index(col)
+        for row_idx, row in enumerate(dataset):
+            val = row[col_idx]
+            if isinstance(val, datetime) and val.tzinfo is not None:
+                dataset[row_idx] = tuple(
+                    v.replace(tzinfo=None) if i == col_idx else v for i, v in enumerate(row)
+                )
+    return dataset
 
 
 def _is_dataframe(obj) -> bool:

@@ -5,6 +5,8 @@ import pytest
 from pyinaturalist import Observation, Taxon, User
 
 from pyinaturalist_convert.converters import (
+    _strip_tzinfo,
+    export,
     read,
     to_csv,
     to_dataframe,
@@ -75,6 +77,36 @@ def test_read__sqlite(tmp_path):
     assert len(observations) == 1
     assert isinstance(observations[0], Observation)
     assert observations[0].id == 45524803
+
+
+@pytest.mark.parametrize(
+    'ext', ['csv', 'db', 'dwc', 'feather', 'geojson', 'gpx', 'json', 'parquet', 'sqlite', 'xlsx']
+)
+def test_export(tmp_path, ext):
+    observations = Observation.from_json_list(load_sample_data('observation.json'))
+    file_path = tmp_path / f'observations.{ext}'
+    export(observations, file_path)
+    result = read(file_path)
+    assert len(result) >= 1
+    assert isinstance(result[0], Observation)
+
+
+def test_export__unsupported_format(tmp_path):
+    observations = load_sample_data('observation.json')
+    with pytest.raises(ValueError, match='File format not supported: txt'):
+        export(observations, tmp_path / 'observations.txt')
+
+
+def test_strip_tzinfo():
+    observations = Observation.from_json_list(load_sample_data('observations.json'))
+    dataset = to_dataset(observations)
+    # Confirm datetime columns are tz-aware before stripping
+    assert dataset['created_at'][0].tzinfo is not None
+
+    _strip_tzinfo(dataset)
+    assert all(v.tzinfo is None for v in dataset['created_at'])
+    assert all(v.tzinfo is None for v in dataset['observed_on'])
+    assert all(v.tzinfo is None for v in dataset['updated_at'])
 
 
 def test_to_dataset():

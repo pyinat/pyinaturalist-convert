@@ -26,7 +26,7 @@ from pyinaturalist import Observation
 from pyinaturalist.constants import ResponseResult
 from pyinaturalist.converters import convert_observation_timestamps
 
-from .converters import AnyObservations, to_dicts, write
+from .converters import AnyObservations, PathOrStr, to_dicts, write
 
 if TYPE_CHECKING:
     from gpxpy.geo import Location
@@ -36,7 +36,7 @@ logger = getLogger(__name__)
 
 
 def to_gpx(
-    observations: AnyObservations, filename: Optional[str] = None, waypoints: bool = False
+    observations: AnyObservations, filename: Optional[PathOrStr] = None, waypoints: bool = False
 ) -> Optional['GPX']:
     """Convert a list of observations to a GPX track (default) or a set of GPX waypoints.
 
@@ -72,7 +72,7 @@ def to_gpx(
         return gpx
 
 
-def gpx_to_observations(filename) -> list[Observation]:
+def gpx_to_observations(filename: PathOrStr) -> list[Observation]:
     """Load observations from a GPX file.
 
     Args:
