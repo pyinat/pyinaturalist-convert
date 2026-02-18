@@ -103,7 +103,6 @@ PHOTO_ID_PATTERN = re.compile(r'.*photos/(.*)/.*\.(\w+)')
 logger = getLogger(__name__)
 
 
-# TODO: Use pandas if installed, otherwise fallback to tablib?
 def load_csv_exports(*file_paths: PathOrStr) -> 'DataFrame':
     """Read one or more CSV files from the Nat export tool into a dataframe
 

@@ -235,39 +235,37 @@ def read(filename: PathOrStr) -> list[Observation]:
     import pandas as pd
 
     from .csv import is_csv_export, load_csv_exports
+    from .db import get_db_observations
     from .dwc import dwc_to_observations
     from .geojson import geojson_to_observations
     from .gpx import gpx_to_observations
 
     file_path = Path(filename).expanduser()
     ext = file_path.suffix.lower().replace('.', '')
-    if ext == 'json':
-        return Observation.from_json_file(file_path)
-    elif ext == 'dwc':
-        return dwc_to_observations(file_path)
-    elif ext == 'geojson':
-        return geojson_to_observations(file_path)
-    elif ext == 'gpx':
-        return gpx_to_observations(file_path)
-    elif ext in ('sqlite', 'db'):
-        from .db import get_db_observations
-
-        return list(get_db_observations(file_path))
-    # For CSV, check if it came from the export tool or from API results
-    elif ext == 'csv' and is_csv_export(file_path):
-        df = load_csv_exports(file_path)
-    elif ext == 'csv':
-        df = pd.read_csv(file_path)
-    elif ext == 'feather':
-        df = pd.read_feather(file_path)
-    elif ext == 'hdf':
-        df = pd.read_hdf(file_path, 'observations')
-    elif ext == 'parquet':
-        df = pd.read_parquet(file_path)
-    elif ext == 'xlsx':
-        df = pd.read_excel(file_path)
-    else:
-        raise ValueError(f'File format not yet supported: {file_path.suffix}')
+    match ext:
+        case 'json':
+            return Observation.from_json_file(file_path)
+        case 'dwc':
+            return dwc_to_observations(file_path)
+        case 'geojson':
+            return geojson_to_observations(file_path)
+        case 'gpx':
+            return gpx_to_observations(file_path)
+        case 'sqlite' | 'db':
+            return list(get_db_observations(file_path))
+        # For CSV, check if it came from the export tool or from API results
+        case 'csv':
+            df = load_csv_exports(file_path) if is_csv_export(file_path) else pd.read_csv(file_path)
+        case 'feather':
+            df = pd.read_feather(file_path)
+        case 'hdf':
+            df = pd.read_hdf(file_path, 'observations')
+        case 'parquet':
+            df = pd.read_parquet(file_path)
+        case 'xlsx':
+            df = pd.read_excel(file_path)
+        case _:
+            raise ValueError(f'File format not yet supported: {file_path.suffix}')
 
     return Observation.from_json_list(_df_to_dicts(df))
 
@@ -286,6 +284,7 @@ def export(observations: AnyObservations, filename: PathOrStr):
     * Excel (``.xlsx``)
     * SQLite (``.sqlite`` or ``.db``)
     """
+    from .db import create_tables, save_observations
     from .dwc import to_dwc
     from .geojson import to_geojson
     from .gpx import to_gpx
@@ -293,31 +292,30 @@ def export(observations: AnyObservations, filename: PathOrStr):
     file_path = Path(filename).expanduser()
     ext = file_path.suffix.lower().replace('.', '')
 
-    if ext == 'json':
-        to_json(observations, file_path)
-    elif ext == 'csv':
-        to_csv(observations, file_path)
-    elif ext == 'dwc':
-        to_dwc(observations, file_path)
-    elif ext == 'feather':
-        to_feather(observations, file_path)
-    elif ext == 'geojson':
-        to_geojson(observations, file_path)
-    elif ext == 'gpx':
-        to_gpx(observations, file_path)
-    elif ext == 'hdf':
-        to_hdf(observations, file_path)
-    elif ext == 'parquet':
-        to_parquet(observations, file_path)
-    elif ext == 'xlsx':
-        to_excel(observations, file_path)
-    elif ext in ('sqlite', 'db'):
-        from .db import create_tables, save_observations
-
-        create_tables(file_path)
-        save_observations(observations, file_path)
-    else:
-        raise ValueError(f'File format not supported: {ext}')
+    match ext:
+        case 'json':
+            to_json(observations, file_path)
+        case 'csv':
+            to_csv(observations, file_path)
+        case 'dwc':
+            to_dwc(observations, file_path)
+        case 'feather':
+            to_feather(observations, file_path)
+        case 'geojson':
+            to_geojson(observations, file_path)
+        case 'gpx':
+            to_gpx(observations, file_path)
+        case 'hdf':
+            to_hdf(observations, file_path)
+        case 'parquet':
+            to_parquet(observations, file_path)
+        case 'xlsx':
+            to_excel(observations, file_path)
+        case 'sqlite' | 'db':
+            create_tables(file_path)
+            save_observations(observations, file_path)
+        case _:
+            raise ValueError(f'File format not supported: {ext}')
 
 
 def write(content: str | bytes, filename: PathOrStr, mode='w'):
