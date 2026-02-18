@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.8.0 (Unreleased)
+## 0.8.0 (2026-02-18)
 
 - Add database migrations with Alembic and include in PyPI package
 - Add a `migrate()` helper for downstream libraries
