@@ -69,6 +69,7 @@
 import json
 from collections.abc import Iterable, Sequence
 from copy import deepcopy
+from datetime import datetime
 from logging import getLogger
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeAlias
@@ -188,8 +189,9 @@ def to_dataset(observations: AnyObservations) -> Dataset:
 
 def to_excel(observations: AnyObservations, filename: PathOrStr):
     """Convert observations to an Excel spreadsheet (xlsx)"""
-    xlsx_observations = to_dataset(observations).get_xlsx()
-    write(xlsx_observations, filename, 'wb')
+    dataset = to_dataset(observations)
+    dataset = _strip_tzinfo(dataset)
+    write(dataset.get_xlsx(), filename, 'wb')
 
 
 def to_feather(observations: AnyObservations, filename: PathOrStr):
@@ -442,6 +444,21 @@ def _fix_dimensions(flat_observations):
         for field in headers:
             obs.setdefault(field, None)
     return sorted(headers), flat_observations
+
+
+def _strip_tzinfo(dataset: Dataset) -> Dataset:
+    """Strip timezone info from all datetime values in a tablib Dataset, for compatibility with
+    openpyxl
+    """
+    for col in dataset.headers or []:
+        col_idx = dataset.headers.index(col)
+        for row_idx, row in enumerate(dataset):
+            val = row[col_idx]
+            if isinstance(val, datetime) and val.tzinfo is not None:
+                dataset[row_idx] = tuple(
+                    v.replace(tzinfo=None) if i == col_idx else v for i, v in enumerate(row)
+                )
+    return dataset
 
 
 def _is_dataframe(obj) -> bool:

@@ -5,6 +5,7 @@ import pytest
 from pyinaturalist import Observation, Taxon, User
 
 from pyinaturalist_convert.converters import (
+    _strip_tzinfo,
     export,
     read,
     to_csv,
@@ -94,6 +95,18 @@ def test_export__unsupported_format(tmp_path):
     observations = load_sample_data('observation.json')
     with pytest.raises(ValueError, match='File format not supported: txt'):
         export(observations, tmp_path / 'observations.txt')
+
+
+def test_strip_tzinfo():
+    observations = Observation.from_json_list(load_sample_data('observations.json'))
+    dataset = to_dataset(observations)
+    # Confirm datetime columns are tz-aware before stripping
+    assert dataset['created_at'][0].tzinfo is not None
+
+    _strip_tzinfo(dataset)
+    assert all(v.tzinfo is None for v in dataset['created_at'])
+    assert all(v.tzinfo is None for v in dataset['observed_on'])
+    assert all(v.tzinfo is None for v in dataset['updated_at'])
 
 
 def test_to_dataset():
