@@ -206,7 +206,7 @@ def to_hdf(observations: AnyObservations, filename: PathOrStr):
 
 def to_json(observations: AnyObservations, filename: PathOrStr):
     """Convert observations into a JSON file"""
-    write(json.dumps(observations, indent=2, default=str), filename)
+    write(json.dumps(to_dicts(observations), indent=2, default=str), filename)
 
 
 def to_parquet(observations: AnyObservations, filename: PathOrStr):
