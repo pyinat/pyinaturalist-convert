@@ -10,6 +10,7 @@
 - Rewrite taxonomy aggregation for significantly improved performance
 - Optimize DwC-A table loading (delay index creation until after all rows are inserted)
 - Raise a more descriptive error when SQLAlchemy is missing
+- Update `to_geojson()` to use `location` tuple if available
 
 ## 0.7.0 (2026-01-22)
 

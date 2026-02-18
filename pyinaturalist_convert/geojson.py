@@ -67,7 +67,7 @@ def to_geojson(
     )
 
     if filename:
-        write(json.dumps(feature_collection, indent=2), filename)
+        write(json.dumps(feature_collection, indent=2, default=str), filename)
         return None
     else:
         return feature_collection
@@ -111,10 +111,15 @@ def _to_geojson_feature(
 ) -> 'Feature':
     from geojson import Feature, Point
 
-    # Add geometry
-    if not observation.get('geojson'):
-        raise ValueError('Observation without coordinates')
-    point = Point([float(coord) for coord in observation['geojson']['coordinates']])
+    # Add geometry; use location tuple if not already present
+    geojson = observation.get('geojson')
+    if not geojson:
+        location = observation.get('location')
+        if not location:
+            raise ValueError('Observation without coordinates')
+        # location is [lat, lon]; GeoJSON coordinates are [lon, lat]
+        geojson = {'coordinates': [float(location[1]), float(location[0])]}
+    point = Point([float(coord) for coord in geojson['coordinates']])
 
     # Add properties
     flat_obs = flatten_observations([observation])[0]
