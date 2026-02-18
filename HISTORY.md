@@ -2,7 +2,6 @@
 
 ## 0.8.0 (Unreleased)
 
-- Add support for python 3.15
 - Add database migrations with Alembic and include in PyPI package
 - Add a `migrate()` helper for downstream libraries
 - Add a unified `export()` function to write observations to any supported format (based on file extension)
