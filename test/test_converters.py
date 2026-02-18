@@ -12,7 +12,8 @@ from pyinaturalist_convert.converters import (
     to_dataframe,
     to_dataset,
 )
-from pyinaturalist_convert.db import create_tables, save_observations
+from pyinaturalist_convert.csv import csv_export_to_db
+from pyinaturalist_convert.db import create_tables, get_db_observations, save_observations
 from pyinaturalist_convert.dwc import to_dwc
 from pyinaturalist_convert.geojson import to_geojson
 from pyinaturalist_convert.gpx import to_gpx
@@ -148,3 +149,30 @@ def test_to_csv(tmp_path):
     assert row['id'] == '117511016'
     assert row['taxon.id'] == '48662'
     assert row['created_at'] == '2022-05-17 17:09:56-05:00'
+
+
+def test_csv_export_to_db(tmp_path):
+    db_path = tmp_path / 'observations.db'
+    n = csv_export_to_db(SAMPLE_DATA_DIR / 'observations_export.csv', db_path)
+    assert n > 0
+
+    observations = list(get_db_observations(db_path))
+    assert len(observations) == n
+
+    obs = observations[0]
+    assert isinstance(obs, Observation)
+    assert isinstance(obs.id, int)
+    assert obs.quality_grade in ('research', 'needs_id', 'casual')
+
+
+def test_csv_export_to_db__idempotent(tmp_path):
+    """Re-importing the same CSV should not duplicate rows"""
+    db_path = tmp_path / 'observations.db'
+    csv_path = SAMPLE_DATA_DIR / 'observations_export.csv'
+
+    n1 = csv_export_to_db(csv_path, db_path)
+    n2 = csv_export_to_db(csv_path, db_path)
+    assert n1 == n2
+
+    observations = list(get_db_observations(db_path))
+    assert len(observations) == n1

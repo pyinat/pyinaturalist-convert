@@ -156,7 +156,9 @@ class DbObservation:
             tags=_split_list(self.tags),
             taxon=self.taxon.to_model().to_dict() if self.taxon else None,
             updated_at=self.updated_at,
-            user=self.user.to_model() if self.user else {'id': self.user_id},
+            user=self.user.to_model()
+            if self.user
+            else {'id': self.user_id, 'login': self.user_login},
             uuid=self.uuid,
         )
 
