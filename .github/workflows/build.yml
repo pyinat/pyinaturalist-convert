@@ -36,10 +36,10 @@ jobs:
           uv python install ${{ matrix.python-version }}
           # For pytables on python 3.14+, use unreleased fixes from repo required for compilation
           if [ ${{ matrix.python-version }} = '3.14' ] || [ ${{ matrix.python-version }} = '3.15' ]; then
-            uv sync --all-extras --no-extra hdf
+            uv sync --all-extras --no-extra hdf --frozen
             uv pip install "tables @ git+https://github.com/PyTables/PyTables.git@5582fe2d"
           else
-            uv sync --all-extras
+            uv sync --all-extras --frozen
           fi
 
       # Run tests with coverage report
@@ -55,7 +55,20 @@ jobs:
           slug: ${{ github.repository }}
           fail_ci_if_error: true
 
-  # Run code analysis checks via pre-commit hooks
+  # Test with no optional dependencies
+  test-minimal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+      - name: Install minimal dependencies
+        run: |
+          uv python install ${{ env.LATEST_PY_VERSION }}
+          uv sync --frozen
+      - name: Run smoke test
+        run: uv run pytest test/test_converters.py::test_to_dataset
+
+  # Run linting & other checks via pre-commit hooks
   analyze:
     runs-on: ubuntu-latest
     steps:
@@ -64,4 +77,4 @@ jobs:
         with:
           python-version: ${{ env.LATEST_PY_VERSION }}
       - name: Run style checks & linting
-        uses: pre-commit/action@v3.0.1
+        uses: j178/prek-action@v1
