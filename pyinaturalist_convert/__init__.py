@@ -3,7 +3,7 @@ from pyinaturalist import enable_logging
 
 from .constants import *
 from .converters import *
-from .csv import load_csv_exports
+from .csv import csv_export_to_db, load_csv_exports
 from .db import *
 from .dwc import *
 from .dwca import *

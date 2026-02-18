@@ -21,6 +21,7 @@
 """
 
 import re
+import sqlite3
 from csv import DictReader
 from glob import glob
 from logging import getLogger
@@ -32,7 +33,8 @@ from pyinaturalist import JsonResponse
 from pyinaturalist.constants import RANKS
 from pyinaturalist.converters import try_datetime
 
-from .converters import PathOrStr, to_dataframe
+from .constants import DB_PATH, PathOrStr
+from .converters import to_dataframe
 
 if TYPE_CHECKING:
     from pandas import DataFrame
@@ -98,9 +100,132 @@ RENAME_COLUMNS = {
     '_name': '',
 }
 
-PHOTO_ID_PATTERN = re.compile(r'.*photos/(.*)/.*\.(\w+)')
+PHOTO_ID_PATTERN = re.compile(r'.*photos/(.*)/.*\.(?:\w+)')
+
+# DbObservation columns that can be directly populated from a CSV export row
+_DB_OBS_COLUMNS = [
+    'id',
+    'captive',
+    'created_at',
+    'description',
+    'geoprivacy',
+    'identifications_count',
+    'latitude',
+    'license_code',
+    'longitude',
+    'observed_on',
+    'place_guess',
+    'positional_accuracy',
+    'quality_grade',
+    'taxon_id',
+    'updated_at',
+    'user_id',
+    'user_login',
+]
 
 logger = getLogger(__name__)
+
+
+def csv_export_to_db(
+    csv_path: PathOrStr,
+    db_path: PathOrStr = DB_PATH,
+    batch_size: int = 1000,
+) -> int:
+    """Import an iNaturalist CSV export directly into a SQLite database.
+
+    Much faster than the equivalent two-step process of loading into a DataFrame and then saving
+    Observation objects, because it avoids the intermediate in-memory representation and goes
+    row-by-row.
+
+    Also calls :py:func:`~pyinaturalist_convert.db.create_tables` if the DB doesn't yet have the
+    expected schema.
+
+    Args:
+        csv_path: Path to the iNaturalist bulk export CSV file
+        db_path: Path to the SQLite database file (created if it doesn't exist)
+        batch_size: Number of rows to insert per batch
+
+    Returns:
+        Number of observations inserted
+    """
+    from .db import create_tables
+
+    create_tables(db_path)
+
+    columns = _DB_OBS_COLUMNS
+    placeholders = ', '.join('?' * len(columns))
+    col_names = ', '.join(columns)
+    insert_sql = f'INSERT OR REPLACE INTO observation ({col_names}) VALUES ({placeholders})'
+
+    total = 0
+    batch: list[tuple] = []
+
+    with (
+        open(csv_path, encoding='utf-8') as csv_file,
+        sqlite3.connect(db_path) as conn,
+    ):
+        reader = DictReader(csv_file)
+        for row in reader:
+            db_dict = _csv_row_to_db_dict(row)
+            batch.append(tuple(db_dict[col] for col in columns))
+
+            if len(batch) >= batch_size:
+                conn.executemany(insert_sql, batch)
+                total += len(batch)
+                batch = []
+
+        if batch:
+            conn.executemany(insert_sql, batch)
+            total += len(batch)
+
+        conn.commit()
+
+    logger.info(f'Inserted {total} observations from {csv_path} into {db_path}')
+    return total
+
+
+def _csv_row_to_db_dict(row: dict) -> dict:
+    """Map a single raw CSV export row to a dict of DbObservation column values."""
+
+    def _int_or_none(val: str) -> int | None:
+        try:
+            return int(val) if val else None
+        except (ValueError, TypeError):
+            return None
+
+    def _float_or_none(val: str) -> float | None:
+        try:
+            return float(val) if val else None
+        except (ValueError, TypeError):
+            return None
+
+    agreements = _int_or_none(row.get('num_identification_agreements')) or 0
+    disagreements = _int_or_none(row.get('num_identification_disagreements')) or 0
+
+    captive_str = row.get('captive_cultivated', '').strip().lower()
+    captive: bool | None = (
+        True if captive_str == 'true' else (False if captive_str == 'false' else None)
+    )
+
+    return {
+        'id': _int_or_none(row.get('id')),
+        'captive': captive,
+        'created_at': row.get('created_at') or None,
+        'description': row.get('description') or None,
+        'geoprivacy': row.get('geoprivacy') or None,
+        'identifications_count': agreements + disagreements,
+        'latitude': _float_or_none(row.get('latitude')),
+        'license_code': row.get('license') or None,
+        'longitude': _float_or_none(row.get('longitude')),
+        'observed_on': row.get('observed_on') or None,
+        'place_guess': row.get('place_guess') or None,
+        'positional_accuracy': _int_or_none(row.get('positional_accuracy')),
+        'quality_grade': row.get('quality_grade') or None,
+        'taxon_id': _int_or_none(row.get('taxon_id')),
+        'updated_at': row.get('updated_at') or None,
+        'user_id': _int_or_none(row.get('user_id')),
+        'user_login': row.get('user_login') or None,
+    }
 
 
 def load_csv_exports(*file_paths: PathOrStr) -> 'DataFrame':
@@ -125,19 +250,22 @@ def is_csv_export(file_path: PathOrStr) -> bool:
     """Check if a file is a CSV export from the iNaturalist export tool (to distinguish from
     converted API results)
     """
+    import csv
+
     with open(file_path, encoding='utf-8') as f:
-        reader = DictReader(f)
-        fields = next(reader).keys()
+        headers = next(csv.reader(f))
     # Just check for a field name that's only in the export and not in API results
-    return 'captive_cultivated' in fields
+    return 'captive_cultivated' in headers
 
 
 def _resolve_file_paths(*file_paths: PathOrStr) -> list[Path]:
     """Given file paths and/or glob patterns, return a list of resolved file paths"""
-    file_path_strs = [str(p) for p in file_paths]
-    resolved_paths = [p for p in file_path_strs if '*' not in p]
-    for path in [p for p in file_path_strs if '*' in p]:
-        resolved_paths.extend(glob(path))
+    resolved_paths = []
+    for p in file_paths:
+        if '*' in str(p):
+            resolved_paths.extend(glob(str(p)))
+        else:
+            resolved_paths.append(str(p))
     return [Path(p).expanduser() for p in resolved_paths]
 
 
