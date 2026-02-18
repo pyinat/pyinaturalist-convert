@@ -4,6 +4,7 @@
 
 - Add database migrations with Alembic and include in PyPI package
 - Add a `migrate()` helper for downstream libraries
+- Add a unified `export()` function to write observations to any supported format (based on file extension)
 - Extend `read()` to support GeoJSON, GPX, DwC, and SQLite formats
 - Improve CSV loading performance
 - Rewrite taxonomy aggregation for significantly improved performance

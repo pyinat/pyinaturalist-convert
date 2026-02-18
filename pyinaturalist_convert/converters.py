@@ -24,6 +24,12 @@
     >>> to_json(observations, 'my_observations.json')
     >>> to_parquet(observations, 'my_observations.parquet')
 
+    Or export to any supported format by file extension:
+
+    >>> export(observations, 'my_observations.csv')
+    >>> export(observations, 'my_observations.geojson')
+    >>> export(observations, 'my_observations.gpx')
+
     Load back into Observation objects:
 
     >>> observations = read('my_observations.csv')
@@ -33,11 +39,13 @@
     >>> observations = read('my_observations.json')
     >>> observations = read('my_observations.parquet')
 
+
 **Export functions:**
 
 .. autosummary::
     :nosignatures:
 
+    export
     to_csv
     to_excel
     to_feather
@@ -63,7 +71,7 @@ from collections.abc import Iterable, Sequence
 from copy import deepcopy
 from logging import getLogger
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, TypeAlias
+from typing import TYPE_CHECKING, TypeAlias
 
 from flatten_dict import flatten, unflatten
 from pyinaturalist import BaseModel, JsonResponse, ModelObjects, Observation, ResponseResult, Taxon
@@ -147,7 +155,7 @@ def to_dicts(value: InputTypes) -> Iterable[dict]:
         return [value]  # type: ignore [list-item]
 
 
-def to_csv(observations: AnyObservations, filename: Optional[str] = None):
+def to_csv(observations: AnyObservations, filename: PathOrStr):
     """Convert observations to CSV"""
     from pandas import DataFrame
 
@@ -178,30 +186,30 @@ def to_dataset(observations: AnyObservations) -> Dataset:
     return dataset
 
 
-def to_excel(observations: AnyObservations, filename: str):
+def to_excel(observations: AnyObservations, filename: PathOrStr):
     """Convert observations to an Excel spreadsheet (xlsx)"""
     xlsx_observations = to_dataset(observations).get_xlsx()
     write(xlsx_observations, filename, 'wb')
 
 
-def to_feather(observations: AnyObservations, filename: str):
+def to_feather(observations: AnyObservations, filename: PathOrStr):
     """Convert observations into a Feather file"""
     df = to_dataframe(observations)
     df.to_feather(filename)
 
 
-def to_hdf(observations: AnyObservations, filename: str):
+def to_hdf(observations: AnyObservations, filename: PathOrStr):
     """Convert observations into a HDF5 file"""
     df = to_dataframe(observations)
     df.to_hdf(filename, 'observations')
 
 
-def to_json(observations: AnyObservations, filename: str):
+def to_json(observations: AnyObservations, filename: PathOrStr):
     """Convert observations into a JSON file"""
     write(json.dumps(observations, indent=2, default=str), filename)
 
 
-def to_parquet(observations: AnyObservations, filename: str):
+def to_parquet(observations: AnyObservations, filename: PathOrStr):
     """Convert observations into a Parquet file"""
     df = to_dataframe(observations)
     df.to_parquet(filename)
@@ -260,6 +268,54 @@ def read(filename: PathOrStr) -> list[Observation]:
         raise ValueError(f'File format not yet supported: {file_path.suffix}')
 
     return Observation.from_json_list(_df_to_dicts(df))
+
+
+def export(observations: AnyObservations, filename: PathOrStr):
+    """Export observations to any of the following file formats, based on file extension:
+
+    * CSV (``.csv``)
+    * Darwin Core (``.dwc``)
+    * Feather (``.feather``)
+    * GeoJSON (``.geojson``)
+    * GPX (``.gpx``)
+    * HDF5 (``.hdf``)
+    * JSON (``.json``)
+    * Parquet (``.parquet``)
+    * Excel (``.xlsx``)
+    * SQLite (``.sqlite`` or ``.db``)
+    """
+    from .dwc import to_dwc
+    from .geojson import to_geojson
+    from .gpx import to_gpx
+
+    file_path = Path(filename).expanduser()
+    ext = file_path.suffix.lower().replace('.', '')
+
+    if ext == 'json':
+        to_json(observations, file_path)
+    elif ext == 'csv':
+        to_csv(observations, file_path)
+    elif ext == 'dwc':
+        to_dwc(observations, file_path)
+    elif ext == 'feather':
+        to_feather(observations, file_path)
+    elif ext == 'geojson':
+        to_geojson(observations, file_path)
+    elif ext == 'gpx':
+        to_gpx(observations, file_path)
+    elif ext == 'hdf':
+        to_hdf(observations, file_path)
+    elif ext == 'parquet':
+        to_parquet(observations, file_path)
+    elif ext == 'xlsx':
+        to_excel(observations, file_path)
+    elif ext in ('sqlite', 'db'):
+        from .db import create_tables, save_observations
+
+        create_tables(file_path)
+        save_observations(observations, file_path)
+    else:
+        raise ValueError(f'File format not supported: {ext}')
 
 
 def write(content: str | bytes, filename: PathOrStr, mode='w'):
