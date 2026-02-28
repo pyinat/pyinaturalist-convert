@@ -401,7 +401,7 @@ def optimize_fts_table(table: str, db_path: PathOrStr = DB_PATH):
     with progress, sqlite3.connect(db_path) as conn:
         conn.execute(f"INSERT INTO {table}({table}) VALUES('optimize')")
         conn.commit()
-    vacuum_analyze([table], db_path, show_spinner=True)
+    vacuum_analyze([table], db_path, show_spinner=True, fast=True)
 
 
 def _get_common_name_csvs(

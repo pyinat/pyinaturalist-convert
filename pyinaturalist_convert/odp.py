@@ -76,7 +76,7 @@ def load_odp_tables(dest_dir: PathOrStr = DATA_DIR, db_path: PathOrStr = DB_PATH
         load_odp_photos(csv_dir / 'photos.csv', db_path, progress)
         load_odp_taxa(csv_dir / 'taxa.csv', db_path, progress)
         load_odp_users(csv_dir / 'observers.csv', db_path, progress)
-    vacuum_analyze(['observation', 'photo', 'taxon', 'user'], db_path, show_spinner=True)
+    vacuum_analyze(['observation', 'photo', 'taxon', 'user'], db_path, show_spinner=True, fast=True)
 
 
 def download_odp_metadata(dest_dir: PathOrStr = DATA_DIR):
@@ -116,6 +116,7 @@ def load_odp_observations(
             delimiter='\t',
             progress=progress,
             clear=True,
+            fast=True,
         )
 
 
@@ -128,7 +129,15 @@ def load_odp_photos(
     create_tables(db_path)
     progress = progress or CSVProgress(csv_path)
     with progress:
-        load_table(csv_path, db_path, 'photo', PHOTO_COLUMN_MAP, delimiter='\t', progress=progress)
+        load_table(
+            csv_path,
+            db_path,
+            'photo',
+            PHOTO_COLUMN_MAP,
+            delimiter='\t',
+            progress=progress,
+            fast=True,
+        )
 
 
 def load_odp_taxa(
@@ -140,7 +149,15 @@ def load_odp_taxa(
     create_tables(db_path)
     progress = progress or CSVProgress(csv_path)
     with progress:
-        load_table(csv_path, db_path, 'taxon', TAXON_COLUMN_MAP, delimiter='\t', progress=progress)
+        load_table(
+            csv_path,
+            db_path,
+            'taxon',
+            TAXON_COLUMN_MAP,
+            delimiter='\t',
+            progress=progress,
+            fast=True,
+        )
 
 
 def load_odp_users(
@@ -152,4 +169,6 @@ def load_odp_users(
     create_tables(db_path)
     progress = progress or CSVProgress(csv_path)
     with progress:
-        load_table(csv_path, db_path, 'user', USER_COLUMN_MAP, delimiter='\t', progress=progress)
+        load_table(
+            csv_path, db_path, 'user', USER_COLUMN_MAP, delimiter='\t', progress=progress, fast=True
+        )

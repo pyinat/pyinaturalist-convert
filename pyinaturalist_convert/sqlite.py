@@ -110,6 +110,7 @@ def load_table(
     delimiter: str = ',',
     transform: Optional[Callable] = None,
     clear: bool = False,
+    fast: bool = False,
 ):
     """Load a CSV file into a sqlite3 table.
     This is less efficient than the sqlite3 shell ``.import`` command, but easier to use.
@@ -129,6 +130,7 @@ def load_table(
         progress: Progress bar, if tracking loading from multiple files
         transform: Callback to transform a row before inserting into the database
         clear: Whether to clear existing data from the table before loading
+        fast: Optimize for throughput rather than safety. Recommended only for single-threaded manual data load.
     """
     csv_path = Path(csv_path).expanduser()
     db_path = Path(db_path).expanduser()
@@ -154,12 +156,19 @@ def load_table(
     if progress:
         progress.start_job(csv_path)
 
-    with sqlite3.connect(db_path) as conn:
-        conn.execute('PRAGMA synchronous = OFF')
-        conn.execute('PRAGMA journal_mode = OFF')
-        conn.execute('PRAGMA cache_size = -64000')  # 64MB page cache
-        conn.execute('PRAGMA mmap_size = 268435456')  # 256MB memory-mapped I/O
-        conn.execute('PRAGMA temp_store = MEMORY')
+    with sqlite3.connect(db_path, isolation_level=None if fast else 'DEFERRED') as conn:
+        if fast:
+            conn.execute('PRAGMA synchronous = OFF')
+            conn.execute('PRAGMA journal_mode = OFF')
+            conn.execute('PRAGMA cache_size = -64000')  # 64MB page cache
+            conn.execute('PRAGMA mmap_size = 268435456')  # 256MB memory-mapped I/O
+            conn.execute('PRAGMA temp_store = MEMORY')
+            conn.execute('PRAGMA threads = 4')
+        else:
+            conn.execute('PRAGMA journal_mode = WAL')
+            conn.execute('PRAGMA synchronous = NORMAL')  # Crash-safe with WAL
+            conn.execute('PRAGMA busy_timeout = 5000')  # Avoid immediate SQLITE_BUSY errors
+            conn.execute('PRAGMA cache_size = -16000')
 
         # Create table if it doesn't exist, and optionally clear it if it does
         conn.execute(f'CREATE TABLE IF NOT EXISTS {table_name} ({", ".join(table_cols)});')
@@ -172,6 +181,8 @@ def load_table(
                 f, chunk_size=50000, fields=csv_cols, delimiter=delimiter, transform=transform
             )
 
+            if fast:
+                conn.execute('BEGIN')
             for chunk in reader:
                 conn.executemany(stmt, chunk)
                 if progress:
@@ -183,10 +194,16 @@ def load_table(
 
 
 def vacuum_analyze(
-    table_names: list[str], db_path: PathOrStr = DB_PATH, show_spinner: bool = False
+    table_names: list[str],
+    db_path: PathOrStr = DB_PATH,
+    show_spinner: bool = False,
+    fast: bool = False,
 ):
     """Vacuum a SQLite database and analyze one or more tables. If loading multiple tables, this
     should be done once after loading all of them.
+
+    Args:
+        fast: Optimize connection settings for VACUUM throughput (large cache, temp tables in RAM)
     """
     msg = f'Vacuuming and analyzing {",".join(table_names)}'
     if show_spinner:
@@ -196,6 +213,10 @@ def vacuum_analyze(
         spinner = nullcontext()
 
     with spinner, sqlite3.connect(db_path) as conn:
+        if fast:
+            conn.execute('PRAGMA cache_size = -64000')  # 64MB page cache
+            conn.execute('PRAGMA temp_store = MEMORY')
+            conn.execute('PRAGMA threads = 4')
         conn.execute('VACUUM')
         for table_name in table_names:
             conn.execute(f'ANALYZE {table_name}')

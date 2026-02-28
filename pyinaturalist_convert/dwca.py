@@ -90,7 +90,7 @@ def load_dwca_tables(db_path: PathOrStr = DB_PATH):
         load_dwca_observations(db_path=db_path, progress=progress)
         load_dwca_taxa(db_path=db_path, progress=progress)
     create_tables(db_path, indexes=True)  # Create remaining tables that reference Taxon+Observation
-    vacuum_analyze(['observation', 'taxon'], db_path, show_spinner=True)
+    vacuum_analyze(['observation', 'taxon'], db_path, show_spinner=True, fast=True)
 
 
 def download_dwca_observations(dest_dir: PathOrStr = DATA_DIR):
@@ -137,7 +137,15 @@ def load_dwca_observations(
     column_map = _get_obs_column_map(OBS_COLUMNS)
     progress = progress or CSVProgress(csv_path)
     with progress:
-        load_table(csv_path, db_path, 'observation', column_map, progress=progress, clear=True)
+        load_table(
+            csv_path,
+            db_path,
+            'observation',
+            column_map,
+            progress=progress,
+            clear=True,
+            fast=True,
+        )
 
     # Delay creating indexes until all rows have been inserted
     with get_progress_spinner('Creating indexes...'):
@@ -191,6 +199,7 @@ def load_dwca_taxa(
             transform=get_parent_id,
             progress=progress,
             clear=True,
+            fast=True,
         )
 
     # Delay creating indexes until all rows have been inserted

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.2 (2026-02-28)
+
+- Add a `fast` option to `sqlite.load_table()` (default False), to optimize for speed and disable safety settings
+
 ## 0.8.1 (2026-02-27)
 
 - Fix check for alembic config path when installed via wheel
