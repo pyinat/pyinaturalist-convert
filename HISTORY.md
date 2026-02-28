@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.1 (2026-02-27)
+
+- Fix check for alembic config path when installed via wheel
+
 ## 0.8.0 (2026-02-18)
 
 - Add database migrations with Alembic and include in PyPI package

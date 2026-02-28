@@ -1,5 +1,6 @@
 import sqlite3
 from datetime import datetime
+from pathlib import Path
 
 import pytest
 from pyinaturalist import (
@@ -67,6 +68,21 @@ def test_create_table(tmp_path, first_indexes, second_indexes, expected_indexes)
         create_table(DbTaxon, db_path, indexes=second_indexes)
     assert _has_table(db_path, 'taxon')
     assert _get_indexes(db_path, 'taxon') == expected_indexes
+
+
+def test_get_alembic_config__script_location(tmp_path):
+    """Test that get_alembic_config() resolves a script_location containing env.py.
+
+    This catches the bug where, when installed as a wheel, parent.parent resolves to
+    site-packages/ and the alembic package directory is mistakenly used instead of the
+    bundled migration scripts.
+    """
+    cfg = get_alembic_config(tmp_path / 'test.db')
+    script_location = Path(cfg.get_main_option('script_location'))
+    assert (script_location / 'env.py').is_file(), (
+        f'script_location {script_location!r} does not contain env.py; '
+        'alembic may be pointing at the wrong directory'
+    )
 
 
 def test_migrate(tmp_path):

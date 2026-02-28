@@ -155,7 +155,7 @@ def get_alembic_config(db_path: PathOrStr):
 
     # Use alembic dir from either package (under src dir) or repo (under root)
     repo_alembic_dir = Path(__file__).parent.parent / 'alembic'
-    if repo_alembic_dir.is_dir():
+    if (repo_alembic_dir / 'env.py').is_file():
         script_location = str(repo_alembic_dir)
     else:
         script_location = str(files('pyinaturalist_convert') / 'alembic')
