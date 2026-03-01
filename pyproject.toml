@@ -34,7 +34,7 @@ classifiers = [
 dependencies = [
     'pyinaturalist>=0.21',
     'flatten-dict>=0.4',
-    'requests-ratelimiter>=0.6,<0.9',
+    'requests-ratelimiter>=0.6,<0.10',
     'tablib>=3.0',
 ]
 
