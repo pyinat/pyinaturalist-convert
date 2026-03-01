@@ -112,7 +112,7 @@ def create_table(model, db_path: PathOrStr = DB_PATH, indexes: bool = True):
     """
     from sqlalchemy.schema import CreateIndex, CreateTable
 
-    engine = _get_engine(db_path)
+    engine = _get_engine(db_path, autoclose=True)
     table_name = model.__tablename__
 
     with engine.connect() as conn:
@@ -173,10 +173,11 @@ def get_session(db_path: PathOrStr = DB_PATH) -> 'Session':
     return Session(_get_engine(db_path), future=True)
 
 
-def _get_engine(db_path):
+def _get_engine(db_path, autoclose: bool = False):
     from sqlalchemy import create_engine
+    from sqlalchemy.pool import NullPool
 
-    return create_engine(f'sqlite:///{db_path}')
+    return create_engine(f'sqlite:///{db_path}', poolclass=NullPool if autoclose else None)
 
 
 def get_db_observations(
