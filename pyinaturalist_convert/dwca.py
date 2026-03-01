@@ -82,7 +82,7 @@ def load_dwca_tables(db_path: PathOrStr = DB_PATH):
     Args:
         db_path: Path to SQLite database
     """
-    import slqalchemy  # noqa: F401
+    import sqlalchemy  # noqa: F401
 
     download_dwca_observations()
     download_dwca_taxa()

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.3 (2026-03-01)
+
+- Fix dependency check in `dwca.load_dwca_tables()`
+
 ## 0.8.2 (2026-02-28)
 
 - Add a `fast` option to `sqlite.load_table()` (default False), to optimize for speed and disable safety settings
