@@ -3,11 +3,13 @@ from time import time
 
 from pyinaturalist import Comment, Identification, Observation
 
+from pyinaturalist_convert.db import create_tables, save_observations
 from pyinaturalist_convert.fts import (
     ObservationAutocompleter,
     TaxonAutocompleter,
     TextField,
     create_observation_fts_table,
+    create_observation_fts_triggers,
     index_observation_text,
     load_fts_taxa,
 )
@@ -147,6 +149,48 @@ def test_observation_text_search__reindex(tmp_path):
     assert len(oa.search('comment')) == 4
     assert len(oa.search('identification')) == 2
     assert len(oa.search('place')) == 1
+
+
+def test_observation_fts_triggers(tmp_path):
+    import sqlite3
+
+    db_path = tmp_path / 'obs.db'
+    create_tables(db_path)
+    create_observation_fts_table(db_path)
+    create_observation_fts_triggers(db_path)
+
+    # INSERT trigger: saving an observation should populate FTS table
+    save_observations([obs_1], db_path=db_path)
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute('SELECT observation_id, field FROM observation_fts').fetchall()
+    assert len(rows) == 4  # description, place, comment, identification
+    assert all(row[0] == 1 for row in rows)
+
+    # UPDATE trigger: updating observation should replace old FTS entries
+    obs_1_updated = Observation(
+        id=1,
+        description='updated description',
+        place_guess='updated place',
+        comments=[Comment(body='updated comment')],
+        identifications=[Identification(body='updated identification')],
+    )
+    save_observations([obs_1_updated], db_path=db_path)
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute('SELECT text FROM observation_fts WHERE observation_id = 1').fetchall()
+    texts = {row[0] for row in rows}
+    assert 'updated description' in texts
+    assert 'updated place' in texts
+    assert 'updated comment' in texts
+    assert 'updated identification' in texts
+    # Old values should be gone
+    assert 'This is a test observation with a description' not in texts
+
+    # DELETE trigger: deleting the observation should remove its FTS entries
+    with sqlite3.connect(db_path) as conn:
+        conn.execute('DELETE FROM observation WHERE id = 1')
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute('SELECT * FROM observation_fts WHERE observation_id = 1').fetchall()
+    assert len(rows) == 0
 
 
 def benchmark():

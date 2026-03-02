@@ -73,9 +73,13 @@ Query all of your own observations::
 
 Create table and index observations::
 
-    >>> from pyinaturalist_convert import create_observation_fts_table, index_observation_text
+    >>> from pyinaturalist_convert import (
+    ...     create_observation_fts_table, create_observation_fts_triggers, index_observation_text
+    ... )
 
     >>> create_observation_fts_table()
+    >>> # Optionally create triggers to keep FTS table in sync automatically:
+    >>> create_observation_fts_triggers()
     >>> index_observation_text(observations)
 
 Search observations::
@@ -99,6 +103,7 @@ Search observations::
     TextField
     create_taxon_fts_table
     create_observation_fts_table
+    create_observation_fts_triggers
     index_observation_text
     load_fts_taxa
 """
@@ -343,7 +348,12 @@ def create_taxon_fts_table(db_path: PathOrStr = DB_PATH):
 
 
 def create_observation_fts_table(db_path: PathOrStr = DB_PATH):
-    """Create a SQLite FTS5 table for observation text
+    """Create a SQLite FTS5 table for observation text.
+
+    There are two options for indexing observations:
+    
+    * Automatic (sync with ``observation`` table): {py:func}`create_observation_fts_triggers`
+    * Manual (with ``Observation`` objects): {py:func}`index_observation_text`
 
     Args:
         db_path: Path to SQLite database
@@ -355,6 +365,59 @@ def create_observation_fts_table(db_path: PathOrStr = DB_PATH):
             f'CREATE VIRTUAL TABLE IF NOT EXISTS {OBS_FTS_TABLE} USING fts5( '
             '   text, observation_id, field,'
             f'  {prefix_idxs})'
+        )
+
+
+def create_observation_fts_triggers(db_path: PathOrStr = DB_PATH):
+    """Create SQLite triggers to keep observation_fts in sync with the observation table.
+    Requires both the observation table and observation_fts table to already exist.
+
+    Args:
+        db_path: Path to SQLite database
+    """
+    with sqlite3.connect(db_path) as conn:
+        # INSERT triggers
+        conn.execute(
+            'CREATE TRIGGER IF NOT EXISTS observation_ai AFTER INSERT ON observation BEGIN\n'
+            f'  INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field)\n'
+            '    SELECT new.id, new.description, 1 WHERE new.description IS NOT NULL;\n'
+            f'  INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field)\n'
+            '    SELECT new.id, new.place_guess, 4 WHERE new.place_guess IS NOT NULL;\n'
+            f'  INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field)\n'
+            "    SELECT new.id, json_extract(value, '$.body'), 2\n"
+            '    FROM json_each(new.comments)\n'
+            "    WHERE json_extract(value, '$.body') IS NOT NULL;\n"
+            f'  INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field)\n'
+            "    SELECT new.id, json_extract(value, '$.body'), 3\n"
+            '    FROM json_each(new.identifications)\n'
+            "    WHERE json_extract(value, '$.body') IS NOT NULL;\n"
+            'END'
+        )
+
+        # UPDATE triggers
+        conn.execute(
+            'CREATE TRIGGER IF NOT EXISTS observation_au AFTER UPDATE ON observation BEGIN\n'
+            f'  DELETE FROM {OBS_FTS_TABLE} WHERE observation_id = old.id;\n'
+            f'  INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field)\n'
+            '    SELECT new.id, new.description, 1 WHERE new.description IS NOT NULL;\n'
+            f'  INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field)\n'
+            '    SELECT new.id, new.place_guess, 4 WHERE new.place_guess IS NOT NULL;\n'
+            f'  INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field)\n'
+            "    SELECT new.id, json_extract(value, '$.body'), 2\n"
+            '    FROM json_each(new.comments)\n'
+            "    WHERE json_extract(value, '$.body') IS NOT NULL;\n"
+            f'  INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field)\n'
+            "    SELECT new.id, json_extract(value, '$.body'), 3\n"
+            '    FROM json_each(new.identifications)\n'
+            "    WHERE json_extract(value, '$.body') IS NOT NULL;\n"
+            'END'
+        )
+
+        # DELETE triggers
+        conn.execute(
+            'CREATE TRIGGER IF NOT EXISTS observation_ad AFTER DELETE ON observation BEGIN\n'
+            f'  DELETE FROM {OBS_FTS_TABLE} WHERE observation_id = old.id;\n'
+            'END'
         )
 
 
