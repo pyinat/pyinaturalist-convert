@@ -102,6 +102,7 @@ Search observations::
     TaxonAutocompleter
     TextField
     create_taxon_fts_table
+    create_taxon_fts_triggers
     create_observation_fts_table
     create_observation_fts_triggers
     index_observation_text
@@ -189,7 +190,7 @@ class TaxonAutocompleter:
         if not q:
             return []
 
-        query = f'SELECT *, rank, (rank - count_rank) AS combined_rank FROM {TAXON_FTS_TABLE} '
+        query = f'SELECT *, rank, (rank - COALESCE(count_rank, 0)) AS combined_rank FROM {TAXON_FTS_TABLE} '
         query += "WHERE name MATCH ? || '*' "
         params: ParamList = [q]
 
@@ -336,15 +337,9 @@ def create_taxon_fts_table(db_path: PathOrStr = DB_PATH):
     Args:
         db_path: Path to SQLite database
     """
-    prefix_idxs = ', '.join([f'prefix={i}' for i in TAXON_PREFIX_INDEXES])
-
     with sqlite3.connect(db_path) as conn:
         conn.execute(f'DROP TABLE IF EXISTS {TAXON_FTS_TABLE}')
-        conn.execute(
-            f'CREATE VIRTUAL TABLE {TAXON_FTS_TABLE} USING fts5( '
-            '   name, taxon_id, taxon_rank UNINDEXED, count_rank UNINDEXED, language_code,'
-            f'  {prefix_idxs})'
-        )
+        conn.execute(_create_taxon_fts_table_sql())
 
 
 def create_observation_fts_table(db_path: PathOrStr = DB_PATH):
@@ -374,6 +369,27 @@ def create_observation_fts_triggers(db_path: PathOrStr = DB_PATH):
             conn.execute(sql)
 
 
+def create_taxon_fts_triggers(db_path: PathOrStr = DB_PATH):
+    """Create SQLite triggers to keep taxon_fts in sync with the taxon table.
+    Requires both the taxon table and taxon_fts table to already exist.
+
+    Args:
+        db_path: Path to SQLite database
+    """
+    with sqlite3.connect(db_path) as conn:
+        for sql in _create_taxon_fts_trigger_sql():
+            conn.execute(sql)
+
+
+def _create_taxon_fts_table_sql() -> str:
+    prefix_idxs = ', '.join([f'prefix={i}' for i in TAXON_PREFIX_INDEXES])
+    return (
+        f'CREATE VIRTUAL TABLE {TAXON_FTS_TABLE} USING fts5( '
+        '   name, taxon_id, taxon_rank UNINDEXED, count_rank UNINDEXED, language_code,'
+        f'  {prefix_idxs})'
+    )
+
+
 def _create_observation_fts_table_sql() -> str:
     prefix_idxs = ', '.join([f'prefix={i}' for i in OBS_PREFIX_INDEXES])
     return (
@@ -397,6 +413,33 @@ def _create_observation_fts_trigger_sql() -> list[str]:
         (
             'CREATE TRIGGER IF NOT EXISTS observation_ad AFTER DELETE ON observation '
             + f'BEGIN\n  DELETE FROM {OBS_FTS_TABLE} WHERE observation_id = old.id;\nEND'
+        ),
+    ]
+
+
+def _taxon_fts_insert_statements(row: str) -> str:
+    return (
+        f'\n  INSERT INTO {TAXON_FTS_TABLE} (taxon_id, name, taxon_rank, count_rank, language_code)\n'
+        f"    SELECT {row}.id, {row}.name, {row}.rank, NULL, NULL WHERE {row}.name IS NOT NULL AND {row}.name != '';"
+        f'\n  INSERT INTO {TAXON_FTS_TABLE} (taxon_id, name, taxon_rank, count_rank, language_code)\n'
+        f"    SELECT {row}.id, {row}.preferred_common_name, {row}.rank, NULL, 'en' WHERE {row}.preferred_common_name IS NOT NULL AND {row}.preferred_common_name != '';\n"
+    )
+
+
+def _create_taxon_fts_trigger_sql() -> list[str]:
+    return [
+        (
+            'CREATE TRIGGER IF NOT EXISTS taxon_ai AFTER INSERT ON taxon '
+            + f'BEGIN{_taxon_fts_insert_statements("new")}END'
+        ),
+        (
+            'CREATE TRIGGER IF NOT EXISTS taxon_au AFTER UPDATE ON taxon '
+            + f'BEGIN\n  DELETE FROM {TAXON_FTS_TABLE} WHERE taxon_id = old.id;'
+            + f'{_taxon_fts_insert_statements("new")}END'
+        ),
+        (
+            'CREATE TRIGGER IF NOT EXISTS taxon_ad AFTER DELETE ON taxon '
+            + f'BEGIN\n  DELETE FROM {TAXON_FTS_TABLE} WHERE taxon_id = old.id;\nEND'
         ),
     ]
 
