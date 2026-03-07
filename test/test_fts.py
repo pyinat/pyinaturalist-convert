@@ -2,15 +2,18 @@ import sqlite3
 from logging import getLogger
 from time import time
 
-from pyinaturalist import Comment, Identification, Observation
+import pytest
+from pyinaturalist import Comment, Identification, Observation, Taxon
 
-from pyinaturalist_convert.db import create_tables, save_observations
+from pyinaturalist_convert.db import create_tables, save_observations, save_taxa
 from pyinaturalist_convert.fts import (
     ObservationAutocompleter,
     TaxonAutocompleter,
     TextField,
     create_observation_fts_table,
     create_observation_fts_triggers,
+    create_taxon_fts_table,
+    create_taxon_fts_triggers,
     index_observation_text,
     load_fts_taxa,
 )
@@ -221,6 +224,82 @@ def test_observation_fts_triggers(tmp_path):
         ('ok description', TextField.DESCRIPTION.value),
         ('ok place', TextField.PLACE.value),
     ]
+
+
+def _get_taxon_fts_rows(db_path, taxon_id):
+    """Helper to fetch FTS rows for a taxon"""
+    with sqlite3.connect(db_path) as conn:
+        return conn.execute(
+            'SELECT name, language_code FROM taxon_fts WHERE taxon_id = ? ORDER BY language_code',
+            (taxon_id,),
+        ).fetchall()
+
+
+@pytest.mark.parametrize(
+    'taxon_id, name, common_name, expected_names',
+    [
+        (1, 'Aves', 'Birds', {'Aves', 'Birds'}),
+        (2, 'Carnivora', None, {'Carnivora'}),
+        (3, 'Felidae', '', {'Felidae'}),  # Empty string not indexed
+    ],
+)
+def test_taxon_fts_triggers__insert(tmp_path, taxon_id, name, common_name, expected_names):
+    """Test INSERT triggers create correct FTS rows"""
+    db_path = tmp_path / 'taxa.db'
+    create_tables(db_path)
+    create_taxon_fts_table(db_path)
+    create_taxon_fts_triggers(db_path)
+
+    taxon = Taxon(id=taxon_id, name=name, rank='class', preferred_common_name=common_name)
+    save_taxa([taxon], db_path=db_path)
+
+    rows = _get_taxon_fts_rows(db_path, taxon_id)
+    actual_names = {row[0] for row in rows}
+    assert actual_names == expected_names
+
+
+def test_taxon_fts_triggers__update(tmp_path):
+    """Test UPDATE trigger replaces old FTS rows"""
+    db_path = tmp_path / 'taxa.db'
+    create_tables(db_path)
+    create_taxon_fts_table(db_path)
+    create_taxon_fts_triggers(db_path)
+
+    # Insert initial taxon
+    taxon = Taxon(id=1, name='Aves', rank='class', preferred_common_name='Birds')
+    save_taxa([taxon], db_path=db_path)
+    assert {row[0] for row in _get_taxon_fts_rows(db_path, 1)} == {'Aves', 'Birds'}
+
+    # Update scientific name
+    updated = Taxon(id=1, name='Aves updated', rank='class', preferred_common_name='Birds')
+    save_taxa([updated], db_path=db_path)
+    rows = _get_taxon_fts_rows(db_path, 1)
+    actual_names = {row[0] for row in rows}
+
+    # Old scientific name should be gone, new one present, common name unchanged
+    assert 'Aves' not in actual_names
+    assert 'Aves updated' in actual_names
+    assert 'Birds' in actual_names
+
+
+def test_taxon_fts_triggers__delete(tmp_path):
+    """Test DELETE trigger removes FTS rows"""
+    db_path = tmp_path / 'taxa.db'
+    create_tables(db_path)
+    create_taxon_fts_table(db_path)
+    create_taxon_fts_triggers(db_path)
+
+    # Insert and verify
+    taxon = Taxon(id=1, name='Aves', rank='class', preferred_common_name='Birds')
+    save_taxa([taxon], db_path=db_path)
+    assert len(_get_taxon_fts_rows(db_path, 1)) == 2
+
+    # Delete and verify FTS rows removed
+    with sqlite3.connect(db_path) as conn:
+        conn.execute('DELETE FROM taxon WHERE id = 1')
+        conn.commit()
+
+    assert len(_get_taxon_fts_rows(db_path, 1)) == 0
 
 
 def benchmark():
