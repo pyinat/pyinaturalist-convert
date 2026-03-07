@@ -358,14 +358,8 @@ def create_observation_fts_table(db_path: PathOrStr = DB_PATH):
     Args:
         db_path: Path to SQLite database
     """
-    prefix_idxs = ', '.join([f'prefix={i}' for i in OBS_PREFIX_INDEXES])
-
     with sqlite3.connect(db_path) as conn:
-        conn.execute(
-            f'CREATE VIRTUAL TABLE IF NOT EXISTS {OBS_FTS_TABLE} USING fts5( '
-            '   text, observation_id, field,'
-            f'  {prefix_idxs})'
-        )
+        conn.execute(_create_observation_fts_table_sql())
 
 
 def create_observation_fts_triggers(db_path: PathOrStr = DB_PATH):
@@ -376,49 +370,52 @@ def create_observation_fts_triggers(db_path: PathOrStr = DB_PATH):
         db_path: Path to SQLite database
     """
     with sqlite3.connect(db_path) as conn:
-        # INSERT triggers
-        conn.execute(
-            'CREATE TRIGGER IF NOT EXISTS observation_ai AFTER INSERT ON observation BEGIN\n'
-            f'  INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field)\n'
-            "    SELECT new.id, new.description, 1 WHERE new.description IS NOT NULL AND new.description != '';\n"
-            f'  INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field)\n'
-            "    SELECT new.id, new.place_guess, 4 WHERE new.place_guess IS NOT NULL AND new.place_guess != '';\n"
-            f'  INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field)\n'
-            "    SELECT new.id, json_extract(value, '$.body'), 2\n"
-            "    FROM json_each(CASE WHEN json_valid(new.comments) THEN new.comments ELSE '[]' END)\n"
-            "    WHERE json_extract(value, '$.body') IS NOT NULL AND json_extract(value, '$.body') != '';\n"
-            f'  INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field)\n'
-            "    SELECT new.id, json_extract(value, '$.body'), 3\n"
-            "    FROM json_each(CASE WHEN json_valid(new.identifications) THEN new.identifications ELSE '[]' END)\n"
-            "    WHERE json_extract(value, '$.body') IS NOT NULL AND json_extract(value, '$.body') != '';\n"
-            'END'
-        )
+        for sql in _create_observation_fts_trigger_sql():
+            conn.execute(sql)
 
-        # UPDATE triggers
-        conn.execute(
-            'CREATE TRIGGER IF NOT EXISTS observation_au AFTER UPDATE ON observation BEGIN\n'
-            f'  DELETE FROM {OBS_FTS_TABLE} WHERE observation_id = old.id;\n'
-            f'  INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field)\n'
-            "    SELECT new.id, new.description, 1 WHERE new.description IS NOT NULL AND new.description != '';\n"
-            f'  INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field)\n'
-            "    SELECT new.id, new.place_guess, 4 WHERE new.place_guess IS NOT NULL AND new.place_guess != '';\n"
-            f'  INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field)\n'
-            "    SELECT new.id, json_extract(value, '$.body'), 2\n"
-            "    FROM json_each(CASE WHEN json_valid(new.comments) THEN new.comments ELSE '[]' END)\n"
-            "    WHERE json_extract(value, '$.body') IS NOT NULL AND json_extract(value, '$.body') != '';\n"
-            f'  INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field)\n'
-            "    SELECT new.id, json_extract(value, '$.body'), 3\n"
-            "    FROM json_each(CASE WHEN json_valid(new.identifications) THEN new.identifications ELSE '[]' END)\n"
-            "    WHERE json_extract(value, '$.body') IS NOT NULL AND json_extract(value, '$.body') != '';\n"
-            'END'
-        )
 
-        # DELETE triggers
-        conn.execute(
-            'CREATE TRIGGER IF NOT EXISTS observation_ad AFTER DELETE ON observation BEGIN\n'
-            f'  DELETE FROM {OBS_FTS_TABLE} WHERE observation_id = old.id;\n'
-            'END'
-        )
+def _create_observation_fts_table_sql() -> str:
+    prefix_idxs = ', '.join([f'prefix={i}' for i in OBS_PREFIX_INDEXES])
+    return (
+        f'CREATE VIRTUAL TABLE IF NOT EXISTS {OBS_FTS_TABLE} USING fts5( '
+        '   text, observation_id, field,'
+        f'  {prefix_idxs})'
+    )
+
+
+def _create_observation_fts_trigger_sql() -> list[str]:
+    return [
+        (
+            'CREATE TRIGGER IF NOT EXISTS observation_ai AFTER INSERT ON observation '
+            + f'BEGIN{_observation_fts_insert_statements("new")}END'
+        ),
+        (
+            'CREATE TRIGGER IF NOT EXISTS observation_au AFTER UPDATE ON observation '
+            + f'BEGIN\n  DELETE FROM {OBS_FTS_TABLE} WHERE observation_id = old.id;'
+            + f'{_observation_fts_insert_statements("new")}END'
+        ),
+        (
+            'CREATE TRIGGER IF NOT EXISTS observation_ad AFTER DELETE ON observation '
+            + f'BEGIN\n  DELETE FROM {OBS_FTS_TABLE} WHERE observation_id = old.id;\nEND'
+        ),
+    ]
+
+
+def _observation_fts_insert_statements(row: str) -> str:
+    return (
+        f'\n  INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field)\n'
+        f"    SELECT {row}.id, {row}.description, 1 WHERE {row}.description IS NOT NULL AND {row}.description != '';"
+        f'\n  INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field)\n'
+        f"    SELECT {row}.id, {row}.place_guess, 4 WHERE {row}.place_guess IS NOT NULL AND {row}.place_guess != '';"
+        f'\n  INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field)\n'
+        f"    SELECT {row}.id, json_extract(value, '$.body'), 2\n"
+        f"    FROM json_each(CASE WHEN json_valid({row}.comments) THEN {row}.comments ELSE '[]' END)\n"
+        "    WHERE json_extract(value, '$.body') IS NOT NULL AND json_extract(value, '$.body') != '';"
+        f'\n  INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field)\n'
+        f"    SELECT {row}.id, json_extract(value, '$.body'), 3\n"
+        f"    FROM json_each(CASE WHEN json_valid({row}.identifications) THEN {row}.identifications ELSE '[]' END)\n"
+        "    WHERE json_extract(value, '$.body') IS NOT NULL AND json_extract(value, '$.body') != '';\n"
+    )
 
 
 def index_observation_text(observations: Sequence[Observation], db_path: PathOrStr = DB_PATH):

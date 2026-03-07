@@ -1,3 +1,4 @@
+import sqlite3
 from logging import getLogger
 from time import time
 
@@ -152,8 +153,6 @@ def test_observation_text_search__reindex(tmp_path):
 
 
 def test_observation_fts_triggers(tmp_path):
-    import sqlite3
-
     db_path = tmp_path / 'obs.db'
     create_tables(db_path)
     create_observation_fts_table(db_path)
@@ -218,7 +217,10 @@ def test_observation_fts_triggers(tmp_path):
         rows = conn.execute(
             'SELECT text, field FROM observation_fts WHERE observation_id = 3 ORDER BY field'
         ).fetchall()
-    assert rows == [('ok description', TextField.DESCRIPTION.value), ('ok place', TextField.PLACE.value)]
+    assert rows == [
+        ('ok description', TextField.DESCRIPTION.value),
+        ('ok place', TextField.PLACE.value),
+    ]
 
 
 def benchmark():

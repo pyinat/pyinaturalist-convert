@@ -30,7 +30,8 @@ from pyinaturalist_convert.db import (
 )
 
 TAXON_INDEXES = ['ix_taxon_name', 'ix_taxon_parent_id']
-EXPECTED_TABLES = ['observation', 'photo', 'taxon', 'user']
+EXPECTED_TABLES = ['observation', 'observation_fts', 'photo', 'taxon', 'user']
+EXPECTED_OBS_FTS_TRIGGERS = ['observation_ad', 'observation_ai', 'observation_au']
 
 
 def _get_indexes(db_path, table_name):
@@ -49,6 +50,12 @@ def _has_table(db_path, table_name):
     ).fetchall()
     conn.close()
     return len(rows) > 0
+
+
+def _get_triggers(db_path):
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute("SELECT name FROM sqlite_master WHERE type='trigger'").fetchall()
+    return sorted(r[0] for r in rows)
 
 
 @pytest.mark.parametrize(
@@ -91,6 +98,8 @@ def test_migrate(tmp_path):
     migrate(db_path)
     for table in EXPECTED_TABLES:
         assert _has_table(db_path, table)
+    for trigger in EXPECTED_OBS_FTS_TRIGGERS:
+        assert trigger in _get_triggers(db_path)
 
 
 def test_migrate__idempotent(tmp_path):
@@ -100,6 +109,8 @@ def test_migrate__idempotent(tmp_path):
     migrate(db_path)
     for table in EXPECTED_TABLES:
         assert _has_table(db_path, table)
+    for trigger in EXPECTED_OBS_FTS_TRIGGERS:
+        assert trigger in _get_triggers(db_path)
 
 
 def test_migrate__pre_alembic_db(tmp_path):
@@ -115,6 +126,8 @@ def test_migrate__pre_alembic_db(tmp_path):
     migrate(db_path)
     for table in EXPECTED_TABLES:
         assert _has_table(db_path, table)
+    for trigger in EXPECTED_OBS_FTS_TRIGGERS:
+        assert trigger in _get_triggers(db_path)
 
 
 def test_save_observations(tmp_path):
