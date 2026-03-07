@@ -192,6 +192,34 @@ def test_observation_fts_triggers(tmp_path):
         rows = conn.execute('SELECT * FROM observation_fts WHERE observation_id = 1').fetchall()
     assert len(rows) == 0
 
+    # Empty strings should not be indexed (same behavior as manual indexing)
+    obs_empty = Observation(
+        id=2,
+        description='',
+        place_guess='',
+        comments=[Comment(body='')],
+        identifications=[Identification(body='')],
+    )
+    save_observations([obs_empty], db_path=db_path)
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute('SELECT * FROM observation_fts WHERE observation_id = 2').fetchall()
+    assert len(rows) == 0
+
+    # Malformed JSON in denormalized fields should not break writes or trigger indexing
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            """
+            INSERT INTO observation (id, description, place_guess, comments, identifications)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (3, 'ok description', 'ok place', 'not-json', '{bad'),
+        )
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute(
+            'SELECT text, field FROM observation_fts WHERE observation_id = 3 ORDER BY field'
+        ).fetchall()
+    assert rows == [('ok description', TextField.DESCRIPTION.value), ('ok place', TextField.PLACE.value)]
+
 
 def benchmark():
     iterations = 10000

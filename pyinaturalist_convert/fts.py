@@ -351,9 +351,9 @@ def create_observation_fts_table(db_path: PathOrStr = DB_PATH):
     """Create a SQLite FTS5 table for observation text.
 
     There are two options for indexing observations:
-    
-    * Automatic (sync with ``observation`` table): {py:func}`create_observation_fts_triggers`
-    * Manual (with ``Observation`` objects): {py:func}`index_observation_text`
+
+    * Automatic (sync with ``observation`` table): :py:func:`create_observation_fts_triggers`
+    * Manual (with ``Observation`` objects): :py:func:`index_observation_text`
 
     Args:
         db_path: Path to SQLite database
@@ -380,17 +380,17 @@ def create_observation_fts_triggers(db_path: PathOrStr = DB_PATH):
         conn.execute(
             'CREATE TRIGGER IF NOT EXISTS observation_ai AFTER INSERT ON observation BEGIN\n'
             f'  INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field)\n'
-            '    SELECT new.id, new.description, 1 WHERE new.description IS NOT NULL;\n'
+            "    SELECT new.id, new.description, 1 WHERE new.description IS NOT NULL AND new.description != '';\n"
             f'  INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field)\n'
-            '    SELECT new.id, new.place_guess, 4 WHERE new.place_guess IS NOT NULL;\n'
+            "    SELECT new.id, new.place_guess, 4 WHERE new.place_guess IS NOT NULL AND new.place_guess != '';\n"
             f'  INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field)\n'
             "    SELECT new.id, json_extract(value, '$.body'), 2\n"
-            '    FROM json_each(new.comments)\n'
-            "    WHERE json_extract(value, '$.body') IS NOT NULL;\n"
+            "    FROM json_each(CASE WHEN json_valid(new.comments) THEN new.comments ELSE '[]' END)\n"
+            "    WHERE json_extract(value, '$.body') IS NOT NULL AND json_extract(value, '$.body') != '';\n"
             f'  INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field)\n'
             "    SELECT new.id, json_extract(value, '$.body'), 3\n"
-            '    FROM json_each(new.identifications)\n'
-            "    WHERE json_extract(value, '$.body') IS NOT NULL;\n"
+            "    FROM json_each(CASE WHEN json_valid(new.identifications) THEN new.identifications ELSE '[]' END)\n"
+            "    WHERE json_extract(value, '$.body') IS NOT NULL AND json_extract(value, '$.body') != '';\n"
             'END'
         )
 
@@ -399,17 +399,17 @@ def create_observation_fts_triggers(db_path: PathOrStr = DB_PATH):
             'CREATE TRIGGER IF NOT EXISTS observation_au AFTER UPDATE ON observation BEGIN\n'
             f'  DELETE FROM {OBS_FTS_TABLE} WHERE observation_id = old.id;\n'
             f'  INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field)\n'
-            '    SELECT new.id, new.description, 1 WHERE new.description IS NOT NULL;\n'
+            "    SELECT new.id, new.description, 1 WHERE new.description IS NOT NULL AND new.description != '';\n"
             f'  INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field)\n'
-            '    SELECT new.id, new.place_guess, 4 WHERE new.place_guess IS NOT NULL;\n'
+            "    SELECT new.id, new.place_guess, 4 WHERE new.place_guess IS NOT NULL AND new.place_guess != '';\n"
             f'  INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field)\n'
             "    SELECT new.id, json_extract(value, '$.body'), 2\n"
-            '    FROM json_each(new.comments)\n'
-            "    WHERE json_extract(value, '$.body') IS NOT NULL;\n"
+            "    FROM json_each(CASE WHEN json_valid(new.comments) THEN new.comments ELSE '[]' END)\n"
+            "    WHERE json_extract(value, '$.body') IS NOT NULL AND json_extract(value, '$.body') != '';\n"
             f'  INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field)\n'
             "    SELECT new.id, json_extract(value, '$.body'), 3\n"
-            '    FROM json_each(new.identifications)\n'
-            "    WHERE json_extract(value, '$.body') IS NOT NULL;\n"
+            "    FROM json_each(CASE WHEN json_valid(new.identifications) THEN new.identifications ELSE '[]' END)\n"
+            "    WHERE json_extract(value, '$.body') IS NOT NULL AND json_extract(value, '$.body') != '';\n"
             'END'
         )
 
