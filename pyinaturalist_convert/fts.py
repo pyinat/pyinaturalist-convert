@@ -73,9 +73,13 @@ Query all of your own observations::
 
 Create table and index observations::
 
-    >>> from pyinaturalist_convert import create_observation_fts_table, index_observation_text
+    >>> from pyinaturalist_convert import (
+    ...     create_observation_fts_table, create_observation_fts_triggers, index_observation_text
+    ... )
 
     >>> create_observation_fts_table()
+    >>> # Optionally create triggers to keep FTS table in sync automatically:
+    >>> create_observation_fts_triggers()
     >>> index_observation_text(observations)
 
 Search observations::
@@ -99,6 +103,7 @@ Search observations::
     TextField
     create_taxon_fts_table
     create_observation_fts_table
+    create_observation_fts_triggers
     index_observation_text
     load_fts_taxa
 """
@@ -343,19 +348,74 @@ def create_taxon_fts_table(db_path: PathOrStr = DB_PATH):
 
 
 def create_observation_fts_table(db_path: PathOrStr = DB_PATH):
-    """Create a SQLite FTS5 table for observation text
+    """Create a SQLite FTS5 table for observation text.
+
+    There are two options for indexing observations:
+
+    * Automatic (sync with ``observation`` table): :py:func:`create_observation_fts_triggers`
+    * Manual (with ``Observation`` objects): :py:func:`index_observation_text`
 
     Args:
         db_path: Path to SQLite database
     """
-    prefix_idxs = ', '.join([f'prefix={i}' for i in OBS_PREFIX_INDEXES])
-
     with sqlite3.connect(db_path) as conn:
-        conn.execute(
-            f'CREATE VIRTUAL TABLE IF NOT EXISTS {OBS_FTS_TABLE} USING fts5( '
-            '   text, observation_id, field,'
-            f'  {prefix_idxs})'
-        )
+        conn.execute(_create_observation_fts_table_sql())
+
+
+def create_observation_fts_triggers(db_path: PathOrStr = DB_PATH):
+    """Create SQLite triggers to keep observation_fts in sync with the observation table.
+    Requires both the observation table and observation_fts table to already exist.
+
+    Args:
+        db_path: Path to SQLite database
+    """
+    with sqlite3.connect(db_path) as conn:
+        for sql in _create_observation_fts_trigger_sql():
+            conn.execute(sql)
+
+
+def _create_observation_fts_table_sql() -> str:
+    prefix_idxs = ', '.join([f'prefix={i}' for i in OBS_PREFIX_INDEXES])
+    return (
+        f'CREATE VIRTUAL TABLE IF NOT EXISTS {OBS_FTS_TABLE} USING fts5( '
+        '   text, observation_id, field,'
+        f'  {prefix_idxs})'
+    )
+
+
+def _create_observation_fts_trigger_sql() -> list[str]:
+    return [
+        (
+            'CREATE TRIGGER IF NOT EXISTS observation_ai AFTER INSERT ON observation '
+            + f'BEGIN{_observation_fts_insert_statements("new")}END'
+        ),
+        (
+            'CREATE TRIGGER IF NOT EXISTS observation_au AFTER UPDATE ON observation '
+            + f'BEGIN\n  DELETE FROM {OBS_FTS_TABLE} WHERE observation_id = old.id;'
+            + f'{_observation_fts_insert_statements("new")}END'
+        ),
+        (
+            'CREATE TRIGGER IF NOT EXISTS observation_ad AFTER DELETE ON observation '
+            + f'BEGIN\n  DELETE FROM {OBS_FTS_TABLE} WHERE observation_id = old.id;\nEND'
+        ),
+    ]
+
+
+def _observation_fts_insert_statements(row: str) -> str:
+    return (
+        f'\n  INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field)\n'
+        f"    SELECT {row}.id, {row}.description, 1 WHERE {row}.description IS NOT NULL AND {row}.description != '';"
+        f'\n  INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field)\n'
+        f"    SELECT {row}.id, {row}.place_guess, 4 WHERE {row}.place_guess IS NOT NULL AND {row}.place_guess != '';"
+        f'\n  INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field)\n'
+        f"    SELECT {row}.id, json_extract(value, '$.body'), 2\n"
+        f"    FROM json_each(CASE WHEN json_valid({row}.comments) THEN {row}.comments ELSE '[]' END)\n"
+        "    WHERE json_extract(value, '$.body') IS NOT NULL AND json_extract(value, '$.body') != '';"
+        f'\n  INSERT INTO {OBS_FTS_TABLE} (observation_id, text, field)\n'
+        f"    SELECT {row}.id, json_extract(value, '$.body'), 3\n"
+        f"    FROM json_each(CASE WHEN json_valid({row}.identifications) THEN {row}.identifications ELSE '[]' END)\n"
+        "    WHERE json_extract(value, '$.body') IS NOT NULL AND json_extract(value, '$.body') != '';\n"
+    )
 
 
 def index_observation_text(observations: Sequence[Observation], db_path: PathOrStr = DB_PATH):

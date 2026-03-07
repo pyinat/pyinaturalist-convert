@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.0 (Unreleased)
+
+- Add triggers to sync observation FTS table with main observation table
+- Add alembic migration for observation FTS table + triggers
+
 ## 0.8.3 (2026-03-01)
 
 - Fix dependency check in `dwca.load_dwca_tables()`
