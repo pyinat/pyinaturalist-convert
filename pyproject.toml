@@ -66,7 +66,7 @@ dev = [
     'pytest~=8.0',
     'pytest-cov>=5.0',
     'pytest-xdist>=2.2',
-    'sqlalchemy2-stubs>=0.0.2a38',
+    'sqlalchemy[mypy]>=2.0',
 ]
 
 # Optional dependencies for local dev
@@ -116,6 +116,7 @@ exclude_lines = ['pragma: no cover', 'if TYPE_CHECKING:', 'except ImportError:']
 [tool.mypy]
 ignore_missing_imports = true
 files = ['pyinaturalist_convert']
+plugins = ['sqlalchemy.ext.mypy.plugin']
 
 [tool.ruff]
 fix = true

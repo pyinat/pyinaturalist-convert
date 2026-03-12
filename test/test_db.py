@@ -42,20 +42,18 @@ EXPECTED_TRIGGERS = [
 
 
 def _get_indexes(db_path, table_name):
-    conn = sqlite3.connect(db_path)
-    rows = conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name=?", (table_name,)
-    ).fetchall()
-    conn.close()
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name=?", (table_name,)
+        ).fetchall()
     return sorted(r[0] for r in rows)
 
 
 def _has_table(db_path, table_name):
-    conn = sqlite3.connect(db_path)
-    rows = conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,)
-    ).fetchall()
-    conn.close()
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,)
+        ).fetchall()
     return len(rows) > 0
 
 
@@ -207,9 +205,9 @@ def test_save_observations(tmp_path):
     obs_2 = list(results)[0]
     assert obs_2.id == obs_1.id
     assert (
-        obs_2.annotations[0].controlled_attribute.id == obs_2.annotations[0].controlled_attribute.id
+        obs_2.annotations[0].controlled_attribute.id == obs_1.annotations[0].controlled_attribute.id
     )
-    assert obs_2.annotations[0].controlled_value.id == obs_2.annotations[0].controlled_value.id
+    assert obs_2.annotations[0].controlled_value.id == obs_1.annotations[0].controlled_value.id
     assert obs_2.annotations[0].term == obs_1.annotations[0].term
     assert obs_2.annotations[0].value == obs_1.annotations[0].value
     assert (
@@ -232,14 +230,24 @@ def test_save_observations(tmp_path):
     assert obs_2.taxon.reference_url == obs_1.taxon.reference_url
     assert obs_2.user.id == obs_1.user.id
 
-    results = get_db_observations(db_path, username='test_user', order_by_created=True)
-    assert len(list(results)) == 1
-    results = get_db_observations(db_path, username='nonexistent_user', limit=1)
-    assert len(list(results)) == 0
-    results = get_db_observations(
-        db_path, username='nonexistent_user', limit=1, page=2, order_by_observed=True
-    )
-    assert len(list(results)) == 0
+
+@pytest.mark.parametrize(
+    'kwargs, expected_count',
+    [
+        ({'username': 'test_user', 'order_by_created': True}, 1),
+        ({'username': 'nonexistent_user', 'limit': 1}, 0),
+        ({'username': 'nonexistent_user', 'limit': 1, 'page': 2, 'order_by_observed': True}, 0),
+    ],
+)
+def test_get_db_observations__filters(tmp_path, kwargs, expected_count):
+    """Test that get_db_observations() correctly filters and orders results"""
+    db_path = tmp_path / 'observations.db'
+    obs = Observation(id=1, user=User(id=1, login='test_user'))
+    create_tables(db_path)
+    save_observations([obs], db_path=db_path)
+
+    results = list(get_db_observations(db_path, **kwargs))
+    assert len(results) == expected_count
 
 
 def test_save_taxa(tmp_path):
