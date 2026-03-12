@@ -1,6 +1,6 @@
 """Data models and utilities for storing observations and related data in a relational database,
 including SQLite, PostgreSQL, and
-`any other database supported by SQLAlchemy <https://docs.sqlalchemy.org/en/14/dialects/>`_.
+`any other database supported by SQLAlchemy <https://docs.sqlalchemy.org/en/20/dialects/>`_.
 
 These models contain a relevant subset of columns common to most iNat data sources,
 suitable for combining data from API results, CSV export, DwC-A, and/or inaturalist-open-data.
@@ -94,7 +94,7 @@ def create_tables(db_path: PathOrStr = DB_PATH, indexes: bool = True):
     """
     from alembic import command
 
-    for mapper in Base.mappers:
+    for mapper in Base.registry.mappers:
         create_table(mapper.class_, db_path, indexes=indexes)
 
     alembic_cfg = get_alembic_config(db_path)

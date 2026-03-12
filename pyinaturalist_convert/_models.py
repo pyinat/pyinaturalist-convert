@@ -1,8 +1,6 @@
 # TODO: Could conversion between ORM models and API (attrs) models be simplified?
-from dataclasses import dataclass, field
-from datetime import datetime
 from logging import getLogger
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import quote_plus, unquote
 
 from pyinaturalist import (
@@ -18,26 +16,22 @@ from pyinaturalist import (
     Taxon,
     User,
 )
-from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, inspect, types
-from sqlalchemy.orm import registry, relationship
+from sqlalchemy import ForeignKey, inspect, types
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from .taxonomy import PRECOMPUTED_COLUMNS
 
-Base = registry()
+
+class Base(DeclarativeBase):
+    pass
+
+
 JsonField = dict[str, Any]
 
 logger = getLogger(__name__)
 
 
-def sa_field(col_type, index: bool = False, primary_key: bool = False, **kwargs):
-    """Get a dataclass field with SQLAlchemy column metadata"""
-    column = Column(col_type, index=index, primary_key=primary_key)
-    return field(**kwargs, metadata={'sa': column})
-
-
-@Base.mapped
-@dataclass
-class DbObservation:
+class DbObservation(Base):
     """Intermediate data model for persisting Observation data to a relational database
 
     Notes:
@@ -51,34 +45,33 @@ class DbObservation:
     """
 
     __tablename__ = 'observation'
-    __sa_dataclass_metadata_key__ = 'sa'
 
-    id: int = sa_field(Integer, primary_key=True)
-    captive: bool = sa_field(Boolean, default=None, index=True)
-    created_at: datetime = sa_field(String, default=None, index=True)
-    description: str = sa_field(String, default=None)
-    identifications_count: int = sa_field(Integer, default=0)
-    geoprivacy: str = sa_field(String, default=None, index=True)
-    latitude: float = sa_field(Float, default=None)
-    longitude: float = sa_field(Float, default=None)
-    license_code: str = sa_field(String, default=None)
-    observed_on: datetime = sa_field(String, default=None, index=True)
-    place_guess: str = sa_field(String, default=None)
-    place_ids: str = sa_field(String, default=None)
-    positional_accuracy: int = sa_field(Integer, default=None)
-    quality_grade: str = sa_field(String, default=None, index=True)
-    taxon_id: int = sa_field(ForeignKey('taxon.id'), default=None, index=True)
-    updated_at: datetime = sa_field(String, default=None, index=True)
-    user_id: int = sa_field(ForeignKey('user.id'), default=None)
-    user_login: int = sa_field(Integer, default=None)
-    uuid: str = sa_field(String, default=None, index=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    captive: Mapped[bool | None] = mapped_column(index=True, default=None)
+    created_at: Mapped[str | None] = mapped_column(index=True, default=None)
+    description: Mapped[str | None] = mapped_column(default=None)
+    identifications_count: Mapped[int | None] = mapped_column(default=0)
+    geoprivacy: Mapped[str | None] = mapped_column(index=True, default=None)
+    latitude: Mapped[float | None] = mapped_column(default=None)
+    longitude: Mapped[float | None] = mapped_column(default=None)
+    license_code: Mapped[str | None] = mapped_column(default=None)
+    observed_on: Mapped[str | None] = mapped_column(index=True, default=None)
+    place_guess: Mapped[str | None] = mapped_column(default=None)
+    place_ids: Mapped[str | None] = mapped_column(default=None)
+    positional_accuracy: Mapped[int | None] = mapped_column(default=None)
+    quality_grade: Mapped[str | None] = mapped_column(index=True, default=None)
+    taxon_id: Mapped[int | None] = mapped_column(ForeignKey('taxon.id'), index=True, default=None)
+    updated_at: Mapped[str | None] = mapped_column(index=True, default=None)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey('user.id'), default=None)
+    user_login: Mapped[str | None] = mapped_column(default=None)
+    uuid: Mapped[str | None] = mapped_column(index=True, default=None)
 
     # Denormalized nested collections
-    annotations: Optional[list[JsonField]] = sa_field(types.JSON, default=None)
-    comments: Optional[list[JsonField]] = sa_field(types.JSON, default=None)
-    identifications: Optional[list[JsonField]] = sa_field(types.JSON, default=None)
-    ofvs: Optional[list[JsonField]] = sa_field(types.JSON, default=None)
-    tags: str = sa_field(String, default=None)
+    annotations: Mapped[list[JsonField] | None] = mapped_column(types.JSON, default=None)
+    comments: Mapped[list[JsonField] | None] = mapped_column(types.JSON, default=None)
+    identifications: Mapped[list[JsonField] | None] = mapped_column(types.JSON, default=None)
+    ofvs: Mapped[list[JsonField] | None] = mapped_column(types.JSON, default=None)
+    tags: Mapped[str | None] = mapped_column(default=None)
 
     # Table relationships
     photos = relationship(
@@ -161,9 +154,7 @@ class DbObservation:
         )
 
 
-@Base.mapped
-@dataclass
-class DbTaxon:
+class DbTaxon(Base):
     """Intermediate data model for persisting Taxon data to a relational database.
 
     Since different data sources provide different levels of detail, a ``partial`` field is added
@@ -172,27 +163,26 @@ class DbTaxon:
     """
 
     __tablename__ = 'taxon'
-    __sa_dataclass_metadata_key__ = 'sa'
 
-    id: int = sa_field(Integer, primary_key=True)
-    ancestor_ids: str = sa_field(String, default=None)
-    child_ids: str = sa_field(String, default=None)
-    conservation_status: str = sa_field(String, default=None)
-    establishment_means: str = sa_field(String, default=None)
-    iconic_taxon_id: int = sa_field(Integer, default=0)
-    is_active: bool = sa_field(Boolean, default=None)
-    leaf_taxa_count: int = sa_field(Integer, default=0)
-    observations_count: int = sa_field(Integer, default=0)
-    observations_count_rg: int = sa_field(Integer, default=0)
-    name: str = sa_field(String, default=None, index=True)
-    parent_id: int = sa_field(ForeignKey('taxon.id'), default=None, index=True)
-    partial: bool = sa_field(Boolean, default=False)
-    photo_urls: str = sa_field(String, default=None)
-    preferred_common_name: str = sa_field(String, default=None)
-    rank: str = sa_field(String, default=None)
-    reference_url: str = sa_field(String, default=None)
-    wikipedia_summary: str = sa_field(String, default=None)
-    wikipedia_url: str = sa_field(String, default=None)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ancestor_ids: Mapped[str | None] = mapped_column(default=None)
+    child_ids: Mapped[str | None] = mapped_column(default=None)
+    conservation_status: Mapped[str | None] = mapped_column(default=None)
+    establishment_means: Mapped[str | None] = mapped_column(default=None)
+    iconic_taxon_id: Mapped[int | None] = mapped_column(default=0)
+    is_active: Mapped[bool | None] = mapped_column(default=None)
+    leaf_taxa_count: Mapped[int | None] = mapped_column(default=0)
+    observations_count: Mapped[int | None] = mapped_column(default=0)
+    observations_count_rg: Mapped[int | None] = mapped_column(default=0)
+    name: Mapped[str | None] = mapped_column(index=True, default=None)
+    parent_id: Mapped[int | None] = mapped_column(ForeignKey('taxon.id'), index=True, default=None)
+    partial: Mapped[bool | None] = mapped_column(default=False)
+    photo_urls: Mapped[str | None] = mapped_column(default=None)
+    preferred_common_name: Mapped[str | None] = mapped_column(default=None)
+    rank: Mapped[str | None] = mapped_column(default=None)
+    reference_url: Mapped[str | None] = mapped_column(default=None)
+    wikipedia_summary: Mapped[str | None] = mapped_column(default=None)
+    wikipedia_url: Mapped[str | None] = mapped_column(default=None)
 
     @classmethod
     def from_model(cls, taxon: Taxon) -> 'DbTaxon':
@@ -219,7 +209,7 @@ class DbTaxon:
         )
 
     def to_model(self) -> Taxon:
-        photos = _split_photo_urls(self.photo_urls)
+        photos = _split_photo_urls(self.photo_urls or '')
         c_status = (
             ConservationStatus(status_name=self.conservation_status)
             if self.conservation_status
@@ -232,8 +222,8 @@ class DbTaxon:
         )
         return Taxon(
             id=self.id,
-            ancestors=_get_taxa(self.ancestor_ids),
-            children=_get_taxa(self.child_ids),
+            ancestors=_get_taxa(self.ancestor_ids or ''),
+            children=_get_taxa(self.child_ids or ''),
             conservation_status=c_status,
             establishment_means=est_means,
             default_photo=photos[0] if photos else [],
@@ -259,7 +249,7 @@ class DbTaxon:
             return
 
         new_taxon = self.from_model(taxon)
-        for col in [c.name for c in inspect(self).mapper.columns]:
+        for col in [c.name for c in inspect(self.__class__).columns]:
             if (new_val := getattr(new_taxon, col)) is None:
                 continue
             if col not in PRECOMPUTED_COLUMNS:
@@ -271,27 +261,32 @@ class DbTaxon:
 
 # TODO: Combine observation_id/uuid into one column? Or two separate foreign keys?
 # TODO: Should this include taxon photos as well, or just observation photos?
-@Base.mapped
-@dataclass
-class DbPhoto:
+class DbPhoto(Base):
     """Intermediate data model for persisting Photo data to a relational database"""
 
     __tablename__ = 'photo'
-    __sa_dataclass_metadata_key__ = 'sa'
 
-    id: int = sa_field(Integer, primary_key=True)
-    extension: str = sa_field(String, default=None)
-    file_path: str = sa_field(String, default=None)  # current/last known local file path (if any)
-    height: int = sa_field(Integer, default=None)
-    license: str = sa_field(String, default=None)
-    observation_id: int = sa_field(ForeignKey('observation.id'), default=None, index=True)
-    observation_uuid: str = sa_field(ForeignKey('observation.uuid'), default=None, index=True)
-    original_filename: str = sa_field(String, default=None)  # name when originally uploaded to iNat
-    position: int = sa_field(Integer, default=None)
-    url: str = sa_field(String, default=None)
-    user_id: int = sa_field(ForeignKey('user.id'), default=None)
-    width: int = sa_field(Integer, default=None)
-    uuid: str = sa_field(String, default=None)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    extension: Mapped[str | None] = mapped_column(default=None)
+    file_path: Mapped[str | None] = mapped_column(
+        default=None
+    )  # current/last known local file path (if any)
+    height: Mapped[int | None] = mapped_column(default=None)
+    license: Mapped[str | None] = mapped_column(default=None)
+    observation_id: Mapped[int | None] = mapped_column(
+        ForeignKey('observation.id'), index=True, default=None
+    )
+    observation_uuid: Mapped[str | None] = mapped_column(
+        ForeignKey('observation.uuid'), index=True, default=None
+    )
+    original_filename: Mapped[str | None] = mapped_column(
+        default=None
+    )  # name when originally uploaded to iNat
+    position: Mapped[int | None] = mapped_column(default=None)
+    url: Mapped[str | None] = mapped_column(default=None)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey('user.id'), default=None)
+    width: Mapped[int | None] = mapped_column(default=None)
+    uuid: Mapped[str | None] = mapped_column(default=None)
 
     observation = relationship(
         'DbObservation', back_populates='photos', foreign_keys='DbPhoto.observation_id'
@@ -322,17 +317,14 @@ class DbPhoto:
         )
 
 
-@Base.mapped
-@dataclass
-class DbUser:
+class DbUser(Base):
     """Intermediate data model for persisting User data to a relational database"""
 
     __tablename__ = 'user'
-    __sa_dataclass_metadata_key__ = 'sa'
 
-    id: int = sa_field(Integer, primary_key=True)
-    login: str = sa_field(String, default=None)
-    name: str = sa_field(String, default=None)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    login: Mapped[str | None] = mapped_column(default=None)
+    name: Mapped[str | None] = mapped_column(default=None)
 
     @classmethod
     def from_model(cls, user: User, **kwargs) -> 'DbUser':
@@ -348,8 +340,8 @@ class DbUser:
 
 
 def _flatten_annotations(
-    annotations: Optional[list[Annotation]] = None,
-) -> Optional[list[JsonField]]:
+    annotations: list[Annotation] | None = None,
+) -> list[JsonField] | None:
     return [_flatten_annotation(a) for a in annotations] if annotations else None
 
 
@@ -365,8 +357,8 @@ def _flatten_annotation(annotation: Annotation) -> JsonField:
 
 
 def _flatten_comments(
-    comments: Optional[list[Comment]] = None,
-) -> Optional[list[JsonField]]:
+    comments: list[Comment] | None = None,
+) -> list[JsonField] | None:
     return [_flatten_comment(c) for c in comments] if comments else None
 
 
@@ -380,8 +372,8 @@ def _flatten_comment(comment: Comment):
 
 
 def _flatten_identifications(
-    identifications: Optional[list[Identification]] = None,
-) -> Optional[list[JsonField]]:
+    identifications: list[Identification] | None = None,
+) -> list[JsonField] | None:
     return [_flatten_identification(i) for i in identifications] if identifications else None
 
 
@@ -393,8 +385,8 @@ def _flatten_identification(identification: Identification) -> JsonField:
 
 
 def _flatten_ofvs(
-    ofvs: Optional[list[ObservationFieldValue]] = None,
-) -> Optional[list[JsonField]]:
+    ofvs: list[ObservationFieldValue] | None = None,
+) -> list[JsonField] | None:
     return [{'name': ofv.name, 'value': ofv.value} for ofv in ofvs] if ofvs else None
 
 
@@ -419,15 +411,15 @@ def _get_db_obs_photos(obs: Observation) -> list[DbPhoto]:
     return photos
 
 
-def _split_list(values_str: Optional[str] = None) -> list[str]:
+def _split_list(values_str: str | None = None) -> list[str]:
     return values_str.split(',') if values_str else []
 
 
-def _split_int_list(values_str: Optional[str] = None) -> list[int]:
+def _split_int_list(values_str: str | None = None) -> list[int]:
     return [int(i) for i in values_str.split(',')] if values_str else []
 
 
-def _join_list(values: Optional[list] = None) -> str:
+def _join_list(values: list | None = None) -> str:
     return ','.join(map(str, values)) if values else ''
 
 

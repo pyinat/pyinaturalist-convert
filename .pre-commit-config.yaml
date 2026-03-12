@@ -21,7 +21,7 @@ repos:
     rev: v1.19.1
     hooks:
       - id: mypy
-        additional_dependencies: [alembic, attrs, sqlalchemy2-stubs, types-python-dateutil, types-requests, types-tabulate]
+        additional_dependencies: [alembic, attrs, 'sqlalchemy[mypy]', types-python-dateutil, types-requests, types-tabulate]
         exclude: '^alembic/'
   - repo: https://github.com/crate-ci/typos
     rev: v1.44.0
