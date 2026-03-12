@@ -5,6 +5,19 @@
 - Add triggers to sync observation FTS table with main observation table
 - Add alembic migration for observation FTS table + triggers
 
+Darwin Core metadata:
+- Replace legacy Adobe `xap` namespace with `xmp` for `CreateDate`, `Owner`, and `UsageTerms`
+- Fix `observation.geoprivacy <-> dwc:informationWithheld`
+- Map `taxon.variety -> to dwc:infraspecificEpithet` instead of `dwc:cultivarEpithet` (which is for horticultural cultivar
+names)
+- Map `observation.uuid -> dwc:occurrenceID` instead of observation URL
+- Map `observation.quality_grade -> dwc:identificationVerificationStatus`
+- Map `observation.species_guess -> dwc:verbatimIdentification`
+- Map `observation.observed_on_details -> (dwc:year, dwc:month, dwc:day)`
+- Map `observation.annotations -> (dwc:sex, dwc:lifeStage)`
+- Map `observation.outlinks -> dwc:associatedReferences`
+- Map `'present' (constant) -> dwc:occurrenceStatus`
+
 ## 0.8.3 (2026-03-01)
 
 - Fix dependency check in `dwca.load_dwca_tables()`

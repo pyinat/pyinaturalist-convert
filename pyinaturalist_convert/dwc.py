@@ -24,7 +24,6 @@
     dwc_to_observations
 """
 
-# TODO: Translate DwC lifeStage and sex to iNat annotations
 # TODO: For sound recordings: eol:dataObject.dcterms:type and any other fields?
 import re
 from datetime import datetime
@@ -40,13 +39,14 @@ from .converters import AnyObservations, AnyTaxa, flatten_observations, to_dicts
 
 # Top-level fields from observation JSON
 OBSERVATION_FIELDS = {
-    'created_at': 'xap:CreateDate',
+    'created_at': 'xmp:CreateDate',
     'description': 'dwc:occurrenceRemarks',
     'id': 'dwc:catalogNumber',
     'license_code': 'dcterms:license',
     'observed_on': 'dwc:verbatimEventDate',
     'place_guess': 'dwc:verbatimLocality',
     'positional_accuracy': 'dwc:coordinateUncertaintyInMeters',
+    'species_guess': 'dwc:verbatimIdentification',
     'taxon.id': 'dwc:taxonID',
     'taxon.rank': 'dwc:taxonRank',
     'taxon.name': 'dwc:scientificName',
@@ -59,11 +59,16 @@ OBSERVATION_FIELDS = {
     'taxon.subfamily': 'dwc:subfamily',
     'taxon.genus': 'dwc:genus',
     'taxon.subgenus': 'dwc:subgenus',
-    'taxon.variety': 'dwc:cultivarEpithet',
+    'taxon.variety': 'dwc:infraspecificEpithet',
     'taxon.iconic_taxon_id': 'inat:iconic_taxon_id',
+    'taxon.extinct': 'inat:extinct',
+    'taxon.threatened': 'inat:threatened',
+    'taxon.introduced': 'inat:introduced',
+    'taxon.native': 'inat:native',
+    'taxon.endemic': 'inat:endemic',
     'updated_at': 'dcterms:modified',
-    'uri': ['dcterms:references', 'dwc:occurrenceDetails', 'dwc:occurrenceID'],
-    'user.login': 'dwc:inaturalistLogin',
+    'uri': ['dcterms:references', 'dwc:occurrenceDetails'],
+    'user.login': 'inat:userLogin',
     'user.name': ['dwc:recordedBy', 'dcterms:rightsHolder'],
     'user.orcid': 'dwc:recordedByID',
 }
@@ -89,8 +94,8 @@ PHOTO_FIELDS = {
 # Fields from observation JSON to add to photo info in eol:dataObject
 PHOTO_OBS_FIELDS = {
     'description': 'dcterms:description',
-    'observed_on': 'ap:CreateDate',
-    'user.name': ['dcterms:creator', 'xap:Owner'],
+    'observed_on': 'xmp:CreateDate',
+    'user.name': ['dcterms:creator', 'xmp:Owner'],
 }
 
 # Fields that will be constant for all iNaturalist observations
@@ -99,6 +104,7 @@ CONSTANTS = {
     'dwc:collectionCode': 'Observations',
     'dwc:institutionCode': 'iNaturalist',
     'dwc:geodeticDatum': 'EPSG:4326',
+    'dwc:occurrenceStatus': 'present',
 }
 PHOTO_CONSTANTS = {
     'dcterms:publisher': 'iNaturalist',
@@ -123,7 +129,7 @@ XML_NAMESPACES = {
     'xmlns:geo': 'http://www.w3.org/2003/01/geo/wgs84_pos#',
     'xmlns:media': 'http://eol.org/schema/media/',
     'xmlns:ref': 'http://eol.org/schema/reference/',
-    'xmlns:xap': 'http://ns.adobe.com/xap/1.0/',
+    'xmlns:xmp': 'http://ns.adobe.com/xap/1.0/',
     'xmlns:inat': 'https://www.inaturalist.org/schema/terms/',
 }
 
@@ -141,11 +147,9 @@ XML_NAMESPACES = {
 #   media:thumbnailURL: link to 'thumbnail' size photo
 #   ac:furtherInformationURL: Link to photo info page
 #   dcterms:format: MIME type, based on file extension
-#   xap:UsageTerms: license code URL
+#   xmp:UsageTerms: license code URL
 
 # Additional fields that could potentially be added:
-#   dwc:sex: From annotations
-#   dwc:lifeStage: From annotations
 #   dwc:countryCode: 2-letter country code; possibly get from place_guess
 #   dwc:stateProvince:This may require a separate query to /places endpoint, so skipping for now
 
@@ -213,14 +217,22 @@ def observation_to_dwc_record(observation: dict) -> dict:
         dwc_record[dwc_field] = value
 
     # Add fields that require some formatting
+    dwc_record['dwc:occurrenceID'] = observation.get('uuid')
     dwc_record.update(_format_location(observation.get('location')))
     dwc_record['inat:captive'] = _format_captive(observation['captive'])
     dwc_record['dwc:establishmentMeans'] = _format_captive(observation['captive'])
     dwc_record['dwc:datasetName'] = _format_dataset_name(observation['quality_grade'])
+    dwc_record['dwc:identificationVerificationStatus'] = observation.get('quality_grade')
     dwc_record['dwc:eventDate'] = _format_datetime(observation['observed_on'])
     dwc_record['dwc:eventTime'] = _format_time(observation['observed_on'])
     dwc_record['dwc:informationWithheld'] = _format_geoprivacy(observation)
     dwc_record['dcterms:license'] = _format_license(observation['license_code'])
+    dwc_record['dwc:associatedReferences'] = _format_outlinks(observation)
+    dwc_record.update(_format_annotations(observation))
+
+    dwc_record['dwc:year'] = observation.get('observed_on_details.year')
+    dwc_record['dwc:month'] = observation.get('observed_on_details.month')
+    dwc_record['dwc:day'] = observation.get('observed_on_details.day')
 
     return dwc_record
 
@@ -254,7 +266,7 @@ def _photo_to_data_object(observation: dict, photo: dict) -> dict:
     dwc_photo['ac:furtherInformationURL'] = photo_obj.info_url
     dwc_photo['dcterms:format'] = photo_obj.mimetype
     dwc_photo['media:thumbnailURL'] = photo_obj.thumbnail_url
-    dwc_photo['xap:UsageTerms'] = _format_license(photo_obj.license_code)
+    dwc_photo['xmp:UsageTerms'] = _format_license(photo_obj.license_code)
     return dwc_photo
 
 
@@ -293,7 +305,7 @@ def _format_datetime(dt: datetime | str) -> str:
 def _format_geoprivacy(observation: dict) -> Optional[str]:
     if observation['geoprivacy'] == 'obscured':
         return (
-            f'Coordinate uncertainty increased to {observation["positional_accuracy"]}'
+            f'Coordinate uncertainty increased to {observation["positional_accuracy"]} '
             'at the request of the observer'
         )
     elif observation['geoprivacy'] == 'private':
@@ -322,6 +334,30 @@ def _format_time(dt: datetime | str) -> str:
     if isinstance(dt, str):
         dt = parse_date(dt)
     return dt.strftime('%H:%M%z')
+
+
+def _format_annotations(observation: dict) -> dict:
+    """Extract dwc:sex and dwc:lifeStage from iNat annotations"""
+    result: dict[str, Optional[str]] = {'dwc:sex': None, 'dwc:lifeStage': None}
+    for annotation in observation.get('annotations', []):
+        try:
+            label = annotation['controlled_attribute']['label'].lower()
+            value = annotation['controlled_value']['label']
+        except (KeyError, TypeError):
+            continue
+        if label == 'sex':
+            result['dwc:sex'] = value
+        elif label == 'life stage':
+            result['dwc:lifeStage'] = value
+    return result
+
+
+def _format_outlinks(observation: dict) -> Optional[str]:
+    """Extract the GBIF URL from observation outlinks, if present"""
+    for outlink in observation.get('outlinks', []):
+        if outlink.get('source') == 'GBIF':
+            return outlink.get('url')
+    return None
 
 
 def dwc_to_observations(filename: PathOrStr) -> list[Observation]:
@@ -380,6 +416,7 @@ def get_dwc_lookup() -> dict[str, str]:
     lookup['dwc:decimalLongitude'] = 'longitude'
     lookup['dwc:informationWithheld'] = 'geoprivacy'
     lookup['dwc:eventDate'] = 'observed_on'
+    lookup['dwc:occurrenceID'] = 'uuid'
     return lookup
 
 
@@ -392,11 +429,11 @@ def _format_dwc_ancestors(dwc_record: dict) -> list[dict[str, str]]:
 
 
 def _format_dwc_geoprivacy(dwc_record: dict) -> Optional[str]:
-    if not dwc_record.get('informationWithheld'):
+    if not dwc_record.get('dwc:informationWithheld'):
         return None
-    elif 'Coordinate uncertainty increased' in dwc_record['informationWithheld']:
+    elif 'Coordinate uncertainty increased' in dwc_record['dwc:informationWithheld']:
         return 'obscured'
-    elif 'Coordinates hidden' in dwc_record['informationWithheld']:
+    elif 'Coordinates removed' in dwc_record['dwc:informationWithheld']:
         return 'private'
     else:
         return 'open'

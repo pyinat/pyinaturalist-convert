@@ -17,6 +17,13 @@ def test_observation_to_dwc():
     assert dwc_record['dwc:decimalLongitude'] == -117.2815829044
     assert dwc_record['dwc:eventDate'] == '2020-05-09 06:01:00-07:00'
     assert dwc_record['dwc:scientificName'] == 'Dirona picta'
+    assert dwc_record['dwc:occurrenceID'] == '9e0555e0-1f8f-4ad1-b5d5-f06f03dd5ed1'
+    assert dwc_record['dwc:occurrenceStatus'] == 'present'
+    assert dwc_record['dwc:identificationVerificationStatus'] == 'research'
+    assert dwc_record['dwc:associatedReferences'] == 'http://www.gbif.org/occurrence/2626669957'
+    assert dwc_record['dwc:year'] == 2020
+    assert dwc_record['dwc:month'] == 5
+    assert dwc_record['dwc:day'] == 9
 
 
 def test_taxon_to_dwc():
@@ -50,9 +57,14 @@ def test_taxon_to_dwc():
         'dwc:subfamily': None,
         'dwc:genus': 'Philemon',
         'dwc:subgenus': None,
-        'dwc:cultivarEpithet': None,
+        'dwc:infraspecificEpithet': None,
         'dwc:vernacularName': 'Helmeted Friarbird',
         'inat:iconic_taxon_id': 3,
+        'inat:extinct': None,
+        'inat:threatened': None,
+        'inat:introduced': None,
+        'inat:native': None,
+        'inat:endemic': None,
     }
 
 
@@ -74,3 +86,25 @@ def test_dwc_record_to_observation():
     assert len(obs.taxon.ancestors) == 6
     kingdom = obs.taxon.ancestors[0]
     assert kingdom.name == 'Animalia' and kingdom.rank == 'kingdom'
+
+
+def test_private_geoprivacy_round_trip():
+    """Private geoprivacy survives to_dwc -> dwc_to_observations round-trip"""
+    dwc_path = SAMPLE_DATA_DIR / 'observations.dwc'
+    observation = load_sample_data('observation.json')['results'][0]
+    observation['geoprivacy'] = 'private'
+    to_dwc(observation, dwc_path)
+
+    obs = dwc_to_observations(dwc_path)[0]
+    assert obs.geoprivacy == 'private'
+
+
+def test_obscured_geoprivacy_round_trip():
+    """Obscured geoprivacy survives to_dwc -> dwc_to_observations round-trip"""
+    dwc_path = SAMPLE_DATA_DIR / 'observations.dwc'
+    observation = load_sample_data('observation.json')['results'][0]
+    observation['geoprivacy'] = 'obscured'
+    to_dwc(observation, dwc_path)
+
+    obs = dwc_to_observations(dwc_path)[0]
+    assert obs.geoprivacy == 'obscured'
