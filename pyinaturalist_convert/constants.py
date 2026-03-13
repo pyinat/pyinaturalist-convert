@@ -1,4 +1,5 @@
 # ruff: noqa: F401
+import re
 from pathlib import Path
 from typing import TypeAlias
 
@@ -25,6 +26,71 @@ DWCA_TAXON_CSV = DWCA_TAXON_CSV_DIR / 'taxa.csv'
 DWCA_OBS_CSV_DIR = DATA_DIR / 'gbif-observations-dwca'
 DWCA_OBS_CSV = DWCA_OBS_CSV_DIR / 'observations.csv'
 TAXON_AGGREGATES_PATH = DATA_DIR / 'taxon_aggregates.parquet'
+
+PHOTO_BASE_URL = 'https://www.inaturalist.org/photos'
+CC_BASE_URL = 'http://creativecommons.org/licenses'
+CC_URL_PATTERN = re.compile(r'.*\/licenses\/([\w-]+)/.*')
+CC_VERSION = '4.0'
+
+GBIF_LIFE_STAGES = {
+    'adult',
+    'agamont',
+    'ammocoete',
+    'bipinnaria',
+    'blastomere',
+    'calf',
+    'caterpillar',
+    'chick',
+    'eft',
+    'egg',
+    'elver',
+    'embryo',
+    'fawn',
+    'foal',
+    'fry',
+    'gamete',
+    'gametophyte',
+    'gamont',
+    'glochidium',
+    'grub',
+    'hatchling',
+    'imago',
+    'infant',
+    'juvenile',
+    'kit',
+    'kitten',
+    'larva',
+    'larvae',
+    'leptocephalus',
+    'maggot',
+    'nauplius',
+    'nymph',
+    'ovule',
+    'ovum',
+    'planula',
+    'polewig',
+    'pollen',
+    'polliwig',
+    'polliwog',
+    'pollywog',
+    'polwig',
+    'protonema',
+    'pup',
+    'pupa',
+    'puppe',
+    'seed',
+    'seedling',
+    'sperm',
+    'spore',
+    'sporophyte',
+    'tadpole',
+    'trochophore',
+    'veliger',
+    'whelp',
+    'wriggler',
+    'zoea',
+    'zygote',
+}
 
 ParamList: TypeAlias = list[str | int]
 PathOrStr: TypeAlias = Path | str

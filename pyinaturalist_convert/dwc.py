@@ -24,30 +24,63 @@
     dwc_to_observations
 """
 
-# TODO: For sound recordings: eol:dataObject.dcterms:type and any other fields?
 import re
 from datetime import datetime
 from typing import Any, Optional
 
 from dateutil.parser import parse as parse_date
-from flatten_dict import flatten, unflatten
-from pyinaturalist import RANKS, Coordinates, Observation, Photo, get_taxa_by_id
+from flatten_dict import unflatten
+from pyinaturalist import (
+    RANKS,
+    Coordinates,
+    Observation,
+    Photo,
+    Sound,
+    get_places_by_id,
+    get_taxa_by_id,
+)
 from pyinaturalist.converters import try_float_pair, try_int
 
-from .constants import PathOrStr
+from .constants import CC_BASE_URL, CC_URL_PATTERN, CC_VERSION, GBIF_LIFE_STAGES, PHOTO_BASE_URL, PathOrStr
 from .converters import AnyObservations, AnyTaxa, flatten_observations, to_dicts, write
 
+# For reference: observation fields added with additional formatting in observation_to_dwc_record:
+#   description: dwc:occurrenceRemarks      (via _dwc_filter_text)
+#   license_code: dcterms:license           (via _format_license)
+#   observed_on: dwc:verbatimEventDate      (observed_on_string with fallback)
+#   place_guess: dwc:verbatimLocality       (via _dwc_filter_text)
+#   taxon.id: dwc:taxonID                   (as URL form)
+#   quality_grade: dwc:datasetName
+#   captive: [inat:captive, dwc:establishmentMeans]
+#   location: [dwc:decimalLatitude, dwc:decimalLongitude]
+#   observed_on: dwc:eventDate              (ISO datetime)
+#   observed_on: dwc:eventTime              (ISO datetime, time portion only)
+#   geoprivacy: dwc:informationWithheld
+#   positional_accuracy: dwc:coordinateUncertaintyInMeters  (public_positional_accuracy when obscured)
+
+# Photo fields:
+#   ac:accessURI: link to 'original' size photo
+#   media:thumbnailURL: link to 'thumbnail' size photo
+#   ac:furtherInformationURL: Link to photo info page
+#   dcterms:format: MIME type, based on file extension
+#   xmp:UsageTerms: license code URL
+
+# Additional fields that could potentially be added:
+#   dwc:countryCode: 2-letter country code; possibly get from place_guess
+#   dwc:stateProvince:This may require a separate query to /places endpoint, so skipping for now
+
 # Top-level fields from observation JSON
+# Note: some fields are handled separately with formatting in observation_to_dwc_record:
+#   description -> dwc:occurrenceRemarks  (via _dwc_filter_text)
+#   observed_on -> dwc:verbatimEventDate  (via observed_on_string logic)
+#   place_guess -> dwc:verbatimLocality   (via _dwc_filter_text)
+#   license_code -> dcterms:license       (via _format_license)
+#   taxon.id -> dwc:taxonID               (as URL form)
 OBSERVATION_FIELDS = {
     'created_at': 'xmp:CreateDate',
-    'description': 'dwc:occurrenceRemarks',
     'id': 'dwc:catalogNumber',
-    'license_code': 'dcterms:license',
-    'observed_on': 'dwc:verbatimEventDate',
-    'place_guess': 'dwc:verbatimLocality',
     'positional_accuracy': 'dwc:coordinateUncertaintyInMeters',
     'species_guess': 'dwc:verbatimIdentification',
-    'taxon.id': 'dwc:taxonID',
     'taxon.rank': 'dwc:taxonRank',
     'taxon.name': 'dwc:scientificName',
     'taxon.preferred_common_name': 'dwc:vernacularName',
@@ -69,12 +102,10 @@ OBSERVATION_FIELDS = {
     'updated_at': 'dcterms:modified',
     'uri': ['dcterms:references', 'dwc:occurrenceDetails'],
     'user.login': 'inat:userLogin',
-    'user.name': ['dwc:recordedBy', 'dcterms:rightsHolder'],
     'user.orcid': 'dwc:recordedByID',
 }
 
-
-# Fields from first ID (observation['identifications'][0])
+# Identification fields from the first improving identification
 ID_FIELDS = {
     'created_at': 'dwc:dateIdentified',
     'id': 'dwc:identificationID',
@@ -111,13 +142,6 @@ PHOTO_CONSTANTS = {
     'dcterms:type': 'http://purl.org/dc/dcmitype/StillImage',
 }
 
-# Other constants needed for converting/formatting
-CC_BASE_URL = 'http://creativecommons.org/licenses'
-CC_URL_PATTERN = re.compile(r'.*\/licenses\/([\w-]+)/.*')
-CC_VERSION = '4.0'
-DATASET_TITLES = {'casual': 'casual', 'needs_id': 'unconfirmed', 'research': 'research-grade'}
-DATETIME_FIELDS = ['observed_on', 'created_at']
-PHOTO_BASE_URL = 'https://www.inaturalist.org/photos'
 XML_NAMESPACES = {
     'xsi:schemaLocation': 'http://rs.tdwg.org/dwc/xsd/simpledarwincore/  http://rs.tdwg.org/dwc/xsd/tdwg_dwc_simple.xsd',
     'xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
@@ -132,26 +156,6 @@ XML_NAMESPACES = {
     'xmlns:xmp': 'http://ns.adobe.com/xap/1.0/',
     'xmlns:inat': 'https://www.inaturalist.org/schema/terms/',
 }
-
-# For reference: other observation fields that are added with additional formatting:
-#   license_code: dcterms:license
-#   quality_grade: dwc:datasetName
-#   captive: [inat:captive, dwc:establishmentMeans]
-#   location: [dwc:decimalLatitude, dwc:decimalLongitude]
-#   observed_on: dwc:eventDate  # ISO datetime
-#   observed_on: dwc:eventTime  # ISO datetime, Time portion only
-#   geoprivacy: informationWithheld
-
-# Photo fields:
-#   ac:accessURI: link to 'original' size photo
-#   media:thumbnailURL: link to 'thumbnail' size photo
-#   ac:furtherInformationURL: Link to photo info page
-#   dcterms:format: MIME type, based on file extension
-#   xmp:UsageTerms: license code URL
-
-# Additional fields that could potentially be added:
-#   dwc:countryCode: 2-letter country code; possibly get from place_guess
-#   dwc:stateProvince:This may require a separate query to /places endpoint, so skipping for now
 
 
 def to_dwc(
@@ -270,18 +274,66 @@ def _photo_to_data_object(observation: dict, photo: dict) -> dict:
     return dwc_photo
 
 
-def _add_taxon_ancestors(observation):
-    """observation['taxon'] doesn't have full ancestry, so we'll need to get that from the
-    /taxa endpoint
+def _sound_to_data_object(observation: dict, sound: dict) -> dict:
+    """Translate observation sound fields to eol:dataObject fields"""
+    sound_obj = Sound.from_json(sound)
+    observer_name = _format_person_name_from_flat(observation)
+    return {
+        'dcterms:type': 'Sound',
+        'dcterms:format': sound_obj.file_content_type,
+        'dcterms:identifier': sound_obj.file_url,
+        'dcterms:references': sound_obj.file_url,
+        'dcterms:created': _format_datetime(sound_obj.created_at) or observation.get('observed_on'),
+        'dcterms:creator': observer_name,
+        'dcterms:publisher': 'iNaturalist',
+        'dcterms:license': _format_license(sound_obj.license_code),
+        'dcterms:rightsHolder': observer_name,
+        'dwc:catalogNumber': sound_obj.id,
+    }
+
+
+def _batch_add_taxon_ancestors(observations: list[dict]) -> list[dict]:
+    """Fetch taxon ancestors for all observations in a single API call.
+
+    Note: get_taxa_by_id() accepts a list of IDs; for very large datasets (hundreds of unique
+    taxa) consider chunking the list if API limits are encountered.
     """
-    response = get_taxa_by_id(observation['taxon.id'])
-    taxon = response['results'][0]
+    taxon_ids = {obs['taxon.id'] for obs in observations if obs.get('taxon.id')}
+    if not taxon_ids:
+        return observations
 
-    # Simplify ancestor records into genus=xxxx, family=xxxx, etc.
-    for ancestor in taxon['ancestors']:
-        observation[f'taxon.{ancestor["rank"]}'] = ancestor['name']
+    response = get_taxa_by_id(list(taxon_ids))
 
-    return observation
+    # Build cache: taxon_id -> {rank: name}
+    ancestor_cache: dict[int, dict[str, str]] = {}
+    for taxon in response.get('results', []):
+        ancestors = {ancestor['rank']: ancestor['name'] for ancestor in taxon.get('ancestors', [])}
+        ancestor_cache[taxon['id']] = ancestors
+
+    # Populate ancestor fields on each observation
+    for obs in observations:
+        taxon_id = obs.get('taxon.id')
+        if taxon_id and taxon_id in ancestor_cache:
+            for rank, name in ancestor_cache[taxon_id].items():
+                obs[f'taxon.{rank}'] = name
+
+    return observations
+
+
+def _batch_fetch_places(observations: list[dict]) -> dict[int, dict]:
+    """Fetch place details for all place IDs across all observations in a single API call.
+
+    Returns a dict mapping place_id -> place dict.
+    Note: get_places_by_id() accepts a list of IDs; chunk if needed for very large datasets.
+    """
+    all_place_ids: set[int] = set()
+    for obs in observations:
+        all_place_ids.update(obs.get('place_ids', []))
+    if not all_place_ids:
+        return {}
+
+    response = get_places_by_id(list(all_place_ids))
+    return {place['id']: place for place in response.get('results', [])}
 
 
 def _ensure_list(value):
@@ -293,7 +345,9 @@ def _format_captive(captive: bool) -> str:
 
 
 def _format_dataset_name(quality_grade: str) -> str:
-    return f'iNaturalist {DATASET_TITLES.get(quality_grade, "")} observations'
+    if quality_grade == 'research':
+        return 'iNaturalist research-grade observations'
+    return 'iNaturalist observations'
 
 
 def _format_datetime(dt: datetime | str) -> str:
@@ -330,10 +384,129 @@ def _format_location(location: Optional[list[float]]) -> dict[str, float]:
     return {'dwc:decimalLatitude': location[0], 'dwc:decimalLongitude': location[1]}
 
 
-def _format_time(dt: datetime | str) -> str:
-    if isinstance(dt, str):
-        dt = parse_date(dt)
-    return dt.strftime('%H:%M%z')
+def _dwc_filter_text(text: Optional[str]) -> Optional[str]:
+    if not text:
+        return None
+    return re.sub(r'\s+', ' ', str(text)).strip()
+
+
+def _has_time_component(value: str) -> bool:
+    return bool(re.search(r'\d{2}:\d{2}', value))
+
+
+def _format_event_date(observation: dict) -> Optional[str]:
+    dt_value = observation.get('time_observed_at') or observation.get('observed_on')
+    if not dt_value:
+        return None
+    if isinstance(dt_value, str) and re.fullmatch(r'\d{4}-\d{2}-\d{2}', dt_value):
+        return dt_value
+    return _format_datetime(dt_value)
+
+
+def _format_event_time(observation: dict) -> Optional[str]:
+    dt_value = observation.get('time_observed_at')
+    if not dt_value:
+        observed_on = observation.get('observed_on')
+        if isinstance(observed_on, str) and _has_time_component(observed_on):
+            dt_value = observed_on
+        elif isinstance(observed_on, datetime):
+            dt_value = observed_on
+        else:
+            return None
+    formatted = _format_datetime(dt_value)
+    if not formatted or 'T' not in formatted:
+        return None
+    return formatted.split('T', 1)[1]
+
+
+def _format_person_name(user: dict) -> Optional[str]:
+    name = user.get('name')
+    return name if name else user.get('login')
+
+
+def _format_person_name_from_flat(observation: dict) -> Optional[str]:
+    name = observation.get('user.name')
+    return name if name else observation.get('user.login')
+
+
+def _camelize_lower(value: str) -> str:
+    parts = value.split('_')
+    if not parts:
+        return value
+    return parts[0] + ''.join(p[:1].upper() + p[1:] for p in parts[1:])
+
+
+def _format_orcid(orcid: Optional[str]) -> Optional[str]:
+    if not orcid:
+        return None
+    if orcid.startswith('http://') or orcid.startswith('https://'):
+        return orcid
+    return f'https://orcid.org/{orcid}'
+
+
+def _get_first_improving_identification(observation: dict) -> Optional[dict]:
+    identifications = observation.get('identifications') or []
+    if not identifications:
+        return None
+    taxon_id = observation.get('taxon.id')
+    current_idents = sorted(
+        [i for i in identifications if i.get('current')],
+        key=lambda x: x.get('id', 0),
+    )
+    for ident in current_idents:
+        if ident.get('taxon_id') == taxon_id and ident.get('category') == 'improving':
+            return ident
+    return None
+
+
+def _get_publishing_country(observation: dict) -> Optional[str]:
+    code = observation.get('site.place.code') or observation.get('site.place_code')
+    if code and len(code) == 2:
+        return code.upper()
+    return None
+
+
+def _format_place_fields_from_cache(
+    observation: dict, place_cache: dict
+) -> dict[str, Optional[str]]:
+    """Look up place fields for this observation using the pre-fetched place cache.
+
+    Maps admin_level 0 -> dwc:countryCode (place code), 10 -> dwc:stateProvince (name),
+    20 -> dwc:county (name).
+    """
+    country_code = None
+    state_province = None
+    county = None
+
+    for place_id in observation.get('place_ids', []):
+        place = place_cache.get(place_id)
+        if not place:
+            continue
+        admin_level = place.get('admin_level')
+        if admin_level == 0:
+            country_code = place.get('place_type_code') or place.get('code')
+        elif admin_level == 10:
+            state_province = place.get('name')
+        elif admin_level == 20:
+            county = place.get('name')
+
+    return {
+        'dwc:countryCode': country_code,
+        'dwc:stateProvince': state_province,
+        'dwc:county': county,
+    }
+
+
+def _format_project_ids(observation: dict) -> Optional[str]:
+    """Build a pipe-separated list of project URLs from project_observations."""
+    project_observations = observation.get('project_observations', []) or []
+    urls = []
+    for p_obs in project_observations:
+        project = p_obs.get('project') or {}
+        project_id = project.get('id') or p_obs.get('id')
+        if project_id:
+            urls.append(f'https://www.inaturalist.org/projects/{project_id}')
+    return '|'.join(urls) if urls else None
 
 
 def _format_annotations(observation: dict) -> dict:
@@ -433,6 +606,8 @@ def _format_dwc_geoprivacy(dwc_record: dict) -> Optional[str]:
         return None
     elif 'Coordinate uncertainty increased' in dwc_record['dwc:informationWithheld']:
         return 'obscured'
+    elif 'Coordinates hidden' in dwc_record['dwc:informationWithheld']:
+        return 'private'
     elif 'Coordinates removed' in dwc_record['dwc:informationWithheld']:
         return 'private'
     else:
