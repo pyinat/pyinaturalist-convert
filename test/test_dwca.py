@@ -28,3 +28,7 @@ def test_load_observation_table(tmp_path):
     assert rows[0]['taxon_id'] == 47993
     assert rows[0]['geoprivacy'] == 'obscured'
     assert rows[0]['longitude'] == -122.2834661155
+    # Fields that were previously missing from the DwC reverse lookup
+    assert rows[0]['user_login'] == 'kueda'
+    assert rows[0]['description'].startswith('I found this wasp')
+    assert rows[0]['updated_at'] == '2021-07-28T04:07:34Z'
