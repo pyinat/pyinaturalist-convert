@@ -5,6 +5,27 @@
 - Add triggers to sync observation FTS table with main observation table
 - Add alembic migration for observation FTS table + triggers
 
+Updates to Darwin Core metadata to better align with the spec and iNaturalist's Darwin Core implementation:
+- Replace legacy Adobe `xap` namespace with `xmp` for `CreateDate`, `Owner`, and `UsageTerms`
+- Fix `observation.geoprivacy <-> dwc:informationWithheld`
+- Map `taxon.variety -> to dwc:infraspecificEpithet` instead of `dwc:cultivarEpithet` (which is for horticultural cultivar
+names)
+- Map `observation.uri -> dwc:occurrenceID` and `observation.uuid -> dwc:otherCatalogueNumbers`
+- Map `observation.quality_grade -> dwc:identificationVerificationStatus`
+- Map `observation.species_guess -> dwc:verbatimIdentification`
+- Map `observation.observed_on_details -> (dwc:year, dwc:month, dwc:day)`
+- Map `observation.annotations -> (dwc:sex, dwc:lifeStage, dwc:reproductiveCondition, dwc:vitality, dwc:dynamicProperties)`
+- Map `observation.outlinks -> dwc:associatedReferences`
+- Map `observation.project_observations -> dwc:projectId` (pipe-separated project URLs)
+- Map `'present' (constant) -> dwc:occurrenceStatus`
+- Use first improving identification for identification metadata
+- Prefer `user.name` over `user.login` for recorded/identified by fields
+- Align `dwc:eventDate` / `dwc:eventTime` formatting to ISO 8601
+- Add `inat:`-prefixed identification counts and positioning metadata
+- Replace `place_guess` heuristics with place API lookup for accurate `dwc:countryCode`, `dwc:stateProvince`, and `dwc:county`
+- Expand taxon export with identifiers, parent usage, and epithet fields
+- Add option `to_dwc(fetch_missing=True)` to fetch additional data from the API if missing
+
 ## 0.8.3 (2026-03-01)
 
 - Fix dependency check in `dwca.load_dwca_tables()`

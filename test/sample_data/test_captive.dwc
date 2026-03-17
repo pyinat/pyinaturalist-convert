@@ -73,12 +73,12 @@
         <dwc:otherCatalogueNumbers>9e0555e0-1f8f-4ad1-b5d5-f06f03dd5ed1</dwc:otherCatalogueNumbers>
         <dwc:decimalLatitude>32.8430971478</dwc:decimalLatitude>
         <dwc:decimalLongitude>-117.2815829044</dwc:decimalLongitude>
-        <inat:captive>wild</inat:captive>
+        <inat:captive>cultivated</inat:captive>
         <dwc:datasetName>iNaturalist research-grade observations</dwc:datasetName>
         <dwc:identificationVerificationStatus>research</dwc:identificationVerificationStatus>
         <dwc:eventDate>2020-05-09T06:01:00-07:00</dwc:eventDate>
         <dwc:eventTime>06:01:00-07:00</dwc:eventTime>
-        <dwc:informationWithheld>Coordinates hidden at the request of the observer</dwc:informationWithheld>
+        <dwc:informationWithheld></dwc:informationWithheld>
         <dcterms:license>http://creativecommons.org/licenses/by-nc/4.0</dcterms:license>
         <dwc:associatedReferences>http://www.gbif.org/occurrence/2626669957</dwc:associatedReferences>
         <dwc:sex></dwc:sex>
