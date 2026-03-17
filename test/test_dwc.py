@@ -53,7 +53,7 @@ def test_observation_to_dwc():
     """Get a test observation, and convert it to DwC"""
     # Get as a dict, and just test for a few basic terms
     with _patch_api():
-        dwc_record = to_dwc(OBSERVATION)[0]
+        dwc_record = to_dwc(OBSERVATION, fetch_missing=True)[0]
 
     assert dwc_record['dwc:catalogNumber'] == 45524803
     assert dwc_record['dwc:decimalLatitude'] == 32.8430971478
@@ -77,6 +77,39 @@ def test_observation_to_dwc():
         '|https://www.inaturalist.org/projects/14306'
     )
     assert 'inaturalistLogin' not in dwc_record
+
+
+def test_to_dwc_no_fetch():
+    """When fetch_missing=False, API calls should not be made"""
+    with (
+        patch('pyinaturalist_convert.dwc.get_taxa_by_id') as mock_get_taxa,
+        patch('pyinaturalist_convert.dwc.get_places_by_id') as mock_get_places,
+    ):
+        dwc_record = to_dwc(OBSERVATION, fetch_missing=False)[0]
+        mock_get_taxa.assert_not_called()
+        mock_get_places.assert_not_called()
+
+    # Without API calls, some fields should be missing
+    assert dwc_record['dwc:catalogNumber'] == 45524803
+    assert dwc_record.get('dwc:countryCode') is None
+    assert dwc_record.get('dwc:stateProvince') is None
+    assert dwc_record.get('dwc:county') is None
+    assert dwc_record.get('dwc:kingdom') is None
+    assert dwc_record['dwc:scientificName'] == 'Dirona picta'
+
+
+def test_fetch_taxon_ancestors_already_present():
+    """_fetch_taxon_ancestors should not fetch taxa that already have ancestor data"""
+    obs_with_ancestors = copy.deepcopy(OBSERVATION)
+    # This indicates ancestors have been fetched and flattened already
+    obs_with_ancestors['taxon']['kingdom'] = 'Animalia'
+
+    with (
+        patch('pyinaturalist_convert.dwc.get_taxa_by_id') as mock_get_taxa,
+        patch('pyinaturalist_convert.dwc.get_places_by_id', return_value=PLACES_RESPONSE),
+    ):
+        to_dwc([obs_with_ancestors], fetch_missing=True)
+        mock_get_taxa.assert_not_called()
 
 
 def test_taxon_to_dwc():
@@ -134,7 +167,7 @@ def test_taxon_to_dwc():
 def test_dwc_record_to_observation(tmp_path):
     dwc_path = tmp_path / 'observations.dwc'
     with _patch_api():
-        to_dwc(OBSERVATION, dwc_path)
+        to_dwc(OBSERVATION, dwc_path, fetch_missing=True)
 
     obs = dwc_to_observations(dwc_path)[0]
     assert obs.id == 45524803
@@ -157,7 +190,7 @@ def test_geoprivacy_round_trip(tmp_path, geoprivacy):
     dwc_path = tmp_path / 'observations.dwc'
     observation = {**OBSERVATION, 'geoprivacy': geoprivacy}
     with _patch_api():
-        to_dwc(observation, dwc_path)
+        to_dwc(observation, dwc_path, fetch_missing=True)
 
     obs = dwc_to_observations(dwc_path)[0]
     assert obs.geoprivacy == geoprivacy
@@ -166,7 +199,7 @@ def test_geoprivacy_round_trip(tmp_path, geoprivacy):
 def test_taxon_id_as_url():
     """taxon.id should appear as a URL in observation DwC records"""
     with _patch_api():
-        dwc_record = to_dwc(OBSERVATION)[0]
+        dwc_record = to_dwc(OBSERVATION, fetch_missing=True)[0]
     assert dwc_record['dwc:taxonID'] == 'https://www.inaturalist.org/taxa/48978'
 
 
@@ -587,7 +620,7 @@ def test_get_first_improving_identification():
         ],
     }
     with _patch_api():
-        dwc_record = to_dwc(observation)[0]
+        dwc_record = to_dwc(observation, fetch_missing=True)[0]
     assert dwc_record['dwc:identificationID'] == 99
     assert dwc_record['dwc:identifiedBy'] == 'Bob'
 
@@ -702,7 +735,7 @@ def test_format_observer_orcid(orcid, expected):
     """Observer's ORCID is correctly formatted as recordedByID"""
     observation = {**OBSERVATION, 'user': {**OBSERVATION['user'], 'orcid': orcid}}
     with _patch_api():
-        dwc_record = to_dwc(observation)[0]
+        dwc_record = to_dwc(observation, fetch_missing=True)[0]
     assert dwc_record.get('dwc:recordedByID') == expected
 
 
@@ -728,7 +761,7 @@ def test_format_identifier_name(user, expected):
     }
     observation = {**OBSERVATION, 'identifications': [ident]}
     with _patch_api():
-        dwc_record = to_dwc(observation)[0]
+        dwc_record = to_dwc(observation, fetch_missing=True)[0]
     assert dwc_record.get('dwc:identifiedBy') == expected
 
 

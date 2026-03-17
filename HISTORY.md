@@ -24,6 +24,7 @@ names)
 - Add `inat:`-prefixed identification counts and positioning metadata
 - Replace `place_guess` heuristics with place API lookup for accurate `dwc:countryCode`, `dwc:stateProvince`, and `dwc:county`
 - Expand taxon export with identifiers, parent usage, and epithet fields
+- Add option `to_dwc(fetch_missing=True)` to fetch additional data from the API if missing
 
 ## 0.8.3 (2026-03-01)
 

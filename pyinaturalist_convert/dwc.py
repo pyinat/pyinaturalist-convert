@@ -168,6 +168,7 @@ def to_dwc(
     observations: Optional[AnyObservations] = None,
     filename: Optional[PathOrStr] = None,
     taxa: Optional[AnyTaxa] = None,
+    fetch_missing: bool = False,
 ) -> Optional[list[dict]]:
     """Convert observations into to a Simple Darwin Core RecordSet.
 
@@ -175,6 +176,7 @@ def to_dwc(
         observations: Observation records to convert
         filename: Path to write XML output
         taxa: Convert taxon records instead of observations
+        fetch_missing: Fetch additional taxon and place data (if missing) from the API
 
     Returns:
         A list of observation dictionaries (if no filename is provided)
@@ -182,8 +184,10 @@ def to_dwc(
     records: list[dict] = []
     if observations:
         obs_list = list(flatten_observations(observations))
-        obs_list = _batch_add_taxon_ancestors(obs_list)
-        place_cache = _batch_fetch_places(obs_list)
+        place_cache: dict[int, dict] = {}
+        if fetch_missing:
+            obs_list = _fetch_taxon_ancestors(obs_list)
+            place_cache = _fetch_places(obs_list)
         records = [observation_to_dwc_record(obs, place_cache=place_cache) for obs in obs_list]
     elif taxa:
         records = [taxon_to_dwc_record(taxon) for taxon in to_dicts(taxa)]
@@ -380,13 +384,14 @@ def _sound_to_data_object(observation: dict, sound: dict) -> dict:
     }
 
 
-def _batch_add_taxon_ancestors(observations: list[dict]) -> list[dict]:
-    """Fetch taxon ancestors for all observations in a single API call.
-
-    Note: get_taxa_by_id() accepts a list of IDs; for very large datasets (hundreds of unique
-    taxa) consider chunking the list if API limits are encountered.
-    """
-    taxon_ids = {obs['taxon.id'] for obs in observations if obs.get('taxon.id')}
+def _fetch_taxon_ancestors(observations: list[dict]) -> list[dict]:
+    """Fetch taxon ancestors for all observations in a single API call"""
+    # If taxon ancestors are already populated, ranks like 'kingdom' will be present as keys
+    taxon_ids = {
+        obs['taxon.id']
+        for obs in observations
+        if obs.get('taxon.id') and 'taxon.kingdom' not in obs
+    }
     if not taxon_ids:
         return observations
 
@@ -408,11 +413,10 @@ def _batch_add_taxon_ancestors(observations: list[dict]) -> list[dict]:
     return observations
 
 
-def _batch_fetch_places(observations: list[dict]) -> dict[int, dict]:
+def _fetch_places(observations: list[dict]) -> dict[int, dict]:
     """Fetch place details for all place IDs across all observations in a single API call.
 
     Returns a dict mapping place_id -> place dict.
-    Note: get_places_by_id() accepts a list of IDs; chunk if needed for very large datasets.
     """
     all_place_ids: set[int] = set()
     for obs in observations:
@@ -589,7 +593,9 @@ def _format_place_fields_from_cache(
             continue
         admin_level = place.get('admin_level')
         if admin_level == 0:
-            country_code = place.get('place_type_code') or place.get('code')
+            code = place.get('code') or place.get('place_type_code')
+            if code and isinstance(code, str) and len(code) == 2:
+                country_code = code.upper()
         elif admin_level == 10:
             state_province = place.get('name')
         elif admin_level == 20:
@@ -608,7 +614,7 @@ def _format_project_ids(observation: dict) -> Optional[str]:
     urls = []
     for p_obs in project_observations:
         project = p_obs.get('project') or {}
-        project_id = project.get('id') or p_obs.get('id')
+        project_id = project.get('id')
         if project_id:
             urls.append(f'https://www.inaturalist.org/projects/{project_id}')
     return '|'.join(urls) if urls else None
@@ -763,6 +769,8 @@ def get_dwc_lookup() -> dict[str, str]:
     lookup['dcterms:rightsHolder'] = 'user.name'
     lookup['inat:inaturalistLogin'] = 'user.login'
     lookup['dwc:occurrenceRemarks'] = 'description'
+    lookup['dwc:verbatimLocality'] = 'place_guess'
+    lookup['dwc:verbatimEventDate'] = 'observed_on_string'
     lookup['dwc:taxonID'] = 'taxon.id'
     return lookup
 
