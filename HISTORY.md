@@ -4,6 +4,7 @@
 
 - Add triggers to sync observation FTS table with main observation table
 - Add alembic migration for observation FTS table + triggers
+- Sanitize input for FTS searches
 
 Updates to Darwin Core metadata to better align with the spec and iNaturalist's Darwin Core implementation:
 - Replace legacy Adobe `xap` namespace with `xmp` for `CreateDate`, `Owner`, and `UsageTerms`

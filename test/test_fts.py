@@ -2,6 +2,7 @@ import sqlite3
 from logging import getLogger
 from time import time
 
+import pytest
 from pyinaturalist import Comment, Identification, Observation
 
 from pyinaturalist_convert.db import create_tables, save_observations
@@ -9,6 +10,7 @@ from pyinaturalist_convert.fts import (
     ObservationAutocompleter,
     TaxonAutocompleter,
     TextField,
+    _sanitize_fts_query,
     create_observation_fts_table,
     create_observation_fts_triggers,
     index_observation_text,
@@ -35,6 +37,19 @@ def test_taxon_text_search(tmp_path):
 
     assert len(ta.search('')) == 0
     assert len(ta.search('franco', language=None)) == 3
+
+
+@pytest.mark.parametrize(
+    'query, expected',
+    [
+        ('"acer"', 'acer'),
+        ('Ca(t', 'Cat'),
+        ('Quercus robur', 'Quercus robur'),
+        ('some^query', 'somequery'),
+    ],
+)
+def test_sanitize_fts_query(query, expected):
+    assert _sanitize_fts_query(query) == expected
 
 
 def test_taxon_text_search__limit(tmp_path):
@@ -76,7 +91,6 @@ def test_observation_text_search(tmp_path):
     assert len(oa.search('identification')) == 2
     assert len(oa.search('')) == 0
 
-    # Test results with matching text truncated to 25 characters
     results = oa.search('test observation')
     assert results[0] == (1, '...test observation wi...')
     results = oa.search('test com')
@@ -132,7 +146,6 @@ def test_observation_text_search__reindex(tmp_path):
 
     oa = ObservationAutocompleter(db_path=db_path)
 
-    # Update an observation and re-index
     obs_1b = Observation(
         id=1,
         description='replaced description',
@@ -142,7 +155,6 @@ def test_observation_text_search__reindex(tmp_path):
     )
     index_observation_text([obs_1b], db_path=db_path)
 
-    # Expect previously indexed results to be replaced
     assert len(oa.search('test')) == 0
     assert len(oa.search('maryland')) == 0
     assert len(oa.search('replaced')) == 4
