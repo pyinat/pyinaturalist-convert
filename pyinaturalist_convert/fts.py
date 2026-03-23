@@ -108,6 +108,7 @@ Search observations::
     load_fts_taxa
 """
 
+import re
 import sqlite3
 from collections.abc import Iterable, Sequence
 from enum import Enum
@@ -123,6 +124,8 @@ from pyinaturalist.models import Taxon
 from .constants import DB_PATH, DWCA_TAXON_CSV_DIR, TAXON_AGGREGATES_PATH, ParamList, PathOrStr
 from .download import CSVProgress, get_progress_spinner
 from .sqlite import load_table, vacuum_analyze
+
+INVALID_FTS5_CHARS = re.compile(r'[^\w\s]')
 
 # Add extra text search prefix indexes to speed up searches for these prefix lengths
 TAXON_PREFIX_INDEXES = [2, 3, 4]
@@ -186,6 +189,7 @@ class TaxonAutocompleter:
         Returns:
             Taxon objects (with ID and name only)
         """
+        q = _sanitize_fts_query(q)
         if not q:
             return []
 
@@ -243,6 +247,7 @@ class ObservationAutocompleter:
         Returns:
             Tuples of ``(observation_id, truncated_matched_text)``
         """
+        q = _sanitize_fts_query(q)
         if not q:
             return []
 
@@ -530,3 +535,7 @@ def _load_taxon_ranks(db_path: PathOrStr = DB_PATH):
             )
         except sqlite3.OperationalError:
             logger.warning('Full taxon table not found; ranks not loaded for common names')
+
+
+def _sanitize_fts_query(query: str) -> str:
+    return INVALID_FTS5_CHARS.sub('', query).strip()
