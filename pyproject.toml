@@ -62,7 +62,7 @@ xlsx        = ['pandas>=1.2', 'openpyxl>=2.6']
 # Dev dependencies
 dev = [
     'coverage~=7.0',
-    'nox~=2025.05',
+    'nox>=2025.5,<2027.0',
     'pytest~=8.0',
     'pytest-cov>=5.0',
     'pytest-xdist>=2.2',
