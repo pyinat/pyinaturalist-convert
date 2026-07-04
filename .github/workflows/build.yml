@@ -22,25 +22,15 @@ jobs:
 
     steps:
       # Install dependencies, with caching
-      - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v7
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
           enable-cache: true
           cache-dependency-glob: uv.lock
-      # HDF5 headers are required to compile pytables (no wheel yet released for python 3.14+)
-      - name: Install system dependencies
-        if: ${{ matrix.python-version == '3.14' || matrix.python-version == '3.15' }}
-        run: sudo apt-get update && sudo apt-get install -y libhdf5-dev
       - name: Install dependencies
         run: |
           uv python install ${{ matrix.python-version }}
-          # For pytables on python 3.14+, use unreleased fixes from repo required for compilation
-          if [ ${{ matrix.python-version }} = '3.14' ] || [ ${{ matrix.python-version }} = '3.15' ]; then
-            uv sync --all-extras --no-extra hdf --frozen
-            uv pip install "tables @ git+https://github.com/PyTables/PyTables.git@5582fe2d"
-          else
-            uv sync --all-extras --frozen
-          fi
+          uv sync --all-extras --frozen
 
       # Run tests with coverage report
       - name: Run tests
@@ -49,7 +39,7 @@ jobs:
         # Latest python version: send coverage report to codecov
       - name: "Upload coverage report to Codecov"
         if: ${{ matrix.python-version == env.LATEST_PY_VERSION }}
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: ${{ github.repository }}
@@ -59,8 +49,8 @@ jobs:
   test-minimal:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v7
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
       - name: Install minimal dependencies
         run: |
           uv python install ${{ env.LATEST_PY_VERSION }}
@@ -72,9 +62,9 @@ jobs:
   analyze:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ env.LATEST_PY_VERSION }}
       - name: Run style checks & linting
-        uses: j178/prek-action@v1
+        uses: j178/prek-action@e98a699c41eb69ab013a45817a0406469a748f8d # v2.0.5
