@@ -3,9 +3,9 @@ from logging import getLogger
 from time import time
 
 import pytest
-from pyinaturalist import Comment, Identification, Observation
+from pyinaturalist import Comment, Identification, Observation, Taxon
 
-from pyinaturalist_convert.db import create_tables, save_observations
+from pyinaturalist_convert.db import create_tables, save_observations, save_taxa
 from pyinaturalist_convert.fts import (
     ObservationAutocompleter,
     TaxonAutocompleter,
@@ -13,6 +13,8 @@ from pyinaturalist_convert.fts import (
     _sanitize_fts_query,
     create_observation_fts_table,
     create_observation_fts_triggers,
+    create_taxon_fts_table,
+    create_taxon_fts_triggers,
     index_observation_text,
     load_fts_taxa,
 )
@@ -164,11 +166,17 @@ def test_observation_text_search__reindex(tmp_path):
     assert len(oa.search('place')) == 1
 
 
-def test_observation_fts_triggers(tmp_path):
+def _observation_fts_db(tmp_path):
+    """Create an observation table + observation_fts table + sync triggers"""
     db_path = tmp_path / 'obs.db'
     create_tables(db_path)
     create_observation_fts_table(db_path)
     create_observation_fts_triggers(db_path)
+    return db_path
+
+
+def test_observation_fts_triggers(tmp_path):
+    db_path = _observation_fts_db(tmp_path)
 
     # INSERT trigger: saving an observation should populate FTS table
     save_observations([obs_1], db_path=db_path)
@@ -233,6 +241,186 @@ def test_observation_fts_triggers(tmp_path):
         ('ok description', TextField.DESCRIPTION.value),
         ('ok place', TextField.PLACE.value),
     ]
+
+
+def test_observation_fts_triggers__update_unrelated_column(tmp_path):
+    """Updating a column not synced to observation_fts (e.g. quality_grade) should not
+    touch FTS rows"""
+    db_path = _observation_fts_db(tmp_path)
+
+    obs = Observation(
+        id=1,
+        description=obs_1.description,
+        comments=obs_1.comments,
+        identifications=obs_1.identifications,
+        place_guess=obs_1.place_guess,
+        quality_grade='needs_id',
+    )
+    save_observations([obs], db_path=db_path)
+    with sqlite3.connect(db_path) as conn:
+        rowids_before = conn.execute(
+            'SELECT rowid FROM observation_fts WHERE observation_id = 1 ORDER BY rowid'
+        ).fetchall()
+
+    updated = Observation(
+        id=1,
+        description=obs_1.description,
+        comments=obs_1.comments,
+        identifications=obs_1.identifications,
+        place_guess=obs_1.place_guess,
+        quality_grade='research',
+    )
+    save_observations([updated], db_path=db_path)
+    with sqlite3.connect(db_path) as conn:
+        rowids_after = conn.execute(
+            'SELECT rowid FROM observation_fts WHERE observation_id = 1 ORDER BY rowid'
+        ).fetchall()
+
+    assert rowids_before == rowids_after
+
+
+def _taxon_fts_db(tmp_path):
+    """Create a taxon table + taxon_fts table + sync triggers"""
+    db_path = tmp_path / 'taxa.db'
+    create_tables(db_path)
+    create_taxon_fts_table(db_path)
+    create_taxon_fts_triggers(db_path)
+    return db_path
+
+
+def _get_taxon_fts_rows(db_path, taxon_id):
+    """Helper to fetch FTS rows for a taxon"""
+    with sqlite3.connect(db_path) as conn:
+        return conn.execute(
+            'SELECT name, language_code FROM taxon_fts WHERE taxon_id = ? ORDER BY language_code',
+            (taxon_id,),
+        ).fetchall()
+
+
+def _get_taxon_fts_rowids(db_path, taxon_id):
+    with sqlite3.connect(db_path) as conn:
+        return conn.execute(
+            'SELECT rowid FROM taxon_fts WHERE taxon_id = ? ORDER BY rowid', (taxon_id,)
+        ).fetchall()
+
+
+@pytest.mark.parametrize(
+    'taxon_id, name, common_name, expected_names',
+    [
+        (1, 'Aves', 'Birds', {'Aves', 'Birds'}),
+        (2, 'Carnivora', None, {'Carnivora'}),
+        (3, 'Felidae', '', {'Felidae'}),  # Empty string not indexed
+    ],
+)
+def test_taxon_fts_triggers__insert(tmp_path, taxon_id, name, common_name, expected_names):
+    """Test INSERT triggers create correct FTS rows"""
+    db_path = _taxon_fts_db(tmp_path)
+
+    taxon = Taxon(id=taxon_id, name=name, rank='class', preferred_common_name=common_name)
+    save_taxa([taxon], db_path=db_path)
+
+    rows = _get_taxon_fts_rows(db_path, taxon_id)
+    actual_names = {row[0] for row in rows}
+    assert actual_names == expected_names
+
+
+def test_taxon_fts_triggers__update(tmp_path):
+    """Test UPDATE trigger replaces old FTS rows"""
+    db_path = _taxon_fts_db(tmp_path)
+
+    taxon = Taxon(id=1, name='Aves', rank='class', preferred_common_name='Birds')
+    save_taxa([taxon], db_path=db_path)
+    assert {row[0] for row in _get_taxon_fts_rows(db_path, 1)} == {'Aves', 'Birds'}
+
+    # Update scientific name; old name should be gone, new one present, common name unchanged
+    updated = Taxon(id=1, name='Aves updated', rank='class', preferred_common_name='Birds')
+    save_taxa([updated], db_path=db_path)
+    actual_names = {row[0] for row in _get_taxon_fts_rows(db_path, 1)}
+    assert actual_names == {'Aves updated', 'Birds'}
+
+
+@pytest.mark.parametrize(
+    'update_kwargs, expect_resync',
+    [
+        ({'parent_id': 3}, False),  # parent_id isn't synced to taxon_fts
+        ({'rank': 'order'}, True),  # rank is synced to taxon_fts.taxon_rank
+    ],
+)
+def test_taxon_fts_triggers__update_when_guard(tmp_path, update_kwargs, expect_resync):
+    """The UPDATE trigger's WHEN guard should only re-sync FTS rows when a column
+    that's actually written to taxon_fts (name, preferred_common_name, rank) changes"""
+    db_path = _taxon_fts_db(tmp_path)
+
+    taxon_kwargs = {
+        'id': 1,
+        'name': 'Aves',
+        'rank': 'class',
+        'preferred_common_name': 'Birds',
+        'parent_id': 2,
+    }
+    save_taxa([Taxon(**taxon_kwargs)], db_path=db_path)
+    rowids_before = _get_taxon_fts_rowids(db_path, 1)
+
+    # An anchor row inserted with higher rowids than taxon 1's forces a genuine re-sync
+    # to land on new, higher rowids too; otherwise SQLite would reassign the same rowids
+    # taxon 1 already had, masking a real DELETE+INSERT as a no-op
+    save_taxa([Taxon(id=2, name='Carnivora', rank='order')], db_path=db_path)
+
+    taxon_kwargs.update(update_kwargs)
+    save_taxa([Taxon(**taxon_kwargs)], db_path=db_path)
+    rowids_after = _get_taxon_fts_rowids(db_path, 1)
+
+    assert (rowids_before != rowids_after) == expect_resync
+
+
+def test_taxon_fts_triggers__count_rank_default(tmp_path):
+    """Trigger-inserted taxa should get the same 'unknown popularity' sentinel as
+    bulk-loaded taxa with no known count (-1), not NULL"""
+    db_path = _taxon_fts_db(tmp_path)
+
+    taxon = Taxon(id=1, name='Aves', rank='class', preferred_common_name='Birds')
+    save_taxa([taxon], db_path=db_path)
+
+    with sqlite3.connect(db_path) as conn:
+        count_ranks = conn.execute('SELECT count_rank FROM taxon_fts WHERE taxon_id = 1').fetchall()
+    assert {row[0] for row in count_ranks} == {-1}
+
+
+def test_taxon_autocompleter__ranks_trigger_and_bulk_inserted_taxa_consistently(tmp_path):
+    """A trigger-synced taxon and a bulk-loaded taxon with unknown popularity should rank
+    on equal footing, rather than the trigger-synced one always winning (regression test
+    for a count_rank NULL vs -1 sentinel mismatch)"""
+    db_path = _taxon_fts_db(tmp_path)
+
+    # Trigger-synced taxon (count_rank defaults to -1)
+    taxon = Taxon(id=1, name='Avestruz', rank='species')
+    save_taxa([taxon], db_path=db_path)
+
+    # Simulated bulk-loaded taxon with unmapped/unknown popularity (count_rank = -1)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            'INSERT INTO taxon_fts (taxon_id, name, taxon_rank, count_rank, language_code) '
+            "VALUES (2, 'Avestruz', 'species', -1, NULL)"
+        )
+        conn.commit()
+
+    ta = TaxonAutocompleter(db_path=db_path)
+    assert {t.id for t in ta.search('avestruz')} == {1, 2}
+
+
+def test_taxon_fts_triggers__delete(tmp_path):
+    """Test DELETE trigger removes FTS rows"""
+    db_path = _taxon_fts_db(tmp_path)
+
+    taxon = Taxon(id=1, name='Aves', rank='class', preferred_common_name='Birds')
+    save_taxa([taxon], db_path=db_path)
+    assert len(_get_taxon_fts_rows(db_path, 1)) == 2
+
+    with sqlite3.connect(db_path) as conn:
+        conn.execute('DELETE FROM taxon WHERE id = 1')
+        conn.commit()
+
+    assert len(_get_taxon_fts_rows(db_path, 1)) == 0
 
 
 def benchmark():

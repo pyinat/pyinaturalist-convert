@@ -30,8 +30,15 @@ from pyinaturalist_convert.db import (
 )
 
 TAXON_INDEXES = ['ix_taxon_name', 'ix_taxon_parent_id']
-EXPECTED_TABLES = ['observation', 'observation_fts', 'photo', 'taxon', 'user']
-EXPECTED_OBS_FTS_TRIGGERS = ['observation_ad', 'observation_ai', 'observation_au']
+EXPECTED_TABLES = ['observation', 'observation_fts', 'photo', 'taxon', 'taxon_fts', 'user']
+EXPECTED_TRIGGERS = [
+    'observation_ad',
+    'observation_ai',
+    'observation_au',
+    'taxon_ad',
+    'taxon_ai',
+    'taxon_au',
+]
 
 
 def _get_indexes(db_path, table_name):
@@ -56,6 +63,17 @@ def _get_triggers(db_path):
     with sqlite3.connect(db_path) as conn:
         rows = conn.execute("SELECT name FROM sqlite_master WHERE type='trigger'").fetchall()
     return sorted(r[0] for r in rows)
+
+
+def _assert_all_tables_exist(db_path):
+    for table in EXPECTED_TABLES:
+        assert _has_table(db_path, table), f"Table '{table}' not found"
+
+
+def _assert_all_triggers_exist(db_path):
+    triggers = set(_get_triggers(db_path))
+    for trigger in EXPECTED_TRIGGERS:
+        assert trigger in triggers, f"Trigger '{trigger}' not found"
 
 
 @pytest.mark.parametrize(
@@ -93,13 +111,11 @@ def test_get_alembic_config__script_location(tmp_path):
 
 
 def test_migrate(tmp_path):
-    """Test that migrate() creates all expected tables"""
+    """Test that migrate() creates all expected tables and triggers"""
     db_path = tmp_path / 'test.db'
     migrate(db_path)
-    for table in EXPECTED_TABLES:
-        assert _has_table(db_path, table)
-    for trigger in EXPECTED_OBS_FTS_TRIGGERS:
-        assert trigger in _get_triggers(db_path)
+    _assert_all_tables_exist(db_path)
+    _assert_all_triggers_exist(db_path)
 
 
 def test_migrate__idempotent(tmp_path):
@@ -107,10 +123,8 @@ def test_migrate__idempotent(tmp_path):
     db_path = tmp_path / 'test.db'
     migrate(db_path)
     migrate(db_path)
-    for table in EXPECTED_TABLES:
-        assert _has_table(db_path, table)
-    for trigger in EXPECTED_OBS_FTS_TRIGGERS:
-        assert trigger in _get_triggers(db_path)
+    _assert_all_tables_exist(db_path)
+    _assert_all_triggers_exist(db_path)
 
 
 def test_migrate__pre_alembic_db(tmp_path):
@@ -124,10 +138,23 @@ def test_migrate__pre_alembic_db(tmp_path):
         conn.execute('DROP TABLE alembic_version')
 
     migrate(db_path)
-    for table in EXPECTED_TABLES:
-        assert _has_table(db_path, table)
-    for trigger in EXPECTED_OBS_FTS_TRIGGERS:
-        assert trigger in _get_triggers(db_path)
+    _assert_all_tables_exist(db_path)
+    _assert_all_triggers_exist(db_path)
+
+
+def test_migrate__downgrade_preserves_fts_tables(tmp_path):
+    """Downgrading past the FTS migrations should drop their triggers, but not the
+    taxon_fts/observation_fts tables themselves (they may not have been created by
+    these migrations, e.g. if built manually via create_taxon_fts_table())"""
+    db_path = tmp_path / 'test.db'
+    migrate(db_path)
+
+    alembic_cfg = get_alembic_config(db_path)
+    command.downgrade(alembic_cfg, '486206627704')
+
+    assert _has_table(db_path, 'taxon_fts')
+    assert _has_table(db_path, 'observation_fts')
+    assert not set(_get_triggers(db_path)) & set(EXPECTED_TRIGGERS)
 
 
 def test_save_observations(tmp_path):
