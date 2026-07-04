@@ -115,9 +115,9 @@ from collections.abc import Iterable, Sequence
 from enum import Enum
 from functools import partial
 from itertools import chain
-from logging import getLogger
+from logging import Logger, getLogger
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from pyinaturalist import Observation
 from pyinaturalist.models import Taxon
@@ -125,6 +125,9 @@ from pyinaturalist.models import Taxon
 from .constants import DB_PATH, DWCA_TAXON_CSV_DIR, TAXON_AGGREGATES_PATH, ParamList, PathOrStr
 from .download import CSVProgress, get_progress_spinner
 from .sqlite import load_table, vacuum_analyze
+
+if TYPE_CHECKING:
+    from sqlalchemy.engine import Connection
 
 INVALID_FTS5_CHARS = re.compile(r'[^\w\s]')
 
@@ -194,7 +197,7 @@ class TaxonAutocompleter:
         if not q:
             return []
 
-        query = f'SELECT *, rank, (rank - COALESCE(count_rank, 0)) AS combined_rank FROM {TAXON_FTS_TABLE} '
+        query = f'SELECT *, rank, (rank - COALESCE(count_rank, -1)) AS combined_rank FROM {TAXON_FTS_TABLE} '
         query += "WHERE name MATCH ? || '*' "
         params: ParamList = [q]
 
@@ -370,7 +373,7 @@ def create_observation_fts_triggers(db_path: PathOrStr = DB_PATH):
         db_path: Path to SQLite database
     """
     with sqlite3.connect(db_path) as conn:
-        for sql in _create_observation_fts_trigger_sql():
+        for sql in _create_observation_fts_trigger_sql().values():
             conn.execute(sql)
 
 
@@ -382,8 +385,42 @@ def create_taxon_fts_triggers(db_path: PathOrStr = DB_PATH):
         db_path: Path to SQLite database
     """
     with sqlite3.connect(db_path) as conn:
-        for sql in _create_taxon_fts_trigger_sql():
+        for sql in _create_taxon_fts_trigger_sql().values():
             conn.execute(sql)
+
+
+def _upgrade_fts_sync(
+    bind: 'Connection',
+    fts_table: str,
+    table_sql: str,
+    triggers: dict[str, str],
+    logger: Logger,
+):
+    """Create an FTS table (if it doesn't already exist) and its sync triggers.
+    Used by alembic migrations; only supports SQLite.
+    """
+    import sqlalchemy as sa
+
+    existing_tables = set(sa.inspect(bind).get_table_names())
+    if fts_table in existing_tables:
+        logger.info("'%s' already exists; ensuring triggers exist", fts_table)
+    else:
+        bind.exec_driver_sql(table_sql)
+        logger.info("Created '%s' table", fts_table)
+
+    for name, sql in triggers.items():
+        bind.exec_driver_sql(sql)
+        logger.info("Created trigger '%s'", name)
+
+
+def _downgrade_fts_sync(bind: 'Connection', triggers: dict[str, str]):
+    """Drop sync triggers. Used by alembic migrations; only supports SQLite.
+
+    Does not drop the FTS table itself, since this migration may not be the one
+    that created it (it may have already existed before this migration was applied).
+    """
+    for name in triggers:
+        bind.exec_driver_sql(f'DROP TRIGGER IF EXISTS {name}')
 
 
 def _create_taxon_fts_table_sql() -> str:
@@ -404,49 +441,57 @@ def _create_observation_fts_table_sql() -> str:
     )
 
 
-def _create_observation_fts_trigger_sql() -> list[str]:
-    return [
-        (
+def _create_observation_fts_trigger_sql() -> dict[str, str]:
+    return {
+        'observation_ai': (
             'CREATE TRIGGER IF NOT EXISTS observation_ai AFTER INSERT ON observation '
             + f'BEGIN{_observation_fts_insert_statements("new")}END'
         ),
-        (
+        'observation_au': (
             'CREATE TRIGGER IF NOT EXISTS observation_au AFTER UPDATE ON observation '
+            'WHEN old.description IS NOT new.description '
+            'OR old.place_guess IS NOT new.place_guess '
+            'OR old.comments IS NOT new.comments '
+            'OR old.identifications IS NOT new.identifications '
             + f'BEGIN\n  DELETE FROM {OBS_FTS_TABLE} WHERE observation_id = old.id;'
             + f'{_observation_fts_insert_statements("new")}END'
         ),
-        (
+        'observation_ad': (
             'CREATE TRIGGER IF NOT EXISTS observation_ad AFTER DELETE ON observation '
             + f'BEGIN\n  DELETE FROM {OBS_FTS_TABLE} WHERE observation_id = old.id;\nEND'
         ),
-    ]
+    }
 
 
 def _taxon_fts_insert_statements(row: str) -> str:
     return (
         f'\n  INSERT INTO {TAXON_FTS_TABLE} (taxon_id, name, taxon_rank, count_rank, language_code)\n'
-        f"    SELECT {row}.id, {row}.name, {row}.rank, NULL, NULL WHERE {row}.name IS NOT NULL AND {row}.name != '';"
+        f"    SELECT {row}.id, {row}.name, {row}.rank, -1, NULL WHERE {row}.name IS NOT NULL AND {row}.name != '';"
         f'\n  INSERT INTO {TAXON_FTS_TABLE} (taxon_id, name, taxon_rank, count_rank, language_code)\n'
-        f"    SELECT {row}.id, {row}.preferred_common_name, {row}.rank, NULL, 'en' WHERE {row}.preferred_common_name IS NOT NULL AND {row}.preferred_common_name != '';\n"
+        f"    SELECT {row}.id, {row}.preferred_common_name, {row}.rank, -1, 'en' "
+        f"    WHERE {row}.preferred_common_name IS NOT NULL AND {row}.preferred_common_name != '';\n"
     )
 
 
-def _create_taxon_fts_trigger_sql() -> list[str]:
-    return [
-        (
+def _create_taxon_fts_trigger_sql() -> dict[str, str]:
+    return {
+        'taxon_ai': (
             'CREATE TRIGGER IF NOT EXISTS taxon_ai AFTER INSERT ON taxon '
             + f'BEGIN{_taxon_fts_insert_statements("new")}END'
         ),
-        (
+        'taxon_au': (
             'CREATE TRIGGER IF NOT EXISTS taxon_au AFTER UPDATE ON taxon '
+            'WHEN old.name IS NOT new.name '
+            'OR old.preferred_common_name IS NOT new.preferred_common_name '
+            'OR old.rank IS NOT new.rank '
             + f'BEGIN\n  DELETE FROM {TAXON_FTS_TABLE} WHERE taxon_id = old.id;'
             + f'{_taxon_fts_insert_statements("new")}END'
         ),
-        (
+        'taxon_ad': (
             'CREATE TRIGGER IF NOT EXISTS taxon_ad AFTER DELETE ON taxon '
             + f'BEGIN\n  DELETE FROM {TAXON_FTS_TABLE} WHERE taxon_id = old.id;\nEND'
         ),
-    ]
+    }
 
 
 def _observation_fts_insert_statements(row: str) -> str:
