@@ -23,7 +23,7 @@ jobs:
     steps:
       # Install dependencies, with caching
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           enable-cache: true
           cache-dependency-glob: uv.lock
@@ -50,7 +50,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
       - name: Install minimal dependencies
         run: |
           uv python install ${{ env.LATEST_PY_VERSION }}
@@ -67,4 +67,4 @@ jobs:
         with:
           python-version: ${{ env.LATEST_PY_VERSION }}
       - name: Run style checks & linting
-        uses: j178/prek-action@5337cb91e0fa35a7ff31b9ca345126d8bbbcdf16 # v2.0.6
+        uses: j178/prek-action@4e14d07f9231acabce116ccfca13b13dd9755ece # v3.0.0
