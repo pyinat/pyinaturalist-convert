@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.9.0 (Unreleased)
+## 0.9.0 (2026-09-15)
 
 - Add triggers to sync observation FTS table with main observation table
 - Add alembic migration for observation FTS table + triggers
