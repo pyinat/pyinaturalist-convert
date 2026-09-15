@@ -2485,7 +2485,6 @@ source = { editable = "." }
 dependencies = [
     { name = "flatten-dict" },
     { name = "pyinaturalist" },
-    { name = "requests-ratelimiter" },
     { name = "tablib" },
 ]
 
@@ -2597,7 +2596,6 @@ requires-dist = [
     { name = "pyarrow", marker = "extra == 'parquet'", specifier = ">=10.0" },
     { name = "pyinaturalist", specifier = ">=0.21" },
     { name = "pyinaturalist-convert", extras = ["aggregate", "db", "dwc", "geojson", "gpx", "hdf", "html", "odp", "parquet", "xlsx"], marker = "extra == 'all'" },
-    { name = "requests-ratelimiter", specifier = ">=0.6,<0.9" },
     { name = "sqlalchemy", marker = "extra == 'aggregate'", specifier = ">=2.0" },
     { name = "sqlalchemy", marker = "extra == 'db'", specifier = ">=2.0" },
     { name = "tables", marker = "extra == 'hdf'", specifier = ">=3.6" },
