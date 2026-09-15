@@ -16,7 +16,7 @@
 
     Load CSV file into Observation objects:
 
-    >>> from pyinaturalist_convert import read
+    >>> from pyinaturalist_convert import load_csv_exports
     >>> observations = load_csv_exports('~/Downloads/my_observations.csv')
 """
 

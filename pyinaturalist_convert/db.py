@@ -9,12 +9,14 @@ Some helper functions are included for the most common cases of saving and loadi
 observation data. Requirements for a relational database are highly variable, so this won't suit all
 use cases, but at least provides a starting point.
 
-**Extra dependencies**: ``sqlalchemy``
+**Extra dependencies**:
+    * ``sqlalchemy``
+    * ``alembic``
 
 **Example**::
 
     >>> from pyinaturalist import iNatClient
-    >>> from pyinaturalist_convert import create_tables, read_observations, save_observations
+    >>> from pyinaturalist_convert import create_tables, get_db_observations, save_observations
 
     >>> # Fetch all of your own observations
     >>> client = iNatClient()
@@ -129,7 +131,7 @@ def create_table(model, db_path: PathOrStr = DB_PATH, indexes: bool = True):
 def migrate(db_path: PathOrStr = DB_PATH):
     """Apply all pending database migrations to upgrade the schema to the latest version.
 
-    This is an alternative to :py :func:`create_tables` that handles incremental schema changes.
+    This is an alternative to :py:func:`create_tables` that handles incremental schema changes.
     It also handles previously created tables with no alembic revision state.
     """
     from alembic import command

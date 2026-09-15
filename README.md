@@ -16,9 +16,10 @@ Complete project documentation can be found at [pyinaturalist-convert.readthedoc
 ## Import
 * CSV (From either [API results](https://www.inaturalist.org/pages/api+reference#get-observations)
  or the [iNaturalist export tool](https://www.inaturalist.org/observations/export))
-* JSON (from API results)
+* JSON (from API results) and GeoJSON
 * [`pyinaturalist.Observation`](https://pyinaturalist.readthedocs.io/en/stable/modules/pyinaturalist.models.Observation.html) objects
 * Dataframes, Feather, Parquet, and anything else supported by [pandas](https://pandas.pydata.org/pandas-docs/stable/user_guide/io.html)
+* Darwin Core
 * [iNaturalist GBIF Archive](https://www.inaturalist.org/pages/developers)
 * [iNaturalist Taxonomy Archive](https://www.inaturalist.org/pages/developers)
 * [iNaturalist Open Data on Amazon](https://github.com/inaturalist/inaturalist-open-data)
@@ -32,7 +33,7 @@ Complete project documentation can be found at [pyinaturalist-convert.readthedoc
 * GeoJSON
 * GPX
 * SQLite
-* SQLite + FTS5 text search for taxonomy
+* SQLite + FTS5 text search for taxonomy and observation text
 
 # Installation
 Install with pip:
@@ -48,7 +49,7 @@ conda install -c conda-forge pyinaturalist-convert
 To keep things modular, many format-specific dependencies are not installed by default, so you may
 need to install some more packages depending on which features you want. Each module's docs lists
 any extra dependencies needed, and a full list can be found in
-[pyproject.toml](https://github.com/pyinat/pyinaturalist-convert/blob/main/pyproject.toml#L27).
+[pyproject.toml](https://github.com/pyinat/pyinaturalist-convert/blob/main/pyproject.toml#48).
 
 For getting started, it's recommended to install all optional dependencies:
 ```bash
@@ -110,14 +111,14 @@ load_dwca_taxa()
 
 Load taxonomy data into a full text search database:
 ```python
-load_taxon_fts_table(languages=['english', 'german'])
+load_fts_taxa(languages=['english', 'german'])
 ```
 
 And get lightning-fast autocomplete results from it:
 ```python
 ta = TaxonAutocompleter()
 ta.search('aves')
-ta.search('flughund', language='german')
+ta.search('flughund', language='de')
 ```
 
 # Feedback

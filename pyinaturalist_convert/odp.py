@@ -21,6 +21,7 @@
     :nosignatures:
 
     download_odp_metadata
+    load_odp_observations
     load_odp_taxa
     load_odp_photos
     load_odp_users

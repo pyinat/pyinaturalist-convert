@@ -55,8 +55,8 @@ Search taxa::
         ...,
     ]
 
-    >>> # Or by common name in a specific language
-    >>> ta.search('flughund', language='german')
+    >>> # Or by common name in a specific language (by short code)
+    >>> ta.search('flughund', language='de')
 
 Observation Autocomplete
 ------------------------
@@ -86,7 +86,7 @@ Search observations::
 
     >>> from pyinaturalist_convert import ObservationAutocompleter
 
-    >>> obs_autocompleter = ObservationAutocompleter
+    >>> obs_autocompleter = ObservationAutocompleter()
     >>> obs_autocompleter.search('test')
     [
         (12345, 'test description text'),

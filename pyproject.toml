@@ -57,6 +57,9 @@ html        = ['jinja2>=3.0', 'markuppy>=1.12']
 odp         = ['boto3>=1.20']
 parquet     = ['pandas>=1.2', 'pyarrow>=10.0']
 xlsx        = ['pandas>=1.2', 'openpyxl>=2.6']
+all         = [
+    'pyinaturalist-convert[aggregate,db,dwc,geojson,gpx,hdf,html,odp,parquet,xlsx]',
+]
 
 [dependency-groups]
 # Dev dependencies
