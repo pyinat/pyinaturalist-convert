@@ -203,7 +203,9 @@ def vacuum_analyze(
     should be done once after loading all of them.
 
     Args:
-        fast: Optimize connection settings for VACUUM throughput (large cache, temp tables in RAM)
+        fast: Optimize connection settings for VACUUM throughput (larger page cache, multiple
+            sorter threads). Does not use `temp_store = MEMORY`, since that would make VACUUM's
+            memory usage scale with database size -- see the note in the function body.
     """
     msg = f'Vacuuming and analyzing {",".join(table_names)}'
     if show_spinner:
@@ -215,8 +217,15 @@ def vacuum_analyze(
     with spinner, sqlite3.connect(db_path) as conn:
         if fast:
             conn.execute('PRAGMA cache_size = -64000')  # 64MB page cache
-            conn.execute('PRAGMA temp_store = MEMORY')
             conn.execute('PRAGMA threads = 4')
+            # Deliberately NOT setting `PRAGMA temp_store = MEMORY` here (unlike load_table()'s
+            # fast path): VACUUM builds a full temporary copy of the database before swapping it
+            # in, and temp_store=MEMORY makes SQLite hold that temporary copy in RAM instead of
+            # on disk. For a small load_table() temp table that's a helpful speedup, but for
+            # VACUUM on a large database it means peak memory usage scales with database size --
+            # for the real iNaturalist DB (tens of GB), that reliably OOMs even well-provisioned
+            # machines (#230). Leaving temp_store at its default (FILE) keeps VACUUM's temp
+            # copy on disk, bounding memory usage to roughly `cache_size` regardless of DB size.
         conn.execute('VACUUM')
         for table_name in table_names:
             conn.execute(f'ANALYZE {table_name}')
