@@ -25,10 +25,12 @@ Build database with all taxa from GBIF archive::
     >>> enable_logging()
     >>> load_dwca_tables()
     >>> aggregate_taxon_db()
-    >>> vacuum_analyze(['observation', 'taxon'], show_spinner=True, fast=True)
 
     >>> # Load FTS table for all languages (Defaults to English names only):
     >>> load_fts_taxa(languages='all')
+
+    >>> # Optional: VACUUM and analyze all new tables
+    >>> vacuum_analyze(['observation', 'taxon', 'taxon_fts'], show_spinner=True, fast=True)
 
 .. note::
     Running :py:func:`.aggregate_taxon_db` will result in more accurate search rankings based
@@ -125,7 +127,7 @@ from pyinaturalist.models import Taxon
 
 from .constants import DB_PATH, DWCA_TAXON_CSV_DIR, TAXON_AGGREGATES_PATH, ParamList, PathOrStr
 from .download import CSVProgress, get_progress_spinner
-from .sqlite import load_table, vacuum_analyze
+from .sqlite import load_table
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import Connection
@@ -555,7 +557,6 @@ def optimize_fts_table(table: str, db_path: PathOrStr = DB_PATH):
     with progress, sqlite3.connect(db_path) as conn:
         conn.execute(f"INSERT INTO {table}({table}) VALUES('optimize')")
         conn.commit()
-    vacuum_analyze([table], db_path, show_spinner=True, fast=True)
 
 
 def _get_common_name_csvs(

@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.9.1
+## 0.9.1 (2026-09-16)
 
-- Don't run vacuum automatically after `dwca.load_dwca_tables()` (suggest running explicitly if needed)
+- Don't run vacuum automatically after `dwca.load_dwca_tables()` and `fts.load_fts_taxa()` (suggest running explicitly if needed)
 
 ## 0.9.0 (2026-09-15)
 
