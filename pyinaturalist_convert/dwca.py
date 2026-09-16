@@ -48,7 +48,7 @@ from .download import (
     unzip_progress,
 )
 from .dwc import get_dwc_lookup
-from .sqlite import load_table, vacuum_analyze
+from .sqlite import load_table
 
 OBS_COLUMNS = [
     'catalogNumber',
@@ -90,7 +90,6 @@ def load_dwca_tables(db_path: PathOrStr = DB_PATH):
         load_dwca_observations(db_path=db_path, progress=progress)
         load_dwca_taxa(db_path=db_path, progress=progress)
     create_tables(db_path, indexes=True)  # Create remaining tables that reference Taxon+Observation
-    vacuum_analyze(['observation', 'taxon'], db_path, show_spinner=True, fast=True)
 
 
 def download_dwca_observations(dest_dir: PathOrStr = DATA_DIR):

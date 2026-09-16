@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.1
+
+- Don't run vacuum automatically after `dwca.load_dwca_tables()` (suggest running explicitly if needed)
+
 ## 0.9.0 (2026-09-15)
 
 - Add triggers to sync observation FTS table with main observation table

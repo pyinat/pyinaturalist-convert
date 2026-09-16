@@ -18,13 +18,14 @@ feature on inaturalist.org:
 Build database with all taxa from GBIF archive::
 
     >>> from pyinaturalist_convert import (
-    ...     aggregate_taxon_db, enable_logging, load_dwca_tables, load_fts_taxa
+    ...     aggregate_taxon_db, enable_logging, load_dwca_tables, load_fts_taxa, vacuum_analyze
     ... )
 
     >>> # Optional, but recommended:
     >>> enable_logging()
     >>> load_dwca_tables()
     >>> aggregate_taxon_db()
+    >>> vacuum_analyze(['observation', 'taxon'], show_spinner=True, fast=True)
 
     >>> # Load FTS table for all languages (Defaults to English names only):
     >>> load_fts_taxa(languages='all')
