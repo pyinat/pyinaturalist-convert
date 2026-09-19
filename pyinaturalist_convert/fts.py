@@ -186,12 +186,13 @@ class TaxonAutocompleter:
         self.connection.row_factory = sqlite3.Row
         self.limit = limit
 
-    def search(self, q: str, language: str = 'en') -> list[Taxon]:
+    def search(self, q: str, language: str = 'en', deduplicate=False) -> list[Taxon]:
         """Search for taxa by scientific and/or common name.
 
         Args:
             q: Search query
             language: Language code for common names
+            deduplicate: return only the first name per matched taxon id
 
         Returns:
             Taxon objects (with ID and name only)
@@ -200,13 +201,36 @@ class TaxonAutocompleter:
         if not q:
             return []
 
-        query = f'SELECT *, rank, (rank - COALESCE(count_rank, -1)) AS combined_rank FROM {TAXON_FTS_TABLE} '
-        query += "WHERE name MATCH ? || '*' "
+        if deduplicate:
+            query = f'''
+                WITH ranked_matches AS (
+                    SELECT *,
+                        rank,
+                        (rank - COALESCE(count_rank, -1)) AS combined_rank,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY taxon_id
+                            ORDER BY (rank - COALESCE(count_rank, -1)) ASC
+                        ) AS rn
+                    FROM {TAXON_FTS_TABLE}
+                    WHERE name MATCH ? || '*'
+'''
+        else:
+            query = f'SELECT *, rank, (rank - COALESCE(count_rank, -1)) AS combined_rank FROM {TAXON_FTS_TABLE} '
+            query += "WHERE name MATCH ? || '*' "
+
         params: ParamList = [q]
 
         if language:
             query += 'AND (language_code IS NULL OR language_code = ?) '
             params += [language.lower().replace('-', '_')]
+
+        if deduplicate:
+            query += '''
+                )
+                SELECT * FROM ranked_matches
+                WHERE rn = 1
+'''
+
         if self.limit > 1:
             query += 'ORDER BY combined_rank LIMIT ?'
             params += [self.limit]
