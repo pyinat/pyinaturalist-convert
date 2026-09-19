@@ -186,7 +186,7 @@ class TaxonAutocompleter:
         self.connection.row_factory = sqlite3.Row
         self.limit = limit
 
-    def search(self, q: str, language: str = 'en', deduplicate: bool=False) -> list[Taxon]:
+    def search(self, q: str, language: str = 'en', deduplicate: bool = False) -> list[Taxon]:
         """Search for taxa by scientific and/or common name.
 
         Args:
@@ -202,7 +202,7 @@ class TaxonAutocompleter:
             return []
 
         if deduplicate:
-            query = f'''
+            query = f"""
                 WITH ranked_matches AS (
                     SELECT *,
                         rank,
@@ -213,7 +213,7 @@ class TaxonAutocompleter:
                         ) AS rn
                     FROM {TAXON_FTS_TABLE}
                     WHERE name MATCH ? || '*'
-'''
+"""
         else:
             query = f'SELECT *, rank, (rank - COALESCE(count_rank, -1)) AS combined_rank FROM {TAXON_FTS_TABLE} '
             query += "WHERE name MATCH ? || '*' "
@@ -225,11 +225,11 @@ class TaxonAutocompleter:
             params += [language.lower().replace('-', '_')]
 
         if deduplicate:
-            query += '''
+            query += """
                 )
                 SELECT * FROM ranked_matches
                 WHERE rn = 1
-'''
+"""
 
         if self.limit > 1:
             query += 'ORDER BY combined_rank LIMIT ?'
