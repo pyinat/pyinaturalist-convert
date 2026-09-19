@@ -186,7 +186,7 @@ class TaxonAutocompleter:
         self.connection.row_factory = sqlite3.Row
         self.limit = limit
 
-    def search(self, q: str, language: str = 'en', deduplicate=False) -> list[Taxon]:
+    def search(self, q: str, language: str = 'en', deduplicate: bool=False) -> list[Taxon]:
         """Search for taxa by scientific and/or common name.
 
         Args:
