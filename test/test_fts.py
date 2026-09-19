@@ -37,6 +37,15 @@ def test_taxon_text_search(tmp_path):
     assert len(results) == 3
     assert results[0].id == 649 and results[0].name == 'Black Francolin'
 
+    results = ta.search('american')
+    assert len(results) == 2
+    assert results[0].id == 473 and results[0].name == 'Grus americana'
+    assert results[1].id == 473 and results[1].name == 'American Coot'
+
+    results = ta.search('american', deduplicate=True)
+    assert len(results) == 1
+    assert results[0].id == 473 and results[0].name == 'Grus americana'
+
     assert len(ta.search('')) == 0
     assert len(ta.search('franco', language=None)) == 3
 
