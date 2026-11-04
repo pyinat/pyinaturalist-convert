@@ -326,7 +326,7 @@ class TaxonAdvancedSearchStrategy(BaseSearchStrategy):
     def build_query(self, q: str, language: str, limit: int) -> tuple[str, list[Any]]:
         tokens = q.split()
         fts_q = f'{"* ".join(tokens)}*'
-        q_lower = q.lower()
+        q_lower = _strip_diacritics(q.lower())
         preferred_lang = language.lower().replace('-', '_')[:2] if language else 'en'
 
         score_sql, strategy_params = self._build_scoring_sql(
