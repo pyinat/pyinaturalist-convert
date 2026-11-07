@@ -769,10 +769,12 @@ def _get_common_name_csvs(
         }
 
 
-def _add_taxon_counts(row: list, field_index: dict[str, int], taxon_counts: dict[int, int]) -> list:
+def _add_taxon_counts(
+    row: list, field_index: dict[str, int], taxon_counts: dict[int, float]
+) -> list:
     """Add taxon counts to a chunk of taxon records read from CSV"""
     taxon_id = int(row[field_index['id']])
-    row.append(taxon_counts.get(taxon_id, -1))
+    row.append(taxon_counts.get(taxon_id, -1.0))
     lang_idx = field_index.get('language')
     if lang_idx is not None and row[lang_idx]:
         row[lang_idx] = str(row[lang_idx]).lower().replace('-', '_')
