@@ -780,8 +780,10 @@ def _add_taxon_counts(row: list, field_index: dict[str, int], taxon_counts: dict
 
 
 # TODO: Read from taxon table instead
-def _normalize_taxon_counts(agg_path: PathOrStr = TAXON_AGGREGATES_PATH) -> dict[int, int]:
-    """Read previously calculated taxon counts, and normalize to a logarithmic distribution"""
+def _normalize_taxon_counts(
+    agg_path: PathOrStr = TAXON_AGGREGATES_PATH,
+) -> dict[int, float]:
+    """Read previously calculated taxon counts and apply log1p scaling to match iNat ES scoring."""
     import numpy as np
     import pandas as pd
 
@@ -792,18 +794,16 @@ def _normalize_taxon_counts(agg_path: PathOrStr = TAXON_AGGREGATES_PATH) -> dict
     logger.info(f'Reading taxon counts from {agg_path}')
     df = pd.read_parquet(agg_path)
 
-    def normalize(series):
-        with np.errstate(divide='ignore'):
-            series = np.log(series.copy())
-        series[np.isneginf(series)] = 0
-        return (series - series.mean()) / series.std()
-
     logger.info('Normalizing taxon counts')
-    df['count_rank'] = normalize(df['observations_count_rg']).fillna(-1)
-    df['count_rank'] = df['count_rank'] * TAXON_COUNT_RANK_FACTOR
-    df = df.sort_values(by='count_rank', ascending=False)
-    result_dict = df['count_rank'].to_dict()
-    return dict(sorted(result_dict.items()))
+    counts = df['observations_count_rg'].to_numpy()
+    popularity = np.zeros_like(counts, dtype=float)
+    observed_mask = ~np.isnan(counts)
+
+    popularity[observed_mask] = np.log1p(counts[observed_mask]) * TAXON_COUNT_RANK_FACTOR
+    popularity[~observed_mask] = -1.0
+
+    df['count_rank'] = popularity
+    return df.set_index('id')['count_rank'].to_dict()
 
 
 def _load_taxon_ranks(db_path: PathOrStr = DB_PATH):
