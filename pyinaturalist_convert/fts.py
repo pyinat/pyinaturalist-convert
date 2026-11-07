@@ -132,7 +132,7 @@ from .sqlite import load_table
 if TYPE_CHECKING:
     from sqlalchemy.engine import Connection
 
-INVALID_FTS5_CHARS = re.compile(r'[^\w\s]')
+FTS5_SEPARATOR_CHARS = re.compile(r'[^\w\s]|_')
 
 # Add extra text search prefix indexes to speed up searches for these prefix lengths
 TAXON_PREFIX_INDEXES = [2, 3, 4]
@@ -642,4 +642,5 @@ def _load_taxon_ranks(db_path: PathOrStr = DB_PATH):
 
 
 def _sanitize_fts_query(query: str) -> str:
-    return INVALID_FTS5_CHARS.sub('', query).strip()
+    query = FTS5_SEPARATOR_CHARS.sub(' ', query)
+    return ' '.join(query.split())

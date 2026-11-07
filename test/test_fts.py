@@ -49,9 +49,12 @@ def test_taxon_text_search(tmp_path):
     'query, expected',
     [
         ('"acer"', 'acer'),
-        ('Ca(t', 'Cat'),
+        ('Ca(t', 'Ca t'),
         ('Quercus robur', 'Quercus robur'),
-        ('some^query', 'somequery'),
+        ('some^query', 'some query'),
+        ('butter-and-eggs', 'butter and eggs'),
+        ('Arctostaphylos uva-ursi', 'Arctostaphylos uva ursi'),
+        ('foo_bar', 'foo bar'),
     ],
 )
 def test_search__sanitizes_query(query, expected):

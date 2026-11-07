@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Update FTS queries to split input on non-word chars, i.e. treat them as separators instead of removing them
+
 ## 0.9.1 (2026-09-16)
 
 - Don't run vacuum automatically after `dwca.load_dwca_tables()` and `fts.load_fts_taxa()` (suggest running explicitly if needed)
