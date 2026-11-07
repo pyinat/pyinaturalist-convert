@@ -207,7 +207,7 @@ class TaxonAutocompleter:
                     (rank - COALESCE(count_rank, -1)) AS combined_rank,
                     ROW_NUMBER() OVER (
                         PARTITION BY taxon_id
-                        ORDER BY (rank - COALESCE(count_rank, -1)) ASC, taxon_id ASC
+                        ORDER BY (rank - COALESCE(count_rank, -1)) ASC, rowid ASC
                     ) AS rn
                 FROM {TAXON_FTS_TABLE}
                 WHERE name MATCH ? || '*'
@@ -222,14 +222,14 @@ class TaxonAutocompleter:
             params += [language.lower().replace('-', '_')]
 
         if self.limit > 1:
-            query += 'ORDER BY combined_rank ASC, taxon_id ASC LIMIT ?'
+            query += 'ORDER BY combined_rank ASC LIMIT ?'
             params += [self.limit]
 
         with self.connection as conn:
             cursor = conn.execute(query, params)
             results = sorted(
                 cursor.fetchall(),
-                key=lambda row: (row['combined_rank'], row['taxon_id']),
+                key=lambda row: row['combined_rank'],
             )
             return [
                 Taxon(id=int(row['taxon_id']), name=row['name'], rank=row['taxon_rank'])
