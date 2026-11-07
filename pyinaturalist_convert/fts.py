@@ -200,16 +200,31 @@ class TaxonSimpleSearchStrategy(BaseSearchStrategy):
     """
 
     def build_query(self, q: str, language: str, limit: int) -> tuple[str, list[Any]]:
-        query = f'SELECT *, rank, (rank - COALESCE(count_rank, -1)) AS combined_rank FROM {TAXON_FTS_TABLE} '
-        query += "WHERE name MATCH ? || '*' "
+        query = f"""
+            WITH ranked_matches AS (
+                SELECT *,
+                    rank,
+                    (rank - COALESCE(count_rank, -1)) AS combined_rank,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY taxon_id
+                        ORDER BY (rank - COALESCE(count_rank, -1)) ASC, rowid ASC
+                    ) AS rn
+                FROM {TAXON_FTS_TABLE}
+                WHERE name MATCH ? || '*'
+            )
+            SELECT * FROM ranked_matches
+            WHERE rn = 1
+        """
         params: list[Any] = [q]
 
         if language:
             query += 'AND (language_code IS NULL OR language_code = ?) '
             params += [language.lower().replace('-', '_')]
-        if limit > 1:
-            query += 'ORDER BY combined_rank LIMIT ?'
+
+        if limit > 0:
+            query += 'ORDER BY combined_rank ASC LIMIT ?'
             params += [limit]
+
         return query, params
 
     def parse_results(self, rows: list[sqlite3.Row]) -> list[Taxon]:
@@ -339,6 +354,7 @@ class TaxonAdvancedSearchStrategy(BaseSearchStrategy):
         query = f"""
             WITH base AS (
                 SELECT
+                    fts.rowid AS rowid,
                     fts.taxon_id,
                     fts.name,
                     fts.taxon_rank,
@@ -351,6 +367,7 @@ class TaxonAdvancedSearchStrategy(BaseSearchStrategy):
             ),
             scored AS (
                 SELECT
+                    rowid,
                     taxon_id,
                     name,
                     taxon_rank,
@@ -358,13 +375,27 @@ class TaxonAdvancedSearchStrategy(BaseSearchStrategy):
                     language_code,
                     {score_sql} AS combined_rank
                 FROM base
+            ),
+            ranked AS (
+                SELECT
+                    rowid,
+                    taxon_id,
+                    name,
+                    taxon_rank,
+                    combined_rank,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY taxon_id
+                        ORDER BY combined_rank ASC, rowid ASC
+                    ) AS rn
+                FROM scored
             )
             SELECT
                 taxon_id,
                 name,
                 taxon_rank,
                 combined_rank
-            FROM scored
+            FROM ranked
+            WHERE rn = 1
             ORDER BY combined_rank ASC
         """
 
