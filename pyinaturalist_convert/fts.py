@@ -794,7 +794,7 @@ def _normalize_taxon_counts(
         return {}
 
     logger.info(f'Reading taxon counts from {agg_path}')
-    df = pd.read_parquet(agg_path)
+    df = pd.read_parquet(agg_path).reset_index()
 
     logger.info('Normalizing taxon counts')
     counts = df['observations_count_rg'].to_numpy()
