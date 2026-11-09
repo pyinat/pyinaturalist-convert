@@ -42,6 +42,14 @@ def test_taxon_text_search(tmp_path):
     assert len(results) == 1
     assert results[0].id == 473 and results[0].name == 'Grus americana'
 
+    results = ta.search('cariama')
+    assert len(results) == 2
+    assert results[0].id == 14 and results[0].name == 'Cariama cristata'
+
+    results = ta.search('cariama', rank='genus')
+    assert len(results) == 1
+    assert results[0].id == 13 and results[0].name == 'Cariama'
+
     assert len(ta.search('')) == 0
     assert len(ta.search('franco', language=None)) == 3
 

@@ -185,6 +185,7 @@ class BaseSearchStrategy:
         self,
         q: str,
         language: str,
+        taxon_rank: str,
         limit: int,
         strict_language: bool = False,
     ) -> tuple[str, list[Any]]:
@@ -199,6 +200,7 @@ class BaseSearchStrategy:
         self,
         q: str,
         language: str,
+        taxon_rank: str | None = None,
         strict_language: bool = False,
         strip_diacritics_enabled: bool = False,
     ) -> tuple[str, list[Any]]:
@@ -213,6 +215,10 @@ class BaseSearchStrategy:
         if language and strict_language:
             where_clauses.append("(fts.language_code IS NULL OR fts.language_code LIKE ? || '%')")
             params.append(preferred_lang)
+
+        if taxon_rank:
+            where_clauses.append('(taxon_rank = ?)')
+            params += [taxon_rank.lower()]
 
         where_sql = " AND ".join(where_clauses)
 
@@ -251,12 +257,14 @@ class TaxonSimpleSearchStrategy(BaseSearchStrategy):
         self,
         q: str,
         language: str,
+        taxon_rank: str,
         limit: int,
         strict_language: bool = True,
     ) -> tuple[str, list[Any]]:
         base_cte_sql, params = self._build_base_cte(
             q=q,
             language=language,
+            taxon_rank=taxon_rank,
             strict_language=strict_language,
             strip_diacritics_enabled=False,
         )
@@ -399,6 +407,7 @@ class TaxonAdvancedSearchStrategy(BaseSearchStrategy):
         self,
         q: str,
         language: str,
+        taxon_rank: str,
         limit: int,
         strict_language: bool = False,
     ) -> tuple[str, list[Any]]:
@@ -408,6 +417,7 @@ class TaxonAdvancedSearchStrategy(BaseSearchStrategy):
         base_cte_sql, base_params = self._build_base_cte(
             q=q,
             language=language,
+            taxon_rank=taxon_rank,
             strict_language=strict_language,
             strip_diacritics_enabled=True,
         )
@@ -497,6 +507,7 @@ class TaxonAutocompleter:
         self,
         q: str,
         language: str = 'en',
+        rank: str | None = None,
         strict_language: bool = False,
     ) -> list[Taxon]:
         """Search for taxa by scientific and/or common name."""
@@ -507,6 +518,7 @@ class TaxonAutocompleter:
         query, params = self.strategy.build_query(
             q,
             language=language,
+            taxon_rank=rank,
             limit=self.limit,
             strict_language=strict_language,
         )
