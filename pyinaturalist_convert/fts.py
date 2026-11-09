@@ -185,7 +185,8 @@ class BaseSearchStrategy:
         self,
         q: str,
         language: str,
-        taxon_rank: str,
+        taxon_rank: str | None,
+        taxon_id: int | None,
         limit: int,
         strict_language: bool = False,
     ) -> tuple[str, list[Any]]:
@@ -210,7 +211,7 @@ class BaseSearchStrategy:
         fts_q = f'{"* ".join(tokens)}*'
         preferred_lang = language.lower().replace('-', '_')[:2] if language else 'en'
 
-        where_clauses = ["fts.name MATCH ?"]
+        where_clauses = ['fts.name MATCH ?']
         params: list[Any] = [fts_q]
 
         if language and strict_language:
@@ -221,17 +222,19 @@ class BaseSearchStrategy:
             where_clauses.append('(taxon_rank = ?)')
             params += [taxon_rank.lower()]
 
-        join_sql = ""
+        join_sql = ''
         if taxon_id is not None:
-            join_sql = f"JOIN taxon t ON fts.taxon_id = t.id"
+            join_sql = 'JOIN taxon t ON fts.taxon_id = t.id'
             where_clauses.append(
                 "(t.id = ? OR t.ancestor_ids = ? OR t.ancestor_ids LIKE ? || ',%' "
                 "OR t.ancestor_ids LIKE '%,' || ? OR t.ancestor_ids LIKE '%,' || ? || ',%')"
             )
             str_ancestor_id = str(taxon_id)
-            params.extend([taxon_id, str_ancestor_id, str_ancestor_id, str_ancestor_id, str_ancestor_id])
+            params.extend(
+                [taxon_id, str_ancestor_id, str_ancestor_id, str_ancestor_id, str_ancestor_id]
+            )
 
-        where_sql = " AND ".join(where_clauses)
+        where_sql = ' AND '.join(where_clauses)
 
         name_expr = (
             "REPLACE(LOWER(strip_diacritics(fts.name)), '-', ' ')"
@@ -269,8 +272,8 @@ class TaxonSimpleSearchStrategy(BaseSearchStrategy):
         self,
         q: str,
         language: str,
-        taxon_rank: str,
-        taxon_id: int,
+        taxon_rank: str | None,
+        taxon_id: int | None,
         limit: int,
         strict_language: bool = True,
     ) -> tuple[str, list[Any]]:
@@ -421,8 +424,8 @@ class TaxonAdvancedSearchStrategy(BaseSearchStrategy):
         self,
         q: str,
         language: str,
-        taxon_rank: str,
-        taxon_id: int,
+        taxon_rank: str | None,
+        taxon_id: int | None,
         limit: int,
         strict_language: bool = False,
     ) -> tuple[str, list[Any]]:
@@ -443,7 +446,7 @@ class TaxonAdvancedSearchStrategy(BaseSearchStrategy):
             tokens=q.split(),
             language=preferred_lang,
         )
-        
+
         params = base_params + strategy_params
 
         query = f"""
