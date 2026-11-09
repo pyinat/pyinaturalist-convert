@@ -201,6 +201,7 @@ class BaseSearchStrategy:
         q: str,
         language: str,
         taxon_rank: str | None = None,
+        taxon_id: int | None = None,
         strict_language: bool = False,
         strip_diacritics_enabled: bool = False,
     ) -> tuple[str, list[Any]]:
@@ -219,6 +220,16 @@ class BaseSearchStrategy:
         if taxon_rank:
             where_clauses.append('(taxon_rank = ?)')
             params += [taxon_rank.lower()]
+
+        join_sql = ""
+        if taxon_id is not None:
+            join_sql = f"JOIN taxon t ON fts.taxon_id = t.id"
+            where_clauses.append(
+                "(t.id = ? OR t.ancestor_ids = ? OR t.ancestor_ids LIKE ? || ',%' "
+                "OR t.ancestor_ids LIKE '%,' || ? OR t.ancestor_ids LIKE '%,' || ? || ',%')"
+            )
+            str_ancestor_id = str(taxon_id)
+            params.extend([taxon_id, str_ancestor_id, str_ancestor_id, str_ancestor_id, str_ancestor_id])
 
         where_sql = " AND ".join(where_clauses)
 
@@ -239,6 +250,7 @@ class BaseSearchStrategy:
                 fts.`rank`,
                 {name_expr} AS clean_name
             FROM {TAXON_FTS_TABLE} fts
+            {join_sql}
             WHERE {where_sql}
         """
         return cte_sql, params
@@ -258,6 +270,7 @@ class TaxonSimpleSearchStrategy(BaseSearchStrategy):
         q: str,
         language: str,
         taxon_rank: str,
+        taxon_id: int,
         limit: int,
         strict_language: bool = True,
     ) -> tuple[str, list[Any]]:
@@ -265,6 +278,7 @@ class TaxonSimpleSearchStrategy(BaseSearchStrategy):
             q=q,
             language=language,
             taxon_rank=taxon_rank,
+            taxon_id=taxon_id,
             strict_language=strict_language,
             strip_diacritics_enabled=False,
         )
@@ -408,6 +422,7 @@ class TaxonAdvancedSearchStrategy(BaseSearchStrategy):
         q: str,
         language: str,
         taxon_rank: str,
+        taxon_id: int,
         limit: int,
         strict_language: bool = False,
     ) -> tuple[str, list[Any]]:
@@ -418,6 +433,7 @@ class TaxonAdvancedSearchStrategy(BaseSearchStrategy):
             q=q,
             language=language,
             taxon_rank=taxon_rank,
+            taxon_id=taxon_id,
             strict_language=strict_language,
             strip_diacritics_enabled=True,
         )
@@ -508,6 +524,7 @@ class TaxonAutocompleter:
         q: str,
         language: str = 'en',
         rank: str | None = None,
+        taxon_id: int | None = None,
         strict_language: bool = False,
     ) -> list[Taxon]:
         """Search for taxa by scientific and/or common name."""
@@ -519,6 +536,7 @@ class TaxonAutocompleter:
             q,
             language=language,
             taxon_rank=rank,
+            taxon_id=taxon_id,
             limit=self.limit,
             strict_language=strict_language,
         )
