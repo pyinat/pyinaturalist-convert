@@ -181,13 +181,61 @@ class BaseSearchStrategy:
         """Perform any connection-level setup (e.g. registering custom SQL functions)."""
         pass
 
-    def build_query(self, q: str, language: str, limit: int) -> tuple[str, list[Any]]:
+    def build_query(
+        self,
+        q: str,
+        language: str,
+        limit: int,
+        strict_language: bool = False,
+    ) -> tuple[str, list[Any]]:
         """Build and return the SQL query string and parameter list."""
         raise NotImplementedError
 
     def parse_results(self, rows: list[sqlite3.Row]) -> list[Taxon]:
         """Parse raw SQL rows into Taxon model instances."""
         raise NotImplementedError
+
+    def _build_base_cte(
+        self,
+        q: str,
+        language: str,
+        strict_language: bool = False,
+        strip_diacritics_enabled: bool = False,
+    ) -> tuple[str, list[Any]]:
+        """Consolidated filtering and base CTE construction shared by all strategies."""
+        tokens = q.split()
+        fts_q = f'{"* ".join(tokens)}*'
+        preferred_lang = language.lower().replace('-', '_')[:2] if language else 'en'
+
+        where_clauses = ["fts.name MATCH ?"]
+        params: list[Any] = [fts_q]
+
+        if language and strict_language:
+            where_clauses.append("(fts.language_code IS NULL OR fts.language_code LIKE ? || '%')")
+            params.append(preferred_lang)
+
+        where_sql = " AND ".join(where_clauses)
+
+        name_expr = (
+            "REPLACE(LOWER(strip_diacritics(fts.name)), '-', ' ')"
+            if strip_diacritics_enabled
+            else "REPLACE(LOWER(fts.name), '-', ' ')"
+        )
+
+        cte_sql = f"""
+            SELECT
+                fts.rowid AS rowid,
+                fts.taxon_id,
+                fts.name,
+                fts.taxon_rank,
+                fts.count_rank,
+                fts.language_code,
+                fts.`rank`,
+                {name_expr} AS clean_name
+            FROM {TAXON_FTS_TABLE} fts
+            WHERE {where_sql}
+        """
+        return cte_sql, params
 
 
 class TaxonSimpleSearchStrategy(BaseSearchStrategy):
@@ -199,9 +247,23 @@ class TaxonSimpleSearchStrategy(BaseSearchStrategy):
     For a slower but closer to the API approximation, use TaxonAdvancedSearchStrategy
     """
 
-    def build_query(self, q: str, language: str, limit: int) -> tuple[str, list[Any]]:
+    def build_query(
+        self,
+        q: str,
+        language: str,
+        limit: int,
+        strict_language: bool = True,
+    ) -> tuple[str, list[Any]]:
+        base_cte_sql, params = self._build_base_cte(
+            q=q,
+            language=language,
+            strict_language=strict_language,
+            strip_diacritics_enabled=False,
+        )
+
         query = f"""
-            WITH ranked_matches AS (
+            WITH base AS ({base_cte_sql}),
+            ranked_matches AS (
                 SELECT *,
                     rank,
                     (rank - COALESCE(count_rank, -1)) AS combined_rank,
@@ -209,21 +271,16 @@ class TaxonSimpleSearchStrategy(BaseSearchStrategy):
                         PARTITION BY taxon_id
                         ORDER BY (rank - COALESCE(count_rank, -1)) ASC, rowid ASC
                     ) AS rn
-                FROM {TAXON_FTS_TABLE}
-                WHERE name MATCH ? || '*'
+                FROM base
             )
-            SELECT * FROM ranked_matches
+            SELECT taxon_id, name, taxon_rank, combined_rank
+            FROM ranked_matches
             WHERE rn = 1
         """
-        params: list[Any] = [q]
-
-        if language:
-            query += 'AND (language_code IS NULL OR language_code = ?) '
-            params += [language.lower().replace('-', '_')]
 
         if limit > 0:
-            query += 'ORDER BY combined_rank ASC LIMIT ?'
-            params += [limit]
+            query += ' ORDER BY combined_rank ASC LIMIT ?'
+            params.append(limit)
 
         return query, params
 
@@ -338,33 +395,33 @@ class TaxonAdvancedSearchStrategy(BaseSearchStrategy):
 
         return sql, params
 
-    def build_query(self, q: str, language: str, limit: int) -> tuple[str, list[Any]]:
-        tokens = q.split()
-        fts_q = f'{"* ".join(tokens)}*'
+    def build_query(
+        self,
+        q: str,
+        language: str,
+        limit: int,
+        strict_language: bool = False,
+    ) -> tuple[str, list[Any]]:
         q_lower = _strip_diacritics(q.lower())
         preferred_lang = language.lower().replace('-', '_')[:2] if language else 'en'
 
+        base_cte_sql, base_params = self._build_base_cte(
+            q=q,
+            language=language,
+            strict_language=strict_language,
+            strip_diacritics_enabled=True,
+        )
+
         score_sql, strategy_params = self._build_scoring_sql(
             q_lower=q_lower,
-            tokens=tokens,
+            tokens=q.split(),
             language=preferred_lang,
         )
-        params = [fts_q, *strategy_params]
+        
+        params = base_params + strategy_params
 
         query = f"""
-            WITH base AS (
-                SELECT
-                    fts.rowid AS rowid,
-                    fts.taxon_id,
-                    fts.name,
-                    fts.taxon_rank,
-                    fts.count_rank,
-                    fts.language_code,
-                    fts.`rank`,
-                    REPLACE(LOWER(strip_diacritics(fts.name)), '-', ' ') AS clean_name
-                FROM {TAXON_FTS_TABLE} fts
-                WHERE fts.name MATCH ?
-            ),
+            WITH base AS ({base_cte_sql}),
             scored AS (
                 SELECT
                     rowid,
@@ -378,7 +435,6 @@ class TaxonAdvancedSearchStrategy(BaseSearchStrategy):
             ),
             ranked AS (
                 SELECT
-                    rowid,
                     taxon_id,
                     name,
                     taxon_rank,
@@ -437,13 +493,23 @@ class TaxonAutocompleter:
         self.strategy = strategy or TaxonSimpleSearchStrategy()
         self.strategy.setup_connection(self.connection)
 
-    def search(self, q: str, language: str = 'en') -> list[Taxon]:
+    def search(
+        self,
+        q: str,
+        language: str = 'en',
+        strict_language: bool = False,
+    ) -> list[Taxon]:
         """Search for taxa by scientific and/or common name."""
         q = _sanitize_fts_query(q)
         if not q:
             return []
 
-        query, params = self.strategy.build_query(q, language, self.limit)
+        query, params = self.strategy.build_query(
+            q,
+            language=language,
+            limit=self.limit,
+            strict_language=strict_language,
+        )
 
         with self.connection as conn:
             cursor = conn.execute(query, params)
