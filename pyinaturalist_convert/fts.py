@@ -200,15 +200,29 @@ class TaxonAutocompleter:
         if not q:
             return []
 
-        query = f'SELECT *, rank, (rank - COALESCE(count_rank, -1)) AS combined_rank FROM {TAXON_FTS_TABLE} '
-        query += "WHERE name MATCH ? || '*' "
+        query = f"""
+            WITH ranked_matches AS (
+                SELECT *,
+                    rank,
+                    (rank - COALESCE(count_rank, -1)) AS combined_rank,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY taxon_id
+                        ORDER BY (rank - COALESCE(count_rank, -1)) ASC, rowid ASC
+                    ) AS rn
+                FROM {TAXON_FTS_TABLE}
+                WHERE name MATCH ? || '*'
+            )
+            SELECT * FROM ranked_matches
+            WHERE rn = 1
+"""
         params: ParamList = [q]
 
         if language:
             query += 'AND (language_code IS NULL OR language_code = ?) '
             params += [language.lower().replace('-', '_')]
+
         if self.limit > 1:
-            query += 'ORDER BY combined_rank LIMIT ?'
+            query += 'ORDER BY combined_rank ASC LIMIT ?'
             params += [self.limit]
 
         with self.connection as conn:
