@@ -61,6 +61,15 @@ Search taxa::
     >>> # Or by common name in a specific language (by short code)
     >>> ta.search('flughund', language='de')
 
+    >>> # Or with strict language filtering enabled
+    >>> ta.search('flughund', language='de', strict_language=True)
+
+    >>> # Filter by taxonomic rank
+    >>> ta.search('aves', rank='species')
+
+    >>> # Filter by taxon ID or ancestry (e.g., descendants of Aves, taxon_id=3)
+    >>> ta.search('robin', taxon_id=3)
+
 Observation Autocomplete
 ------------------------
 
@@ -114,13 +123,14 @@ Search observations::
 
 import re
 import sqlite3
+import unicodedata
 from collections.abc import Iterable, Sequence
 from enum import Enum
 from functools import partial
 from itertools import chain
 from logging import Logger, getLogger
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from pyinaturalist import Observation
 from pyinaturalist.models import Taxon
@@ -173,35 +183,157 @@ class TextField(Enum):
     PLACE = 4
 
 
-class TaxonAutocompleter:
-    """Taxon autocomplete search. Runs full text search on taxon scientific and common names.
+class BaseSearchStrategy:
+    """Base interface for taxon search generation strategies."""
 
-    Args:
-        db_path: Path to SQLite database; uses platform-specific data directory by default
-        limit: Maximum number of results to return per query. Set to -1 to disable.
-    """
-
-    def __init__(self, db_path: PathOrStr = DB_PATH, limit: int = 10):
-        self.connection = sqlite3.connect(db_path)
-        self.connection.row_factory = sqlite3.Row
-        self.limit = limit
-
-    def search(self, q: str, language: str = 'en') -> list[Taxon]:
-        """Search for taxa by scientific and/or common name.
+    def setup_connection(self, connection: sqlite3.Connection) -> None:
+        """Perform any connection-level setup (e.g. registering custom SQL functions).
 
         Args:
-            q: Search query
-            language: Language code for common names
+            connection: SQLite database connection
+        """
+        pass
+
+    def build_query(
+        self,
+        q: str,
+        language: str,
+        taxon_rank: str | None,
+        taxon_id: int | None,
+        limit: int,
+        strict_language: bool = False,
+    ) -> tuple[str, list[Any]]:
+        """Build and return the SQL query string and parameter list.
+
+        Args:
+            q: Sanitized search query string
+            language: Preferred language code for common names
+            taxon_rank: Optional taxonomic rank filter (e.g., 'species')
+            taxon_id: Optional ancestor taxon ID filter
+            limit: Maximum number of results to return
+            strict_language: Whether to enforce strict language filtering
 
         Returns:
-            Taxon objects (with ID and name only)
+            A tuple of ``(sql_query, parameters)``
         """
-        q = _sanitize_fts_query(q)
-        if not q:
-            return []
+        raise NotImplementedError
+
+    def parse_results(self, rows: list[sqlite3.Row]) -> list[Taxon]:
+        """Parse raw SQL rows into Taxon model instances.
+
+        Args:
+            rows: Raw database rows from query execution
+
+        Returns:
+            List of parsed :py:class:`~pyinaturalist.models.Taxon` instances
+        """
+        raise NotImplementedError
+
+    def _build_base_cte(
+        self,
+        q: str,
+        language: str,
+        taxon_rank: str | None = None,
+        taxon_id: int | None = None,
+        strict_language: bool = False,
+        strip_diacritics_enabled: bool = False,
+    ) -> tuple[str, list[Any]]:
+        """Consolidated filtering and base CTE construction shared by all strategies."""
+        tokens = q.split()
+        fts_q = f'{"* ".join(tokens)}*'
+        preferred_lang = language.lower().replace('-', '_')[:2] if language else 'en'
+
+        where_clauses = ['fts.name MATCH ?']
+        params: list[Any] = [fts_q]
+
+        if language and strict_language:
+            where_clauses.append("(fts.language_code IS NULL OR fts.language_code LIKE ? || '%')")
+            params.append(preferred_lang)
+
+        if taxon_rank:
+            where_clauses.append('(taxon_rank = ?)')
+            params += [taxon_rank.lower()]
+
+        join_sql = ''
+        if taxon_id is not None:
+            join_sql = 'JOIN taxon t ON fts.taxon_id = t.id'
+            where_clauses.append(
+                "(t.id = ? OR t.ancestor_ids = ? OR t.ancestor_ids LIKE ? || ',%' "
+                "OR t.ancestor_ids LIKE '%,' || ? OR t.ancestor_ids LIKE '%,' || ? || ',%')"
+            )
+            str_ancestor_id = str(taxon_id)
+            params.extend(
+                [taxon_id, str_ancestor_id, str_ancestor_id, str_ancestor_id, str_ancestor_id]
+            )
+
+        where_sql = ' AND '.join(where_clauses)
+
+        name_expr = (
+            "REPLACE(LOWER(strip_diacritics(fts.name)), '-', ' ')"
+            if strip_diacritics_enabled
+            else "REPLACE(LOWER(fts.name), '-', ' ')"
+        )
+
+        cte_sql = f"""
+            SELECT
+                fts.rowid AS rowid,
+                fts.taxon_id,
+                fts.name,
+                fts.taxon_rank,
+                fts.count_rank,
+                fts.language_code,
+                fts.`rank`,
+                {name_expr} AS clean_name
+            FROM {TAXON_FTS_TABLE} fts
+            {join_sql}
+            WHERE {where_sql}
+        """
+        return cte_sql, params
+
+
+class TaxonSimpleSearchStrategy(BaseSearchStrategy):
+    """Default prefix, rank and count-based search strategy.
+
+    Better performing but only crudely approximates the Elasticsearch-based
+    iNaturalist API search results from /v?/taxa/autocomplete
+
+    For a slower but closer to the API approximation, use TaxonAdvancedSearchStrategy
+    """
+
+    def build_query(
+        self,
+        q: str,
+        language: str,
+        taxon_rank: str | None,
+        taxon_id: int | None,
+        limit: int,
+        strict_language: bool = True,
+    ) -> tuple[str, list[Any]]:
+        """Build and return the SQL query string and parameter list for the simple strategy.
+
+        Args:
+            q: Sanitized search query string
+            language: Preferred language code for common names
+            taxon_rank: Optional taxonomic rank filter (e.g., 'species')
+            taxon_id: Optional ancestor taxon ID filter
+            limit: Maximum number of results to return
+            strict_language: Whether to enforce strict language filtering
+
+        Returns:
+            A tuple of ``(sql_query, parameters)``
+        """
+        base_cte_sql, params = self._build_base_cte(
+            q=q,
+            language=language,
+            taxon_rank=taxon_rank,
+            taxon_id=taxon_id,
+            strict_language=strict_language,
+            strip_diacritics_enabled=False,
+        )
 
         query = f"""
-            WITH ranked_matches AS (
+            WITH base AS ({base_cte_sql}),
+            ranked_matches AS (
                 SELECT *,
                     rank,
                     (rank - COALESCE(count_rank, -1)) AS combined_rank,
@@ -209,32 +341,312 @@ class TaxonAutocompleter:
                         PARTITION BY taxon_id
                         ORDER BY (rank - COALESCE(count_rank, -1)) ASC, rowid ASC
                     ) AS rn
-                FROM {TAXON_FTS_TABLE}
-                WHERE name MATCH ? || '*'
+                FROM base
             )
-            SELECT * FROM ranked_matches
+            SELECT taxon_id, name, taxon_rank, combined_rank
+            FROM ranked_matches
             WHERE rn = 1
-"""
-        params: ParamList = [q]
+        """
 
-        if language:
-            query += 'AND (language_code IS NULL OR language_code = ?) '
-            params += [language.lower().replace('-', '_')]
+        if limit > 0:
+            query += ' ORDER BY combined_rank ASC LIMIT ?'
+            params.append(limit)
 
-        if self.limit > 1:
-            query += 'ORDER BY combined_rank ASC LIMIT ?'
-            params += [self.limit]
+        return query, params
+
+    def parse_results(self, rows: list[sqlite3.Row]) -> list[Taxon]:
+        """Parse raw SQL rows into Taxon model instances.
+
+        Args:
+            rows: Raw database rows from query execution
+
+        Returns:
+            List of parsed :py:class:`~pyinaturalist.models.Taxon` instances
+        """
+        sorted_rows = sorted(rows, key=lambda row: row['combined_rank'])
+        return [
+            Taxon(id=int(row['taxon_id']), name=row['name'], rank=row['taxon_rank'])
+            for row in sorted_rows
+        ]
+
+
+class TaxonAdvancedSearchStrategy(BaseSearchStrategy):
+    """Advanced CTE-based search strategy with diacritic stripping and multi-word matching.
+
+    A closer approximation of the Elasticsearch-based iNaturalist API results
+    from /v?/taxa/autocomplete, but slower than TaxonSimpleSearchStrategy.
+
+    Args:
+        exact_match_boost: Score boost for exact name matches
+        sci_phrase_match_boost: Score boost for scientific name phrase matches
+        sci_loose_match_boost: Score boost for scientific name loose matches
+        loc_phrase_match_boost: Score boost for localized name phrase matches
+        loc_loose_match_boost: Score boost for localized name loose matches
+        phrase_match_boost: Score boost for general phrase matches
+        loose_match_boost: Score boost for general loose matches
+        popularity_rank_factor: Weight factor for observation count popularity rank
+    """
+
+    def __init__(
+        self,
+        exact_match_boost: float = -10000.0,
+        sci_phrase_match_boost: float = -300.0,
+        sci_loose_match_boost: float = -240.0,
+        loc_phrase_match_boost: float = -280.0,
+        loc_loose_match_boost: float = -270.0,
+        phrase_match_boost: float = -20.0,
+        loose_match_boost: float = -10.0,
+        popularity_rank_factor: float = -15.0,
+    ):
+        self.exact_match_boost = exact_match_boost
+        self.sci_phrase_match_boost = sci_phrase_match_boost
+        self.sci_loose_match_boost = sci_loose_match_boost
+        self.loc_phrase_match_boost = loc_phrase_match_boost
+        self.loc_loose_match_boost = loc_loose_match_boost
+        self.phrase_match_boost = phrase_match_boost
+        self.loose_match_boost = loose_match_boost
+        self.popularity_rank_factor = popularity_rank_factor
+
+    def setup_connection(self, connection: sqlite3.Connection) -> None:
+        """Perform connection-level setup including custom SQL functions.
+
+        Args:
+            connection: SQLite database connection
+        """
+        connection.create_function('strip_diacritics', 1, _strip_diacritics)
+
+    def _build_scoring_sql(
+        self, q_lower: str, tokens: list[str], language: str
+    ) -> tuple[str, list[Any]]:
+        def build_phrase_match_sql(tokens: list[str]):
+            phrase_parts = [
+                "(clean_name LIKE ? || ' ' || '%' OR clean_name LIKE ? || '-%' OR clean_name = ?)"
+            ]
+            phrase_params = [tokens[0], tokens[0], tokens[0]]
+            for token in tokens[1:]:
+                phrase_parts.append(
+                    "(clean_name LIKE '% ' || ? || ' ' || '%' OR clean_name LIKE '% ' || ? || '-%')"
+                )
+                phrase_params.extend([token, token])
+            return ' AND '.join(phrase_parts), phrase_params
+
+        def build_loose_match_sql(tokens: list[str]):
+            loose_parts = ["clean_name LIKE ? || '%'"]
+            loose_params = [tokens[0]]
+            for token in tokens[1:]:
+                loose_parts.append(
+                    "(clean_name LIKE '% ' || ? || '%' OR clean_name LIKE '%-' || ? || '%')"
+                )
+                loose_params.extend([token, token])
+            return ' AND '.join(loose_parts), loose_params
+
+        if len(tokens) > 1:
+            phrase_sql, phrase_params = build_phrase_match_sql(tokens)
+            loose_sql, loose_params = build_loose_match_sql(tokens)
+
+            sql = f"""
+                (
+                    CASE
+                        WHEN clean_name = ? THEN {self.exact_match_boost}
+                        WHEN {phrase_sql} THEN
+                            CASE
+                                WHEN language_code IS NULL THEN {self.sci_phrase_match_boost}
+                                WHEN language_code LIKE ? THEN {self.loc_phrase_match_boost}
+                                ELSE {self.phrase_match_boost}
+                            END
+                        WHEN {loose_sql} THEN
+                            CASE
+                                WHEN language_code IS NULL THEN {self.sci_loose_match_boost}
+                                WHEN language_code LIKE ? THEN {self.loc_loose_match_boost}
+                                ELSE {self.loose_match_boost}
+                            END
+                        ELSE 0.0
+                    END
+                    + (COALESCE(count_rank, 0.0) * {self.popularity_rank_factor})
+                    + `rank`
+                )
+            """
+            params = [q_lower, *phrase_params, language, *loose_params, language]
+        else:
+            sql = f"""
+                (
+                    CASE
+                        WHEN clean_name = ? THEN {self.exact_match_boost}
+                        WHEN clean_name LIKE ? || '%' THEN
+                            CASE
+                                WHEN language_code IS NULL THEN {self.sci_loose_match_boost}
+                                WHEN language_code LIKE ? THEN {self.loc_loose_match_boost}
+                                ELSE {self.loose_match_boost}
+                            END
+                        ELSE 0.0
+                    END
+                    + (COALESCE(count_rank, 0.0) * {self.popularity_rank_factor})
+                    + `rank`
+                )
+            """
+            params = [q_lower, q_lower, language]
+
+        return sql, params
+
+    def build_query(
+        self,
+        q: str,
+        language: str,
+        taxon_rank: str | None,
+        taxon_id: int | None,
+        limit: int,
+        strict_language: bool = False,
+    ) -> tuple[str, list[Any]]:
+        """Build and return the SQL query string and parameter list for the advanced strategy.
+
+        Args:
+            q: Sanitized search query string
+            language: Preferred language code for common names
+            taxon_rank: Optional taxonomic rank filter (e.g., 'species')
+            taxon_id: Optional ancestor taxon ID filter
+            limit: Maximum number of results to return
+            strict_language: Whether to enforce strict language filtering
+
+        Returns:
+            A tuple of ``(sql_query, parameters)``
+        """
+        q_lower = _strip_diacritics(q.lower())
+        preferred_lang = language.lower().replace('-', '_')[:2] if language else 'en'
+
+        base_cte_sql, base_params = self._build_base_cte(
+            q=q,
+            language=language,
+            taxon_rank=taxon_rank,
+            taxon_id=taxon_id,
+            strict_language=strict_language,
+            strip_diacritics_enabled=True,
+        )
+
+        score_sql, strategy_params = self._build_scoring_sql(
+            q_lower=q_lower,
+            tokens=q.split(),
+            language=preferred_lang,
+        )
+
+        params = base_params + strategy_params
+
+        query = f"""
+            WITH base AS ({base_cte_sql}),
+            scored AS (
+                SELECT
+                    rowid,
+                    taxon_id,
+                    name,
+                    taxon_rank,
+                    count_rank,
+                    language_code,
+                    {score_sql} AS combined_rank
+                FROM base
+            ),
+            ranked AS (
+                SELECT
+                    taxon_id,
+                    name,
+                    taxon_rank,
+                    combined_rank,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY taxon_id
+                        ORDER BY combined_rank ASC, rowid ASC
+                    ) AS rn
+                FROM scored
+            )
+            SELECT
+                taxon_id,
+                name,
+                taxon_rank,
+                combined_rank
+            FROM ranked
+            WHERE rn = 1
+            ORDER BY combined_rank ASC
+        """
+
+        if limit > 0:
+            query += ' LIMIT ?'
+            params.append(limit)
+
+        return query, params
+
+    def parse_results(self, rows: list[sqlite3.Row]) -> list[Taxon]:
+        """Parse raw SQL rows into Taxon model instances.
+
+        Args:
+            rows: Raw database rows from query execution
+
+        Returns:
+            List of parsed :py:class:`~pyinaturalist.models.Taxon` instances
+        """
+        return [
+            Taxon(
+                id=int(row['taxon_id']),
+                name=row['name'],
+                rank=row['taxon_rank'],
+            )
+            for row in rows
+        ]
+
+
+class TaxonAutocompleter:
+    """Taxon autocomplete search. Runs full text search on taxon scientific and common names.
+
+    Args:
+        db_path: Path to SQLite database; uses platform-specific data directory by default
+        limit: Maximum number of results to return per query. Set to -1 to disable.
+        strategy: Optional custom search strategy
+    """
+
+    def __init__(
+        self,
+        db_path: PathOrStr = DB_PATH,
+        limit: int = 10,
+        strategy: BaseSearchStrategy | None = None,
+    ):
+        self.connection = sqlite3.connect(db_path, check_same_thread=False)
+        self.connection.row_factory = sqlite3.Row
+        self.limit = limit
+        self.strategy = strategy or TaxonSimpleSearchStrategy()
+        self.strategy.setup_connection(self.connection)
+
+    def search(
+        self,
+        q: str,
+        language: str = 'en',
+        rank: str | None = None,
+        taxon_id: int | None = None,
+        strict_language: bool = False,
+    ) -> list[Taxon]:
+        """Search for taxa by scientific and/or common name.
+
+        Args:
+            q: Search query string
+            language: Language code for common names (default: 'en')
+            rank: Optional taxonomic rank filter (e.g., 'species', 'genus')
+            taxon_id: Optional ancestor taxon ID to restrict results to descendants of this taxon
+            strict_language: If True, strictly filter results to the specified language
+
+        Returns:
+            List of matching :py:class:`~pyinaturalist.models.Taxon` instances
+        """
+        q = _sanitize_fts_query(q)
+        if not q:
+            return []
+
+        query, params = self.strategy.build_query(
+            q,
+            language=language,
+            taxon_rank=rank,
+            taxon_id=taxon_id,
+            limit=self.limit,
+            strict_language=strict_language,
+        )
 
         with self.connection as conn:
             cursor = conn.execute(query, params)
-            results = sorted(
-                cursor.fetchall(),
-                key=lambda row: row['combined_rank'],
-            )
-            return [
-                Taxon(id=int(row['taxon_id']), name=row['name'], rank=row['taxon_rank'])
-                for row in results
-            ]
+            return self.strategy.parse_results(cursor.fetchall())
 
 
 # TODO: Add observation short description (what/where/when) to FTS table?
@@ -587,10 +999,12 @@ def _get_common_name_csvs(
         }
 
 
-def _add_taxon_counts(row: list, field_index: dict[str, int], taxon_counts: dict[int, int]) -> list:
+def _add_taxon_counts(
+    row: list, field_index: dict[str, int], taxon_counts: dict[int, float]
+) -> list:
     """Add taxon counts to a chunk of taxon records read from CSV"""
     taxon_id = int(row[field_index['id']])
-    row.append(taxon_counts.get(taxon_id, -1))
+    row.append(taxon_counts.get(taxon_id, -1.0))
     lang_idx = field_index.get('language')
     if lang_idx is not None and row[lang_idx]:
         row[lang_idx] = str(row[lang_idx]).lower().replace('-', '_')
@@ -598,8 +1012,10 @@ def _add_taxon_counts(row: list, field_index: dict[str, int], taxon_counts: dict
 
 
 # TODO: Read from taxon table instead
-def _normalize_taxon_counts(agg_path: PathOrStr = TAXON_AGGREGATES_PATH) -> dict[int, int]:
-    """Read previously calculated taxon counts, and normalize to a logarithmic distribution"""
+def _normalize_taxon_counts(
+    agg_path: PathOrStr = TAXON_AGGREGATES_PATH,
+) -> dict[int, float]:
+    """Read previously calculated taxon counts and apply log1p scaling to match iNat ES scoring."""
     import numpy as np
     import pandas as pd
 
@@ -608,20 +1024,18 @@ def _normalize_taxon_counts(agg_path: PathOrStr = TAXON_AGGREGATES_PATH) -> dict
         return {}
 
     logger.info(f'Reading taxon counts from {agg_path}')
-    df = pd.read_parquet(agg_path)
-
-    def normalize(series):
-        with np.errstate(divide='ignore'):
-            series = np.log(series.copy())
-        series[np.isneginf(series)] = 0
-        return (series - series.mean()) / series.std()
+    df = pd.read_parquet(agg_path).reset_index()
 
     logger.info('Normalizing taxon counts')
-    df['count_rank'] = normalize(df['observations_count_rg']).fillna(-1)
-    df['count_rank'] = df['count_rank'] * TAXON_COUNT_RANK_FACTOR
-    df = df.sort_values(by='count_rank', ascending=False)
-    result_dict = df['count_rank'].to_dict()
-    return dict(sorted(result_dict.items()))
+    counts = df['observations_count_rg'].to_numpy()
+    popularity = np.zeros_like(counts, dtype=float)
+    observed_mask = ~np.isnan(counts)
+
+    popularity[observed_mask] = np.log1p(counts[observed_mask]) * TAXON_COUNT_RANK_FACTOR
+    popularity[~observed_mask] = -1.0
+
+    df['count_rank'] = popularity
+    return df.set_index('id')['count_rank'].to_dict()
 
 
 def _load_taxon_ranks(db_path: PathOrStr = DB_PATH):
@@ -639,6 +1053,13 @@ def _load_taxon_ranks(db_path: PathOrStr = DB_PATH):
             )
         except sqlite3.OperationalError:
             logger.warning('Full taxon table not found; ranks not loaded for common names')
+
+
+def _strip_diacritics(text: str) -> str:
+    """Strip diacritics/accents from text using NFD normalization."""
+    if not text:
+        return ''
+    return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
 
 
 def _sanitize_fts_query(query: str) -> str:
