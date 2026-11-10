@@ -61,6 +61,15 @@ Search taxa::
     >>> # Or by common name in a specific language (by short code)
     >>> ta.search('flughund', language='de')
 
+    >>> # Or with strict language filtering enabled
+    >>> ta.search('flughund', language='de', strict_language=True)
+
+    >>> # Filter by taxonomic rank
+    >>> ta.search('aves', rank='species')
+
+    >>> # Filter by taxon ID or ancestry (e.g., descendants of Aves, taxon_id=3)
+    >>> ta.search('robin', taxon_id=3)
+
 Observation Autocomplete
 ------------------------
 
@@ -178,7 +187,11 @@ class BaseSearchStrategy:
     """Base interface for taxon search generation strategies."""
 
     def setup_connection(self, connection: sqlite3.Connection) -> None:
-        """Perform any connection-level setup (e.g. registering custom SQL functions)."""
+        """Perform any connection-level setup (e.g. registering custom SQL functions).
+
+        Args:
+            connection: SQLite database connection
+        """
         pass
 
     def build_query(
@@ -190,11 +203,30 @@ class BaseSearchStrategy:
         limit: int,
         strict_language: bool = False,
     ) -> tuple[str, list[Any]]:
-        """Build and return the SQL query string and parameter list."""
+        """Build and return the SQL query string and parameter list.
+
+        Args:
+            q: Sanitized search query string
+            language: Preferred language code for common names
+            taxon_rank: Optional taxonomic rank filter (e.g., 'species')
+            taxon_id: Optional ancestor taxon ID filter
+            limit: Maximum number of results to return
+            strict_language: Whether to enforce strict language filtering
+
+        Returns:
+            A tuple of ``(sql_query, parameters)``
+        """
         raise NotImplementedError
 
     def parse_results(self, rows: list[sqlite3.Row]) -> list[Taxon]:
-        """Parse raw SQL rows into Taxon model instances."""
+        """Parse raw SQL rows into Taxon model instances.
+
+        Args:
+            rows: Raw database rows from query execution
+
+        Returns:
+            List of parsed :py:class:`~pyinaturalist.models.Taxon` instances
+        """
         raise NotImplementedError
 
     def _build_base_cte(
@@ -277,6 +309,19 @@ class TaxonSimpleSearchStrategy(BaseSearchStrategy):
         limit: int,
         strict_language: bool = True,
     ) -> tuple[str, list[Any]]:
+        """Build and return the SQL query string and parameter list for the simple strategy.
+
+        Args:
+            q: Sanitized search query string
+            language: Preferred language code for common names
+            taxon_rank: Optional taxonomic rank filter (e.g., 'species')
+            taxon_id: Optional ancestor taxon ID filter
+            limit: Maximum number of results to return
+            strict_language: Whether to enforce strict language filtering
+
+        Returns:
+            A tuple of ``(sql_query, parameters)``
+        """
         base_cte_sql, params = self._build_base_cte(
             q=q,
             language=language,
@@ -310,6 +355,14 @@ class TaxonSimpleSearchStrategy(BaseSearchStrategy):
         return query, params
 
     def parse_results(self, rows: list[sqlite3.Row]) -> list[Taxon]:
+        """Parse raw SQL rows into Taxon model instances.
+
+        Args:
+            rows: Raw database rows from query execution
+
+        Returns:
+            List of parsed :py:class:`~pyinaturalist.models.Taxon` instances
+        """
         sorted_rows = sorted(rows, key=lambda row: row['combined_rank'])
         return [
             Taxon(id=int(row['taxon_id']), name=row['name'], rank=row['taxon_rank'])
@@ -322,6 +375,16 @@ class TaxonAdvancedSearchStrategy(BaseSearchStrategy):
 
     A closer approximation of the Elasticsearch-based iNaturalist API results
     from /v?/taxa/autocomplete, but slower than TaxonSimpleSearchStrategy.
+
+    Args:
+        exact_match_boost: Score boost for exact name matches
+        sci_phrase_match_boost: Score boost for scientific name phrase matches
+        sci_loose_match_boost: Score boost for scientific name loose matches
+        loc_phrase_match_boost: Score boost for localized name phrase matches
+        loc_loose_match_boost: Score boost for localized name loose matches
+        phrase_match_boost: Score boost for general phrase matches
+        loose_match_boost: Score boost for general loose matches
+        popularity_rank_factor: Weight factor for observation count popularity rank
     """
 
     def __init__(
@@ -345,6 +408,11 @@ class TaxonAdvancedSearchStrategy(BaseSearchStrategy):
         self.popularity_rank_factor = popularity_rank_factor
 
     def setup_connection(self, connection: sqlite3.Connection) -> None:
+        """Perform connection-level setup including custom SQL functions.
+
+        Args:
+            connection: SQLite database connection
+        """
         connection.create_function('strip_diacritics', 1, _strip_diacritics)
 
     def _build_scoring_sql(
@@ -429,6 +497,19 @@ class TaxonAdvancedSearchStrategy(BaseSearchStrategy):
         limit: int,
         strict_language: bool = False,
     ) -> tuple[str, list[Any]]:
+        """Build and return the SQL query string and parameter list for the advanced strategy.
+
+        Args:
+            q: Sanitized search query string
+            language: Preferred language code for common names
+            taxon_rank: Optional taxonomic rank filter (e.g., 'species')
+            taxon_id: Optional ancestor taxon ID filter
+            limit: Maximum number of results to return
+            strict_language: Whether to enforce strict language filtering
+
+        Returns:
+            A tuple of ``(sql_query, parameters)``
+        """
         q_lower = _strip_diacritics(q.lower())
         preferred_lang = language.lower().replace('-', '_')[:2] if language else 'en'
 
@@ -491,6 +572,14 @@ class TaxonAdvancedSearchStrategy(BaseSearchStrategy):
         return query, params
 
     def parse_results(self, rows: list[sqlite3.Row]) -> list[Taxon]:
+        """Parse raw SQL rows into Taxon model instances.
+
+        Args:
+            rows: Raw database rows from query execution
+
+        Returns:
+            List of parsed :py:class:`~pyinaturalist.models.Taxon` instances
+        """
         return [
             Taxon(
                 id=int(row['taxon_id']),
@@ -530,7 +619,18 @@ class TaxonAutocompleter:
         taxon_id: int | None = None,
         strict_language: bool = False,
     ) -> list[Taxon]:
-        """Search for taxa by scientific and/or common name."""
+        """Search for taxa by scientific and/or common name.
+
+        Args:
+            q: Search query string
+            language: Language code for common names (default: 'en')
+            rank: Optional taxonomic rank filter (e.g., 'species', 'genus')
+            taxon_id: Optional ancestor taxon ID to restrict results to descendants of this taxon
+            strict_language: If True, strictly filter results to the specified language
+
+        Returns:
+            List of matching :py:class:`~pyinaturalist.models.Taxon` instances
+        """
         q = _sanitize_fts_query(q)
         if not q:
             return []
