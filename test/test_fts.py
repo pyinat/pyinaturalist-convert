@@ -19,10 +19,13 @@ from pyinaturalist_convert.fts import (
     index_observation_text,
     load_fts_taxa,
 )
+from pyinaturalist_convert.sqlite import load_table
 from test.conftest import SAMPLE_DATA_DIR
 
 CSV_DIR = SAMPLE_DATA_DIR / 'inaturalist-taxonomy.dwca'
 COUNTS_PATH = SAMPLE_DATA_DIR / 'taxon_counts_fts.parquet'
+OPEN_DATA_TAXA_PATH = SAMPLE_DATA_DIR / 'inaturalist-open-data' / 'taxa.csv'
+
 logger = getLogger(__name__)
 
 
@@ -56,6 +59,33 @@ def test_taxon_text_search(tmp_path):
 
     assert len(ta.search('')) == 0
     assert len(ta.search('franco', language=None)) == 3
+
+
+def _normalize_open_data_ancestry(row, field_index):
+    row[field_index['ancestry']] = row[field_index['ancestry']].replace('/', ',')
+    return row
+
+
+def test_taxon_text_search__by_taxon_id(tmp_path):
+    db_path = _taxon_fts_db(tmp_path)
+    load_table(
+        OPEN_DATA_TAXA_PATH,
+        db_path,
+        table_name='taxon',
+        column_map={
+            'taxon_id': 'id',
+            'ancestry': 'ancestor_ids',
+            'rank': 'rank',
+            'name': 'name',
+        },
+        delimiter='\t',
+        transform=_normalize_open_data_ancestry,
+    )
+
+    ta = TaxonAutocompleter(db_path=db_path)
+
+    assert {taxon.id for taxon in ta.search('javanic')} == {26179, 27440, 27442}
+    assert {taxon.id for taxon in ta.search('javanic', taxon_id=26176)} == {26179}
 
 
 @pytest.mark.parametrize(
