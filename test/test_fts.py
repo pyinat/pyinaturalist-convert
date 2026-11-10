@@ -50,6 +50,10 @@ def test_taxon_text_search(tmp_path):
     assert len(results) == 1
     assert results[0].id == 13 and results[0].name == 'Cariama'
 
+    results = ta.search('american')
+    assert len(results) == 1
+    assert results[0].id == 473 and results[0].name == 'Grus americana'
+
     assert len(ta.search('')) == 0
     assert len(ta.search('franco', language=None)) == 3
 
