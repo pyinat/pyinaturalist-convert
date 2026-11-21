@@ -241,7 +241,7 @@ class BaseSearchStrategy:
         """Consolidated filtering and base CTE construction shared by all strategies."""
         tokens = q.split()
         fts_q = f'{"* ".join(tokens)}*'
-        preferred_lang = language.lower().replace('-', '_')[:2] if language else 'en'
+        preferred_lang = _normalize_language(language)
 
         where_clauses = ['fts.name MATCH ?']
         params: list[Any] = [fts_q]
@@ -511,7 +511,7 @@ class TaxonAdvancedSearchStrategy(BaseSearchStrategy):
             A tuple of ``(sql_query, parameters)``
         """
         q_lower = _strip_diacritics(q.lower())
-        preferred_lang = language.lower().replace('-', '_')[:2] if language else 'en'
+        preferred_lang = _normalize_language(language)
 
         base_cte_sql, base_params = self._build_base_cte(
             q=q,
@@ -1065,3 +1065,8 @@ def _strip_diacritics(text: str) -> str:
 def _sanitize_fts_query(query: str) -> str:
     query = FTS5_SEPARATOR_CHARS.sub(' ', query)
     return ' '.join(query.split())
+
+def _normalize_language(language: str | None, default: str = 'en') -> str:
+    """Normalize a language code to a lowercase two-letter prefix."""
+    return language.lower().replace('-', '_')[:2] if language else default
+
