@@ -451,13 +451,13 @@ class TaxonAdvancedSearchStrategy(BaseSearchStrategy):
                         WHEN {phrase_sql} THEN
                             CASE
                                 WHEN language_code IS NULL THEN {self.sci_phrase_match_boost}
-                                WHEN language_code LIKE ? THEN {self.loc_phrase_match_boost}
+                                WHEN language_code LIKE ? || '%' THEN {self.loc_phrase_match_boost}
                                 ELSE {self.phrase_match_boost}
                             END
                         WHEN {loose_sql} THEN
                             CASE
                                 WHEN language_code IS NULL THEN {self.sci_loose_match_boost}
-                                WHEN language_code LIKE ? THEN {self.loc_loose_match_boost}
+                                WHEN language_code LIKE ? || '%' THEN {self.loc_loose_match_boost}
                                 ELSE {self.loose_match_boost}
                             END
                         ELSE 0.0
@@ -475,7 +475,7 @@ class TaxonAdvancedSearchStrategy(BaseSearchStrategy):
                         WHEN clean_name LIKE ? || '%' THEN
                             CASE
                                 WHEN language_code IS NULL THEN {self.sci_loose_match_boost}
-                                WHEN language_code LIKE ? THEN {self.loc_loose_match_boost}
+                                WHEN language_code LIKE ? || '%' THEN {self.loc_loose_match_boost}
                                 ELSE {self.loose_match_boost}
                             END
                         ELSE 0.0
