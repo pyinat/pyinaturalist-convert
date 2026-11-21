@@ -524,7 +524,7 @@ class TaxonAdvancedSearchStrategy(BaseSearchStrategy):
 
         score_sql, strategy_params = self._build_scoring_sql(
             q_lower=q_lower,
-            tokens=q.split(),
+            tokens=q_lower.split(),
             language=preferred_lang,
         )
 
