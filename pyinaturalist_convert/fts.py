@@ -123,6 +123,7 @@ Search observations::
 
 import re
 import sqlite3
+import threading
 import unicodedata
 from collections.abc import Iterable, Sequence
 from enum import Enum
@@ -597,6 +598,7 @@ class TaxonAutocompleter:
         db_path: Path to SQLite database; uses platform-specific data directory by default
         limit: Maximum number of results to return per query. Set to -1 to disable.
         strategy: Optional custom search strategy
+        timeout: Seconds to wait for SQLite lock resolution before raising an error
     """
 
     def __init__(
@@ -604,8 +606,10 @@ class TaxonAutocompleter:
         db_path: PathOrStr = DB_PATH,
         limit: int = 10,
         strategy: BaseSearchStrategy | None = None,
+        timeout: float = 2.0,
     ):
-        self.connection = sqlite3.connect(db_path, check_same_thread=False)
+        self._lock = threading.Lock()
+        self.connection = sqlite3.connect(db_path, timeout=timeout, check_same_thread=False)
         self.connection.row_factory = sqlite3.Row
         self.limit = limit
         self.strategy = strategy or TaxonSimpleSearchStrategy()
@@ -644,7 +648,7 @@ class TaxonAutocompleter:
             strict_language=strict_language,
         )
 
-        with self.connection as conn:
+        with self._lock, self.connection as conn:
             cursor = conn.execute(query, params)
             return self.strategy.parse_results(cursor.fetchall())
 
