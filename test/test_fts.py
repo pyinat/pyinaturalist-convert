@@ -8,6 +8,7 @@ from pyinaturalist import Comment, Identification, Observation, Taxon
 from pyinaturalist_convert.db import create_tables, save_observations, save_taxa
 from pyinaturalist_convert.fts import (
     ObservationAutocompleter,
+    TaxonAdvancedSearchStrategy,
     TaxonAutocompleter,
     TextField,
     _sanitize_fts_query,
@@ -18,10 +19,13 @@ from pyinaturalist_convert.fts import (
     index_observation_text,
     load_fts_taxa,
 )
+from pyinaturalist_convert.sqlite import load_table
 from test.conftest import SAMPLE_DATA_DIR
 
 CSV_DIR = SAMPLE_DATA_DIR / 'inaturalist-taxonomy.dwca'
 COUNTS_PATH = SAMPLE_DATA_DIR / 'taxon_counts_fts.parquet'
+OPEN_DATA_TAXA_PATH = SAMPLE_DATA_DIR / 'inaturalist-open-data' / 'taxa.csv'
+
 logger = getLogger(__name__)
 
 
@@ -41,8 +45,47 @@ def test_taxon_text_search(tmp_path):
     assert len(results) == 1
     assert results[0].id == 473 and results[0].name == 'Grus americana'
 
+    results = ta.search('cariama')
+    assert len(results) == 2
+    assert results[0].id == 14 and results[0].name == 'Cariama cristata'
+
+    results = ta.search('cariama', rank='genus')
+    assert len(results) == 1
+    assert results[0].id == 13 and results[0].name == 'Cariama'
+
+    results = ta.search('american')
+    assert len(results) == 1
+    assert results[0].id == 473 and results[0].name == 'Grus americana'
+
     assert len(ta.search('')) == 0
     assert len(ta.search('franco', language=None)) == 3
+
+
+def _normalize_open_data_ancestry(row, field_index):
+    row[field_index['ancestry']] = row[field_index['ancestry']].replace('/', ',')
+    return row
+
+
+def test_taxon_text_search__by_taxon_id(tmp_path):
+    db_path = _taxon_fts_db(tmp_path)
+    load_table(
+        OPEN_DATA_TAXA_PATH,
+        db_path,
+        table_name='taxon',
+        column_map={
+            'taxon_id': 'id',
+            'ancestry': 'ancestor_ids',
+            'rank': 'rank',
+            'name': 'name',
+        },
+        delimiter='\t',
+        transform=_normalize_open_data_ancestry,
+    )
+
+    ta = TaxonAutocompleter(db_path=db_path)
+
+    assert {taxon.id for taxon in ta.search('javanic')} == {26179, 27440, 27442}
+    assert {taxon.id for taxon in ta.search('javanic', taxon_id=26176)} == {26179}
 
 
 @pytest.mark.parametrize(
@@ -428,6 +471,72 @@ def test_taxon_fts_triggers__delete(tmp_path):
         conn.commit()
 
     assert len(_get_taxon_fts_rows(db_path, 1)) == 0
+
+
+def test_taxon_advanced_search_strategy__diacritics(tmp_path):
+    """Test that TaxonAdvancedSearchStrategy correctly matches queries with accents/diacritics."""
+    db_path = _taxon_fts_db(tmp_path)
+
+    taxa = [
+        Taxon(
+            id=1,
+            name='Café au lait butterfly',
+            rank='species',
+            preferred_common_name='Naïve Beetle',
+        ),
+        Taxon(id=2, name='Cafe racer', rank='species', preferred_common_name='Naive Fly'),
+    ]
+    save_taxa(taxa, db_path=db_path)
+
+    ta = TaxonAutocompleter(db_path=db_path, strategy=TaxonAdvancedSearchStrategy())
+
+    results_accented = ta.search('Café')
+    assert any(t.id == 1 for t in results_accented)
+
+    results_unaccented = ta.search('Cafe')
+    assert any(t.id == 1 for t in results_unaccented)
+    assert any(t.id == 2 for t in results_unaccented)
+
+    common_results = ta.search('Naive')
+    assert any(t.id == 1 for t in common_results)
+
+
+def test_taxon_advanced_search_strategy__multi_word_and_boosting(tmp_path):
+    """Test multi-word phrase matching and exact match boosting behaviors."""
+    db_path = _taxon_fts_db(tmp_path)
+
+    taxa = [
+        Taxon(id=1, name='Homo sapiens', rank='species', preferred_common_name='Human'),
+        Taxon(
+            id=2,
+            name='Homo sapiens sapiens',
+            rank='subspecies',
+            preferred_common_name='Modern Human',
+        ),
+        Taxon(id=3, name='Homo erectus', rank='species', preferred_common_name='Upright man'),
+    ]
+    save_taxa(taxa, db_path=db_path)
+
+    ta = TaxonAutocompleter(db_path=db_path, strategy=TaxonAdvancedSearchStrategy())
+
+    # Multi-word prefix
+    results = ta.search('homo sap')
+    assert len(results) >= 2
+    assert results[0].id in {1, 2}
+
+    # Phrase matcher matches prefixes of every word in the name
+    phrase_results = ta.search('H sapiens')
+    assert len(phrase_results) >= 2
+    assert phrase_results[0].id in {1, 2}
+
+    # Loose matcher matches prefixes in any order
+    phrase_results = ta.search('sap homo')
+    assert len(phrase_results) >= 2
+    assert phrase_results[0].id in {1, 2}
+
+    # Exact match should take top priority due to exact match boosting
+    exact_results = ta.search('Homo sapiens')
+    assert exact_results[0].id == 1
 
 
 def benchmark():
