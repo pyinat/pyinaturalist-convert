@@ -61,8 +61,8 @@ Search taxa::
     >>> # Or by common name in a specific language (by short code)
     >>> ta.search('flughund', language='de')
 
-    >>> # Or with strict language filtering enabled
-    >>> ta.search('flughund', language='de', strict_language=True)
+    >>> # Or with strict language filtering disabled, to also include other languages
+    >>> ta.search('flughund', language='de', strict_language=False)
 
     >>> # Filter by taxonomic rank
     >>> ta.search('aves', rank='species')
@@ -131,7 +131,7 @@ from functools import partial
 from itertools import chain
 from logging import Logger, getLogger
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Optional
 
 from pyinaturalist import Observation
 from pyinaturalist.models import Taxon
@@ -203,7 +203,7 @@ class BaseSearchStrategy:
         taxon_id: int | None,
         limit: int,
         strict_language: bool = False,
-    ) -> tuple[str, list[Any]]:
+    ) -> tuple[str, ParamList]:
         """Build and return the SQL query string and parameter list.
 
         Args:
@@ -238,14 +238,14 @@ class BaseSearchStrategy:
         taxon_id: int | None = None,
         strict_language: bool = False,
         strip_diacritics_enabled: bool = False,
-    ) -> tuple[str, list[Any]]:
+    ) -> tuple[str, ParamList]:
         """Consolidated filtering and base CTE construction shared by all strategies."""
         tokens = q.split()
         fts_q = f'{"* ".join(tokens)}*'
         preferred_lang = _normalize_language(language)
 
         where_clauses = ['fts.name MATCH ?']
-        params: list[Any] = [fts_q]
+        params: ParamList = [fts_q]
 
         if language and strict_language:
             where_clauses.append("(fts.language_code IS NULL OR fts.language_code LIKE ? || '%')")
@@ -308,8 +308,8 @@ class TaxonSimpleSearchStrategy(BaseSearchStrategy):
         taxon_rank: str | None,
         taxon_id: int | None,
         limit: int,
-        strict_language: bool = True,
-    ) -> tuple[str, list[Any]]:
+        strict_language: bool = False,
+    ) -> tuple[str, ParamList]:
         """Build and return the SQL query string and parameter list for the simple strategy.
 
         Args:
@@ -417,8 +417,8 @@ class TaxonAdvancedSearchStrategy(BaseSearchStrategy):
         connection.create_function('strip_diacritics', 1, _strip_diacritics)
 
     def _build_scoring_sql(
-        self, q_lower: str, tokens: list[str], language: str
-    ) -> tuple[str, list[Any]]:
+        self, q_lower: str, tokens: list[str], language: str | None
+    ) -> tuple[str, ParamList]:
         def build_phrase_match_sql(tokens: list[str]):
             phrase_parts = [
                 "(clean_name LIKE ? || ' ' || '%' OR clean_name LIKE ? || '-%' OR clean_name = ?)"
@@ -441,6 +441,12 @@ class TaxonAdvancedSearchStrategy(BaseSearchStrategy):
                 loose_params.extend([token, token])
             return ' AND '.join(loose_parts), loose_params
 
+        # Without a preferred language, there's nothing to match against for the localized
+        # match boost, so that branch is disabled rather than defaulting to e.g. 'en'
+        lang_check_sql = "language_code LIKE ? || '%'" if language else '0'
+        lang_params = [language] if language else []
+        popularity_factor = self.popularity_rank_factor / TAXON_COUNT_RANK_FACTOR
+
         if len(tokens) > 1:
             phrase_sql, phrase_params = build_phrase_match_sql(tokens)
             loose_sql, loose_params = build_loose_match_sql(tokens)
@@ -452,22 +458,22 @@ class TaxonAdvancedSearchStrategy(BaseSearchStrategy):
                         WHEN {phrase_sql} THEN
                             CASE
                                 WHEN language_code IS NULL THEN {self.sci_phrase_match_boost}
-                                WHEN language_code LIKE ? || '%' THEN {self.loc_phrase_match_boost}
+                                WHEN {lang_check_sql} THEN {self.loc_phrase_match_boost}
                                 ELSE {self.phrase_match_boost}
                             END
                         WHEN {loose_sql} THEN
                             CASE
                                 WHEN language_code IS NULL THEN {self.sci_loose_match_boost}
-                                WHEN language_code LIKE ? || '%' THEN {self.loc_loose_match_boost}
+                                WHEN {lang_check_sql} THEN {self.loc_loose_match_boost}
                                 ELSE {self.loose_match_boost}
                             END
                         ELSE 0.0
                     END
-                    + (COALESCE(count_rank, 0.0) * {self.popularity_rank_factor})
+                    + (COALESCE(count_rank, 0.0) * {popularity_factor})
                     + `rank`
                 )
             """
-            params = [q_lower, *phrase_params, language, *loose_params, language]
+            params = [q_lower, *phrase_params, *lang_params, *loose_params, *lang_params]
         else:
             sql = f"""
                 (
@@ -476,16 +482,16 @@ class TaxonAdvancedSearchStrategy(BaseSearchStrategy):
                         WHEN clean_name LIKE ? || '%' THEN
                             CASE
                                 WHEN language_code IS NULL THEN {self.sci_loose_match_boost}
-                                WHEN language_code LIKE ? || '%' THEN {self.loc_loose_match_boost}
+                                WHEN {lang_check_sql} THEN {self.loc_loose_match_boost}
                                 ELSE {self.loose_match_boost}
                             END
                         ELSE 0.0
                     END
-                    + (COALESCE(count_rank, 0.0) * {self.popularity_rank_factor})
+                    + (COALESCE(count_rank, 0.0) * {popularity_factor})
                     + `rank`
                 )
             """
-            params = [q_lower, q_lower, language]
+            params = [q_lower, q_lower, *lang_params]
 
         return sql, params
 
@@ -497,7 +503,7 @@ class TaxonAdvancedSearchStrategy(BaseSearchStrategy):
         taxon_id: int | None,
         limit: int,
         strict_language: bool = False,
-    ) -> tuple[str, list[Any]]:
+    ) -> tuple[str, ParamList]:
         """Build and return the SQL query string and parameter list for the advanced strategy.
 
         Args:
@@ -512,7 +518,7 @@ class TaxonAdvancedSearchStrategy(BaseSearchStrategy):
             A tuple of ``(sql_query, parameters)``
         """
         q_lower = _strip_diacritics(q.lower())
-        preferred_lang = _normalize_language(language)
+        preferred_lang = _normalize_language(language) if language else None
 
         base_cte_sql, base_params = self._build_base_cte(
             q=q,
@@ -621,7 +627,7 @@ class TaxonAutocompleter:
         language: str = 'en',
         rank: str | None = None,
         taxon_id: int | None = None,
-        strict_language: bool = False,
+        strict_language: bool = True,
     ) -> list[Taxon]:
         """Search for taxa by scientific and/or common name.
 
@@ -630,7 +636,7 @@ class TaxonAutocompleter:
             language: Language code for common names (default: 'en')
             rank: Optional taxonomic rank filter (e.g., 'species', 'genus')
             taxon_id: Optional ancestor taxon ID to restrict results to descendants of this taxon
-            strict_language: If True, strictly filter results to the specified language
+            strict_language: If False, also include results in other languages
 
         Returns:
             List of matching :py:class:`~pyinaturalist.models.Taxon` instances
